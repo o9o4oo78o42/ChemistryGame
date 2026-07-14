@@ -1,0 +1,454 @@
+/* CSS Variables for design system */
+:root {
+    --bg-main: #0a0c10;
+    --bg-panel: rgba(20, 24, 33, 0.75);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-glow: rgba(0, 242, 254, 0.25);
+    
+    --text-primary: #f5f6fa;
+    --text-secondary: #a0a8c0;
+    --text-muted: #606880;
+
+    --neon-blue: #00f2fe;
+    --neon-purple: #9b59b6;
+    --neon-green: #2ecc71;
+    --neon-red: #ff4757;
+    --neon-orange: #ffa502;
+    
+    /* Atom Colors */
+    --color-c: #bdc3c7;      /* Carbon: Silver/Gray */
+    --color-o: #ff4757;      /* Oxygen: Red */
+    --color-n: #3e81f7;      /* Nitrogen: Blue */
+    --color-cl: #2ecc71;     /* Chlorine: Green */
+    --color-h: #718093;      /* Hydrogen: Slate/Gray */
+    
+    --font-main: 'Noto Sans JP', sans-serif;
+    --font-code: 'Orbitron', sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* App Container Layout */
+#app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background: rgba(10, 12, 16, 0.9);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 50px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.logo {
+    font-family: var(--font-code);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--neon-blue);
+    text-shadow: 0 0 10px rgba(0, 242, 254, 0.6);
+}
+
+.version {
+    font-family: var(--font-code);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+main {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 50px);
+    padding: 15px;
+    gap: 15px;
+}
+
+/* Panels styling */
+.glass-panel {
+    background: var(--bg-panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+#left-panel {
+    width: 280px;
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+
+#right-panel {
+    width: 320px;
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+
+#canvas-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #07090c;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+}
+
+/* Panel Typography */
+h2 {
+    font-family: var(--font-code);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--neon-blue);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.tool-group h3 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+/* Buttons Styles */
+.grid-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+button {
+    font-family: var(--font-main);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: left;
+}
+
+button:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: var(--text-secondary);
+}
+
+.tool-btn.active, .bond-btn.active {
+    background: rgba(0, 242, 254, 0.1);
+    border-color: var(--neon-blue);
+    color: var(--neon-blue);
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+/* Atom Palette Buttons */
+.atom-palette {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.atom-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+}
+
+.atom-btn span {
+    font-family: var(--font-code);
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.3);
+}
+
+.atom-c.active { border-color: var(--color-c); color: var(--color-c); background: rgba(189,195,199,0.1); }
+.atom-o.active { border-color: var(--color-o); color: var(--color-o); background: rgba(255,71,87,0.1); }
+.atom-n.active { border-color: var(--color-n); color: var(--color-n); background: rgba(62,129,247,0.1); }
+.atom-cl.active { border-color: var(--color-cl); color: var(--color-cl); background: rgba(46,204,113,0.1); }
+
+.atom-c span { color: var(--color-c); border: 1px solid var(--color-c); }
+.atom-o span { color: var(--color-o); border: 1px solid var(--color-o); }
+.atom-n span { color: var(--color-n); border: 1px solid var(--color-n); }
+.atom-cl span { color: var(--color-cl); border: 1px solid var(--color-cl); }
+
+/* Modules Palette */
+.module-palette {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.mod-btn {
+    border-color: rgba(155, 89, 182, 0.3);
+    color: #e0b0ff;
+}
+.mod-btn:hover {
+    border-color: var(--neon-purple);
+    background: rgba(155, 89, 182, 0.1);
+}
+
+/* Canvas UI Elements */
+.canvas-header {
+    background: rgba(10, 12, 16, 0.6);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 40px;
+    font-family: var(--font-code);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+#svg-wrapper {
+    flex: 1;
+    position: relative;
+    cursor: crosshair;
+}
+
+#chem-svg {
+    display: block;
+    user-select: none;
+}
+
+/* SVG Rendering Elements Styles */
+.svg-atom-node {
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.svg-atom-node:hover circle {
+    stroke-width: 3px;
+    filter: drop-shadow(0 0 5px currentColor);
+}
+
+.svg-atom-text {
+    font-family: var(--font-code);
+    font-size: 16px;
+    font-weight: bold;
+    user-select: none;
+    pointer-events: none;
+}
+
+.svg-bond-line {
+    stroke-linecap: round;
+    transition: stroke-width 0.1s ease;
+}
+
+.svg-bond-line:hover {
+    stroke-width: 8px !important;
+    cursor: pointer;
+}
+
+.svg-grid-helper {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.02);
+    stroke-width: 1;
+}
+
+.svg-cursor-ghost {
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+/* Right Panel Elements */
+.stage-select-box select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#target-name {
+    font-size: 20px;
+    color: #fff;
+}
+
+.formula-badge {
+    align-self: flex-start;
+    font-family: var(--font-code);
+    background: rgba(0, 242, 254, 0.1);
+    color: var(--neon-blue);
+    border: 1px solid rgba(0, 242, 254, 0.3);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+#target-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.primary-btn {
+    width: 100%;
+    background: var(--neon-blue);
+    border: none;
+    color: #000;
+    font-weight: bold;
+    text-align: center;
+    padding: 12px;
+    font-size: 15px;
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+    text-align: center;
+}
+
+.primary-btn:hover {
+    background: #00d9e5;
+    box-shadow: 0 0 20px rgba(0, 242, 254, 0.6);
+}
+
+.danger-btn {
+    background: rgba(255, 71, 87, 0.1);
+    border-color: rgba(255, 71, 87, 0.3);
+    color: var(--neon-red);
+    padding: 4px 10px;
+    font-size: 11px;
+}
+.danger-btn:hover {
+    background: var(--neon-red);
+    color: #fff;
+}
+
+.hint-box {
+    font-size: 12px;
+    color: var(--text-muted);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 15px;
+}
+
+.hint-box h4 {
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+
+.hint-box ul {
+    padding-left: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Result messages */
+.result-message {
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.result-message.success {
+    background: rgba(46, 204, 113, 0.15);
+    border: 1px solid var(--neon-green);
+    color: var(--neon-green);
+}
+
+.result-message.error {
+    background: rgba(255, 71, 87, 0.15);
+    border: 1px solid var(--neon-red);
+    color: var(--neon-red);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Modal Windows */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: rgba(15, 20, 28, 0.95);
+    border: 2px solid var(--neon-blue);
+    box-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
+    border-radius: 16px;
+    padding: 30px;
+    width: 90%;
+    max-width: 450px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.neon-text {
+    font-family: var(--font-code);
+    font-size: 32px;
+    color: var(--neon-green);
+    text-shadow: 0 0 15px rgba(46, 204, 113, 0.6);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.animate-pulse {
+    animation: pulse 2s infinite ease-in-out;
+}
