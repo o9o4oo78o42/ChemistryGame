@@ -253,7 +253,10 @@ class Game {
         
         this.userMolecule = new Molecule();
         previousState.atoms.forEach(a => {
-            this.userMolecule.atoms.push(new Atom(a.id, a.element, a.x, a.y, a.isLocked));
+            const atom = new Atom(a.id, a.element, a.x, a.y, a.isLocked);
+            if (a.benzeneCenter) atom.benzeneCenter = a.benzeneCenter;
+            if (a.benzeneAngle !== undefined) atom.benzeneAngle = a.benzeneAngle;
+            this.userMolecule.atoms.push(atom);
         });
         previousState.bonds.forEach(b => {
             this.userMolecule.bonds.push(new Bond(b.atomId1, b.atomId2, b.type));
@@ -288,9 +291,33 @@ class Game {
         const x = rawX * scaleX;
         const y = rawY * scaleY;
         
-        // スナップ
-        const snapX = Math.round(x / GRID_SIZE) * GRID_SIZE;
-        const snapY = Math.round(y / GRID_SIZE) * GRID_SIZE;
+        // 基本のスナップ座標
+        let snapX = Math.round(x / GRID_SIZE) * GRID_SIZE;
+        let snapY = Math.round(y / GRID_SIZE) * GRID_SIZE;
+        
+        // ベンゼン環の延長線上スナップ点の探索
+        let bestSnapDist = 20; // 吸着する閾値
+        this.userMolecule.atoms.forEach(atom => {
+            if (atom.benzeneCenter && atom.benzeneAngle !== undefined) {
+                // 延長線上スナップ座標の計算 (頂点から外側に 40px)
+                const sx = atom.benzeneCenter.x + 80 * Math.cos(atom.benzeneAngle);
+                const sy = atom.benzeneCenter.y + 80 * Math.sin(atom.benzeneAngle);
+                
+                const dx = sx - x;
+                const dy = sy - y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < bestSnapDist) {
+                    // 他にその位置にすでに原子がないか確認
+                    const existing = this.findAtomAt(sx, sy, 5);
+                    if (!existing) {
+                        bestSnapDist = dist;
+                        snapX = sx;
+                        snapY = sy;
+                    }
+                }
+            }
+        });
         
         return { x: snapX, y: snapY, rawX: x, rawY: y };
     }
@@ -317,10 +344,21 @@ class Game {
                 this.selectedModule = null;
                 document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
             } else if (clickedAtom) {
-                // 原子移動ドラッグの開始
-                this.isDragging = true;
-                this.draggedAtom = clickedAtom;
-                this.saveState();
+                if (clickedAtom.element !== this.selectedAtomType && !clickedAtom.isLocked) {
+                    // 原子の上書き設置
+                    this.saveState();
+                    clickedAtom.element = this.selectedAtomType;
+                    // ベンゼン環属性は上書きされた（Cではなくなった）時点で削除
+                    delete clickedAtom.benzeneCenter;
+                    delete clickedAtom.benzeneAngle;
+                    this.autoConnectAdjacentAtoms();
+                    this.updateDrawing();
+                } else {
+                    // 原子移動ドラッグの開始
+                    this.isDragging = true;
+                    this.draggedAtom = clickedAtom;
+                    this.saveState();
+                }
             } else {
                 // 空き地をクリックしたら原子を新規配置
                 this.saveState();
@@ -415,6 +453,8 @@ class Game {
             for (let i = 0; i < 6; i++) {
                 const ang = (i * Math.PI) / 3;
                 const c = this.userMolecule.addAtom('C', x + R * Math.cos(ang), y + R * Math.sin(ang));
+                c.benzeneCenter = { x, y };
+                c.benzeneAngle = ang;
                 newCAtoms.push(c);
             }
             // 環状に交互に単結合と二重結合を張る
