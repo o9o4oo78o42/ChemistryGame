@@ -141,54 +141,81 @@ class Molecule {
 
             let hAngles = [];
 
+            // 二重結合を優先的にチェック
+            const hasDoubleBond = neighbors.some(n => n.type === 2);
+
             if (neighbors.length === 0) {
                 // 近隣原子がない場合、四方に等間隔で配置
                 for (let i = 0; i < freeVal; i++) {
-                    hAngles.push((i * 2 * Math.PI) / freeVal);
+                    hAngles.push((i * Math.PI) / 2); // 90度刻み
                 }
             } else if (neighbors.length === 1) {
-                // 近隣が1つの場合、反対方向を中心に放射状に広げる
-                const oppAngle = angles[0] + Math.PI;
-                if (freeVal === 1) {
-                    hAngles.push(oppAngle);
-                } else if (freeVal === 2) {
-                    hAngles.push(oppAngle - 0.5);
-                    hAngles.push(oppAngle + 0.5);
-                } else if (freeVal === 3) {
-                    hAngles.push(oppAngle - 0.7);
-                    hAngles.push(oppAngle);
-                    hAngles.push(oppAngle + 0.7);
-                }
-            } else if (neighbors.length === 2) {
-                // 近隣が2つの場合、なす角の二等分線の反対方向
-                let diff = angles[1] - angles[0];
-                while (diff < -Math.PI) diff += 2 * Math.PI;
-                while (diff > Math.PI) diff -= 2 * Math.PI;
-                
-                const avgAngle = angles[0] + diff / 2;
-                const oppAngle = avgAngle + Math.PI;
-
-                if (freeVal === 1) {
-                    hAngles.push(oppAngle);
-                } else if (freeVal === 2) {
-                    hAngles.push(oppAngle - 0.5);
-                    hAngles.push(oppAngle + 0.5);
-                }
-            } else if (neighbors.length === 3) {
-                // 近隣が3つの場合、最も空いている隙間の方向を計算してそこへ配置
-                angles.sort((a, b) => a - b);
-                let maxGap = 0;
-                let gapAngle = 0;
-                for (let i = 0; i < angles.length; i++) {
-                    const next = angles[(i + 1) % angles.length];
-                    let diff = next - angles[i];
-                    if (diff < 0) diff += 2 * Math.PI;
-                    if (diff > maxGap) {
-                        maxGap = diff;
-                        gapAngle = angles[i] + diff / 2;
+                const baseAngle = angles[0];
+                if (hasDoubleBond && freeVal === 2) {
+                    // C=C 二重結合の相手が1つの場合、120度（平面三角形型）で綺麗に広げる
+                    hAngles.push(baseAngle + (2 * Math.PI) / 3);
+                    hAngles.push(baseAngle - (2 * Math.PI) / 3);
+                } else {
+                    // 直交（90度）方向に配置
+                    const oppAngle = baseAngle + Math.PI;
+                    if (freeVal === 1) {
+                        hAngles.push(oppAngle);
+                    } else if (freeVal === 2) {
+                        hAngles.push(baseAngle + Math.PI / 2);
+                        hAngles.push(baseAngle - Math.PI / 2);
+                    } else if (freeVal === 3) {
+                        hAngles.push(oppAngle);
+                        hAngles.push(baseAngle + Math.PI / 2);
+                        hAngles.push(baseAngle - Math.PI / 2);
                     }
                 }
-                hAngles.push(gapAngle);
+            } else if (neighbors.length === 2) {
+                if (freeVal === 1) {
+                    let diff = angles[1] - angles[0];
+                    while (diff < -Math.PI) diff += 2 * Math.PI;
+                    while (diff > Math.PI) diff -= 2 * Math.PI;
+                    
+                    const avgAngle = angles[0] + diff / 2;
+                    hAngles.push(avgAngle + Math.PI);
+                } else if (freeVal === 2) {
+                    // 2つ繋がっていて残り2つのHがある場合、直交する空きスロットを探す
+                    const usedSlots = angles.map(ang => Math.round(ang / (Math.PI / 2)) * (Math.PI / 2));
+                    for (let deg = 0; deg < 360; deg += 90) {
+                        const rad = (deg * Math.PI) / 180;
+                        const isUsed = usedSlots.some(slot => Math.abs(Math.cos(slot) - Math.cos(rad)) < 0.1 && Math.abs(Math.sin(slot) - Math.sin(rad)) < 0.1);
+                        if (!isUsed && hAngles.length < 2) {
+                            hAngles.push(rad);
+                        }
+                    }
+                }
+            } else if (neighbors.length === 3) {
+                // 3つの結合がある場合、残る1つのHは空いている最後の直交スロットにする
+                const usedSlots = angles.map(ang => Math.round(ang / (Math.PI / 2)) * (Math.PI / 2));
+                let found = false;
+                for (let deg = 0; deg < 360; deg += 90) {
+                    const rad = (deg * Math.PI) / 180;
+                    const isUsed = usedSlots.some(slot => Math.abs(Math.cos(slot) - Math.cos(rad)) < 0.1 && Math.abs(Math.sin(slot) - Math.sin(rad)) < 0.1);
+                    if (!isUsed) {
+                        hAngles.push(rad);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    angles.sort((a, b) => a - b);
+                    let maxGap = 0;
+                    let gapAngle = 0;
+                    for (let i = 0; i < angles.length; i++) {
+                        const next = angles[(i + 1) % angles.length];
+                        let diff = next - angles[i];
+                        if (diff < 0) diff += 2 * Math.PI;
+                        if (diff > maxGap) {
+                            maxGap = diff;
+                            gapAngle = angles[i] + diff / 2;
+                        }
+                    }
+                    hAngles.push(gapAngle);
+                }
             }
 
             // 水素座標を登録

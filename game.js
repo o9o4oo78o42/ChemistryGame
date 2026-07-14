@@ -234,6 +234,15 @@ class Game {
                 e.preventDefault();
                 this.undo();
             }
+            if (e.key === 'Delete') {
+                e.preventDefault();
+                if (confirm("すべての原子と結合を消去しますか？")) {
+                    this.saveState();
+                    this.userMolecule = new Molecule();
+                    this.updateDrawing();
+                    this.verifyResult.classList.add('hidden');
+                }
+            }
         });
     }
 
@@ -318,6 +327,38 @@ class Game {
                 }
             }
         });
+
+        // C=C 二重結合からの 120度スナップ点の探索
+        this.userMolecule.atoms.forEach(atom => {
+            if (atom.element === 'C') {
+                const neighbors = this.userMolecule.getNeighbors(atom.id);
+                const doubleBondNeighbor = neighbors.find(n => n.type === 2);
+                if (doubleBondNeighbor) {
+                    // 二重結合の相手への角度
+                    const baseAngle = Math.atan2(doubleBondNeighbor.atom.y - atom.y, doubleBondNeighbor.atom.x - atom.x);
+                    
+                    // 120度外側の2方向
+                    const angles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
+                    angles.forEach(ang => {
+                        const sx = atom.x + GRID_SIZE * Math.cos(ang);
+                        const sy = atom.y + GRID_SIZE * Math.sin(ang);
+                        
+                        const dx = sx - x;
+                        const dy = sy - y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        
+                        if (dist < bestSnapDist) {
+                            const existing = this.findAtomAt(sx, sy, 5);
+                            if (!existing) {
+                                bestSnapDist = dist;
+                                snapX = sx;
+                                snapY = sy;
+                            }
+                        }
+                    });
+                }
+            }
+        });
         
         return { x: snapX, y: snapY, rawX: x, rawY: y };
     }
@@ -335,6 +376,15 @@ class Game {
     handleMouseDown(e) {
         const coords = this.getSnappedCoords(e);
         const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
+        
+        // 原子がクリックされておらず、結合線がクリックされた場合、即座にその結合を切断（どのモードでも有効）
+        const clickedBond = this.findBondAt(coords.rawX, coords.rawY);
+        if (!clickedAtom && clickedBond) {
+            this.saveState();
+            this.userMolecule.removeBond(clickedBond.atomId1, clickedBond.atomId2);
+            this.updateDrawing();
+            return;
+        }
         
         if (this.selectedTool === 'select') {
             if (this.selectedModule) {
@@ -404,7 +454,14 @@ class Game {
             // 別の原子に着地したか
             if (endAtom && endAtom.id !== this.bondStartAtom.id) {
                 this.saveState();
-                this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, this.selectedBondType);
+                const existing = this.userMolecule.getBond(this.bondStartAtom.id, endAtom.id);
+                if (existing) {
+                    // すでに結合がある場合は次数をトグル (1 -> 2 -> 3 -> 1)
+                    const nextType = (existing.type % 3) + 1;
+                    this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, nextType);
+                } else {
+                    this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, this.selectedBondType);
+                }
             }
             // プレビュー消去
             this.clearUIOverlay();
