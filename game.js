@@ -384,36 +384,45 @@ class Game {
             // 接続元の原子に空き結合手がある場合のみ、周りに接続可能
             if (this.userMolecule.getFreeValency(atom.id) < 1) return;
 
-            // ① 水平・垂直方向の GRID_SIZE 離れた4交点
-            const dirs = [
-                { x: atom.x + GRID_SIZE, y: atom.y },
-                { x: atom.x - GRID_SIZE, y: atom.y },
-                { x: atom.x, y: atom.y + GRID_SIZE },
-                { x: atom.x, y: atom.y - GRID_SIZE }
-            ];
+            const dirs = [];
 
-            // ② ベンゼン環スナップガイド点 (頂点から外側に GRID_SIZE * 1.666 = 70px)
-            if (atom.benzeneCenter && atom.benzeneAngle !== undefined) {
+            // ベンゼン環の炭素、または C=C 二重結合を持つ炭素であるかの判定
+            const isBenzeneAtom = !!(atom.benzeneCenter && atom.benzeneAngle !== undefined);
+            
+            let isDoubleBondC = false;
+            let dbNeighbor = null;
+            if (atom.element === 'C') {
+                const neighbors = this.userMolecule.getNeighbors(atom.id);
+                dbNeighbor = neighbors.find(n => n.atom.element === 'C' && n.type === 2);
+                if (dbNeighbor) {
+                    isDoubleBondC = true;
+                }
+            }
+
+            if (isBenzeneAtom) {
+                // 【ベンゼン環炭素】ベンゼン環の外側への延長線上スナップガイド点のみ追加 (直角4方向は追加しない)
                 dirs.push({
                     x: atom.benzeneCenter.x + (GRID_SIZE * 1.666) * Math.cos(atom.benzeneAngle),
                     y: atom.benzeneCenter.y + (GRID_SIZE * 1.666) * Math.sin(atom.benzeneAngle)
                 });
-            }
-
-            // ③ C=C二重結合の120度スナップガイド点 (距離 GRID_SIZE)
-            if (atom.element === 'C') {
-                const neighbors = this.userMolecule.getNeighbors(atom.id);
-                const dbNeighbor = neighbors.find(n => n.atom.element === 'C' && n.type === 2);
-                if (dbNeighbor) {
-                    const baseAngle = Math.atan2(dbNeighbor.atom.y - atom.y, dbNeighbor.atom.x - atom.x);
-                    const angles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
-                    angles.forEach(ang => {
-                        dirs.push({
-                            x: atom.x + GRID_SIZE * Math.cos(ang),
-                            y: atom.y + GRID_SIZE * Math.sin(ang)
-                        });
+            } else if (isDoubleBondC && dbNeighbor) {
+                // 【C=C二重結合炭素】二重結合の相手から120度外側の2方向のみ追加 (直角4方向は追加しない)
+                const baseAngle = Math.atan2(dbNeighbor.atom.y - atom.y, dbNeighbor.atom.x - atom.x);
+                const angles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
+                angles.forEach(ang => {
+                    dirs.push({
+                        x: atom.x + GRID_SIZE * Math.cos(ang),
+                        y: atom.y + GRID_SIZE * Math.sin(ang)
                     });
-                }
+                });
+            } else {
+                // 【通常の原子 (sp3炭素など)】水平・垂直方向の GRID_SIZE 離れた4交点
+                dirs.push(
+                    { x: atom.x + GRID_SIZE, y: atom.y },
+                    { x: atom.x - GRID_SIZE, y: atom.y },
+                    { x: atom.x, y: atom.y + GRID_SIZE },
+                    { x: atom.x, y: atom.y - GRID_SIZE }
+                );
             }
 
             // すでに他の重原子が置かれている座標は除外
@@ -582,6 +591,7 @@ class Game {
         this.isDragging = false;
         this.draggedAtom = null;
         this.bondStartAtom = null;
+        this.autoLayoutDoubleBonds();
         this.updateDrawing();
     }
 
@@ -810,6 +820,92 @@ class Game {
 
     clearUIOverlay() {
         this.uiGroup.innerHTML = '';
+    }
+
+    // 二重結合 (C=C) が形成された際、周囲の結合重原子を自動的に 120度方向にリレイアウトする
+    autoLayoutDoubleBonds() {
+        let changed = false;
+        
+        this.userMolecule.bonds.forEach(bond => {
+            if (bond.type !== 2) return; // 二重結合のみ対象
+            
+            const a1 = this.userMolecule.atoms.find(a => a.id === bond.atomId1);
+            const a2 = this.userMolecule.atoms.find(a => a.id === bond.atomId2);
+            if (!a1 || !a2 || a1.element !== 'C' || a2.element !== 'C') return;
+            
+            // ベンゼン環の原子はモジュール生成時にすでに配置が決まっているため除外
+            if (a1.benzeneCenter || a2.benzeneCenter) return;
+            
+            const adjustNeighbors = (centerAtom, partnerAtom) => {
+                const neighbors = this.userMolecule.getNeighbors(centerAtom.id)
+                    .filter(n => n.atom.id !== partnerAtom.id && n.atom.element !== 'H');
+                
+                if (neighbors.length === 0) return;
+                
+                const baseAngle = Math.atan2(partnerAtom.y - centerAtom.y, partnerAtom.x - centerAtom.x);
+                // 120度外側の2方向
+                const targetAngles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
+                
+                neighbors.forEach((n, idx) => {
+                    const neighborAtom = n.atom;
+                    
+                    // すでに綺麗に120度に並んでいるかチェック (誤差2px以内)
+                    // 2方向のうち、現在の neighbor に最も近い角度を選ぶ
+                    let bestAngle = targetAngles[0];
+                    let minDist = Infinity;
+                    
+                    targetAngles.forEach(ang => {
+                        const tx = centerAtom.x + GRID_SIZE * Math.cos(ang);
+                        const ty = centerAtom.y + GRID_SIZE * Math.sin(ang);
+                        const d = Math.sqrt((neighborAtom.x - tx)**2 + (neighborAtom.y - ty)**2);
+                        if (d < minDist) {
+                            minDist = d;
+                            bestAngle = ang;
+                        }
+                    });
+                    
+                    // もし 2px 以上ズレている場合、正しい 120度位置に強制移動
+                    if (minDist > 2) {
+                        const targetX = centerAtom.x + GRID_SIZE * Math.cos(bestAngle);
+                        const targetY = centerAtom.y + GRID_SIZE * Math.sin(bestAngle);
+                        
+                        // 移動させるとさらにその先の原子群も並行移動させる必要があるため、
+                        // この隣接原子からさらに繋がっているサブツリー全体を平行移動する
+                        const dx = targetX - neighborAtom.x;
+                        const dy = targetY - neighborAtom.y;
+                        
+                        this.translateSubtree(neighborAtom.id, centerAtom.id, dx, dy, new Set());
+                        changed = true;
+                    }
+                });
+            };
+            
+            adjustNeighbors(a1, a2);
+            adjustNeighbors(a2, a1);
+        });
+        
+        if (changed) {
+            this.updateDrawing();
+        }
+    }
+
+    // 特定の原子から先のサブツリー全体を平行移動させる再帰ヘルパー
+    translateSubtree(atomId, parentId, dx, dy, visited) {
+        visited.add(atomId);
+        const atom = this.userMolecule.atoms.find(a => a.id === atomId);
+        if (atom) {
+            atom.x += dx;
+            atom.y += dy;
+        }
+        
+        const neighbors = this.userMolecule.getNeighbors(atomId)
+            .filter(n => n.atom.id !== parentId && n.atom.element !== 'H');
+            
+        neighbors.forEach(n => {
+            if (!visited.has(n.atom.id)) {
+                this.translateSubtree(n.atom.id, atomId, dx, dy, visited);
+            }
+        });
     }
 
     // 正解の例示（お手本）をレンダリングする
@@ -1300,6 +1396,7 @@ class Game {
             if (diff <= 0 || (this.userMolecule.getFreeValency(bond.atomId1) >= diff && this.userMolecule.getFreeValency(bond.atomId2) >= diff)) {
                 this.saveState();
                 bond.type = nextType;
+                this.autoLayoutDoubleBonds();
                 this.updateDrawing();
             }
         }
