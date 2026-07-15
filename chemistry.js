@@ -182,11 +182,11 @@ class Molecule {
                 const available = [];
                 
                 candidates.forEach(cand => {
-                    // すべての接続方向との角度差をチェック
+                    // すべての接続方向との角度差をチェック（60度以内はボンドと重なるため徹底除外）
                     const tooClose = angles.some(ang => {
                         let diff = Math.abs(cand - ang);
                         while (diff > Math.PI) diff = Math.abs(diff - 2 * Math.PI);
-                        return diff < Math.PI / 4; // 45度以内なら重なりとして除外
+                        return diff < Math.PI / 3; // 60度以内なら除外
                     });
                     if (!tooClose) {
                         available.push(cand);
