@@ -845,6 +845,29 @@ class Game {
         this.uiGroup.appendChild(text);
     }
 
+    // この原子が、分子内で二重結合または三重結合のいずれかを有する炭素の枝ツリーに属しているか再帰判定
+    belongsToSp2SpTree(atomId, visited = new Set()) {
+        visited.add(atomId);
+        
+        const neighbors = this.userMolecule.getNeighbors(atomId);
+        
+        // 1. 自身が二重結合(2)か三重結合(3)に直接繋がっているか
+        const hasSp2Sp = neighbors.some(n => n.type === 2 || n.type === 3);
+        if (hasSp2Sp) return true;
+        
+        // 2. 隣接する重原子の先が繋がっているか再帰探索
+        for (let i = 0; i < neighbors.length; i++) {
+            const nextAtom = neighbors[i].atom;
+            if (nextAtom.element === 'H') continue;
+            if (!visited.has(nextAtom.id)) {
+                if (this.belongsToSp2SpTree(nextAtom.id, visited)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     clearUIOverlay() {
         this.uiGroup.innerHTML = '';
     }
@@ -918,16 +941,14 @@ class Game {
         });
 
         // 2. sp3 (単結合のみ) の重原子を、最も近い直角グリッド交点 (GRID_SIZE の倍数) に吸着アジャスト
-        //    ※ただし、sp2/sp の自動レイアウトによって配置されたものは直角グリッドから外れるため、
-        //      「二重結合または三重結合に接続していない重原子」のみをスナップ対象とする。
+        //    ※二重結合(2)または三重結合(3)のツリーに繋がっている枝原子は、
+        //      sp2/spアジャストの120度/180度の幾何学角を保つため、直角グリッド吸着から除外する。
         const sp3Atoms = this.userMolecule.atoms.filter(atom => {
             if (atom.element === 'H') return false;
             if (atom.benzeneCenter) return false; // ベンゼンは固定レイアウト
             
-            // この原子が二重結合(2)または三重結合(3)に接続されているかチェック
-            const neighbors = this.userMolecule.getNeighbors(atom.id);
-            const hasSp2SpBond = neighbors.some(n => n.type === 2 || n.type === 3);
-            return !hasSp2SpBond;
+            // この原子が二重結合(2)や三重結合(3)のツリーに接続されているかチェック
+            return !this.belongsToSp2SpTree(atom.id);
         });
 
         sp3Atoms.forEach(atom => {
@@ -938,22 +959,13 @@ class Game {
             const dy = targetY - atom.y;
             
             if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-                // 【超重要】分子全体の累積ズレや振動を防ぐため、隣接するsp2/sp炭素（二重/三重結合の端の炭素）を
-                // parentId に設定して translateSubtree を呼び出す。
-                // これにより、二重結合・三重結合の中心骨格側は絶対に移動せず、
-                // sp3に戻った枝原子の方向だけが元の直角グリッド位置に引き戻されます。
+                // 分子全体の平行移動による累積ズレを防ぐため、全体移動（parentId = null）は実行しない。
+                // sp3 状態でズレている場合は、新規配置やドラッグ等での操作によるものなので、
+                // その原子単体またはその先のsp3部分鎖のみを動かす。
+                // 境界（sp2/sp側）へ逆流させないため、接続されている隣接原子があればそれを parentId にする。
                 const neighbors = this.userMolecule.getNeighbors(atom.id);
-                const barrierNeighbor = neighbors.find(n => {
-                    if (n.atom.element !== 'C') return false;
-                    const cNeighbors = this.userMolecule.getNeighbors(n.atom.id);
-                    return cNeighbors.some(cn => cn.type === 2 || cn.type === 3);
-                });
-
-                const parentId = barrierNeighbor ? barrierNeighbor.atom.id : null;
+                const parentId = neighbors.length > 0 ? neighbors[0].atom.id : null;
                 
-                // もし barrierNeighbor も存在しない（＝分子全体が完全な単結合sp3鎖である）場合、
-                // 新規配置やドラッグ移動によってすでにグリッド交点に正しく置かれているため、
-                // 平行移動による累積的なズレや振動を防ぐため、全体移動（parentId = null）は実行しない！
                 if (parentId !== null) {
                     this.translateSubtree(atom.id, parentId, dx, dy, new Set());
                     changed = true;
