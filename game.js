@@ -500,8 +500,8 @@ class Game {
         this.updateDrawing();
     }
 
-    // 座標近くにある原子を取得（クリック判定半径は広めの24px）
-    findAtomAt(x, y, radius = 24) {
+    // 座標近くにある原子を取得（クリック判定半径は広めの28px）
+    findAtomAt(x, y, radius = 28) {
         return this.userMolecule.atoms.find(atom => {
             const dx = atom.x - x;
             const dy = atom.y - y;
@@ -788,7 +788,7 @@ class Game {
             hitLine.setAttribute('y2', ey);
             hitLine.setAttribute('stroke', '#ffffff');
             hitLine.setAttribute('stroke-opacity', '0'); // イベントを検知する透明設定
-            hitLine.setAttribute('stroke-width', '14');    // 判定範囲を少し広げて14pxに設定
+            hitLine.setAttribute('stroke-width', '20');    // 判定範囲をさらに広げて20pxに設定（クリックしやすく）
             hitLine.style.cursor = 'pointer';
             hitLine.setAttribute('class', 'svg-bond-hitbox');
             
@@ -847,7 +847,7 @@ class Game {
 
     // 隣接する重原子どうしを自動で単結合で結ぶ
     autoConnectAdjacentAtoms() {
-        const threshold = 65; // 60px (GRID_SIZE) + α の許容範囲
+        const threshold = 75; // 60px (GRID_SIZE) + α の許容範囲を広げて接続しやすく
         const atoms = this.userMolecule.atoms;
         
         for (let i = 0; i < atoms.length; i++) {
@@ -864,8 +864,8 @@ class Game {
                 
                 if (dist <= threshold) {
                     // 水平または垂直に直線上に並んでいる場合のみ自動結合（斜め自動結合をブロック）
-                    const isHorizontal = Math.abs(dy) < 5;
-                    const isVertical = Math.abs(dx) < 5;
+                    const isHorizontal = Math.abs(dy) < 10;
+                    const isVertical = Math.abs(dx) < 10;
                     
                     if (isHorizontal || isVertical) {
                         // 既に結合が存在しない場合、かつ両原子に空き手が1以上ある場合のみ単結合(1)を追加する
@@ -925,7 +925,7 @@ class Game {
     }
 
     // 指定された座標の近くに既存の原子があるかチェックする
-    isNearAnyExistingAtom(x, y, threshold = 65) {
+    isNearAnyExistingAtom(x, y, threshold = 75) {
         const nearest = this.findNearestAtom(x, y);
         return nearest ? nearest.distance <= threshold : false;
     }
