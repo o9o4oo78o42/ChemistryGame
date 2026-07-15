@@ -104,21 +104,44 @@
                     <p id="target-desc">お酢の主成分であり、ツンとする酸っぱい臭いの原因物質です。弱酸性を示します。</p>
                 </div>
 
-                <div class="action-box">
+                <div class="action-box" style="display:flex; flex-direction:column; gap:10px;">
                     <button id="btn-verify" class="primary-btn">構造判定 (Submit)</button>
+                    <button id="btn-show-target" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); text-shadow:0 0 5px var(--color-cyan); cursor:pointer;">お手本を見る</button>
+                    <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
+                        <span style="font-size:0.9rem; color:#fff;">不斉炭素マークモード</span>
+                        <label class="switch" style="position:relative; display:inline-block; width:50px; height:24px;">
+                            <input type="checkbox" id="check-asymmetric-mode" style="opacity:0; width:0; height:0;">
+                            <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:34px;"></span>
+                        </label>
+                    </div>
                 </div>
 
                 <div id="verify-result" class="result-message hidden">
                     <!-- 判定結果を表示 -->
                 </div>
 
-                <div class="hint-box">
-                    <h4>📝 遊び方ヒント:</h4>
-                    <ul>
-                        <li>配置ツールで原子を選択し、マス目をクリックして配置します。</li>
-                        <li><strong>Draw Bond</strong> モードにして、原子から隣の原子へドラッグすると結合をつなげます。</li>
-                        <li>結合手の余りに応じて、水素(H)は自動的に配置されます。</li>
-                        <li>ベンゼン環を置くと、ハニカムレイアウトが展開されます。</li>
+                <div class="hint-box" style="margin-top: 15px; font-size: 0.85rem; line-height: 1.5; color: var(--text-secondary);">
+                    <h4 style="color: var(--neon-blue); margin-bottom: 8px;">📝 遊び方と操作方法:</h4>
+                    <ul style="padding-left: 18px; margin: 0; display: flex; flex-direction: column; gap: 6px;">
+                        <li><strong>原子の配置</strong>：元素（C, O等）を選択し、キャンバス上の半透明プレビューの箇所をクリックして確定配置します。</li>
+                        <li><strong>原子・結合の削除</strong>：
+                            <ul style="padding-left: 15px; margin: 4px 0 0 0; list-style-type: circle;">
+                                <li>原子または結合線を<strong>「右クリック」</strong>します（最もすばやく消去できます）。</li>
+                                <li>または、現在選択中の元素と<strong>「同じ元素を重ねてクリック」</strong>します。</li>
+                                <li>または、ツールバーの<strong>「消しゴム（Erase）」</strong>を選択してクリックします。</li>
+                            </ul>
+                        </li>
+                        <li><strong>結合を繋ぐ・次数変更</strong>：
+                            <ul style="padding-left: 15px; margin: 4px 0 0 0; list-style-type: circle;">
+                                <li>「結合を描く（Draw Bond）」を選択し、原子から隣の原子へドラッグして繋ぎます。</li>
+                                <li>既存の結合線をシングルクリックすると、次数がトグル（単結合➔二重結合➔三重結合）で変わります。</li>
+                            </ul>
+                        </li>
+                        <li><strong>不斉炭素の指定</strong>：
+                            <ul style="padding-left: 15px; margin: 4px 0 0 0; list-style-type: circle;">
+                                <li>「不斉炭素マークモード」をONにして、不斉炭素（C）をクリックして <span style="color:var(--neon-pink);">*</span> を付けます。</li>
+                            </ul>
+                        </li>
                     </ul>
                 </div>
             </section>
@@ -135,8 +158,23 @@
         </div>
     </div>
 
+    <!-- お手本モーダル -->
+    <div id="target-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 450px; text-align: center;">
+            <h2 class="neon-text" style="color:var(--color-cyan); text-shadow:0 0 10px var(--color-cyan);">🔬 お手本（正解構造）</h2>
+            <p>※結合している水素(H)は自動的に描画されます。</p>
+            <div id="target-svg-wrapper" style="width: 320px; height: 320px; margin: 20px auto; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; background: rgba(15,20,28,0.85); box-shadow: inset 0 0 20px rgba(0,0,0,0.6);">
+                <svg id="target-svg" width="100%" height="100%" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                    <g id="target-bonds"></g>
+                    <g id="target-atoms"></g>
+                </svg>
+            </div>
+            <button id="btn-close-target" class="primary-btn">閉じる</button>
+        </div>
+    </div>
+
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=21"></script>
-    <script src="game.js?v=21"></script>
+    <script src="chemistry.js?v=25"></script>
+    <script src="game.js?v=25"></script>
 </body>
 </html>

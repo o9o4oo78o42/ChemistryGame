@@ -14,6 +14,7 @@
     --neon-green: #2ecc71;
     --neon-red: #ff4757;
     --neon-orange: #ffa502;
+    --neon-pink: #ff2a85;
     
     /* Atom Colors */
     --color-c: #bdc3c7;      /* Carbon: Silver/Gray */
@@ -451,4 +452,38 @@ button:hover {
 
 .animate-pulse {
     animation: pulse 2s infinite ease-in-out;
+}
+
+/* Toggle Switch Styles */
+.switch input:checked + .slider {
+    background-color: var(--neon-pink) !important;
+    box-shadow: 0 0 10px var(--neon-pink);
+}
+
+.switch input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.slider {
+    background-color: rgba(255,255,255,0.2) !important;
+}
+
+/* Asymmetric marking text */
+.svg-asymmetric-star {
+    font-family: var(--font-code);
+    font-weight: bold;
+    fill: var(--neon-pink) !important;
+    text-shadow: 0 0 8px var(--neon-pink);
 }

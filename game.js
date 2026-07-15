@@ -4,7 +4,7 @@
  */
 
 // グリッドスナップの設定
-const GRID_SIZE = 40;
+const GRID_SIZE = 42;
 
 // ステージ定義
 const STAGES = [
@@ -93,6 +93,28 @@ const STAGES = [
             }
             return m;
         }
+    },
+    {
+        name: "乳酸",
+        formula: "CH₃CH(OH)COOH",
+        desc: "運動時の疲労物質や、ヨーグルトなどの乳製品に含まれる酸味成分。中心の炭素(C)は4つの異なる原子団（H、CH₃、OH、COOH）と結合しており、不斉炭素原子となっています。",
+        hint: "中心のCから、左にC(メチル基)、上にO(ヒドロキシ基)、右にC(カルボキシ基)を単結合で伸ばします。さらに右のCには上に=O、右に-OHを配置します。",
+        createTarget: () => {
+            const m = new Molecule();
+            const c1 = m.addAtom('C', 400, 300); // 不斉炭素
+            const c2 = m.addAtom('C', 358, 300); // メチル基
+            const o1 = m.addAtom('O', 400, 258); // ヒドロキシ基
+            const c3 = m.addAtom('C', 442, 300); // カルボキシ基炭素
+            const o2 = m.addAtom('O', 442, 258); // カルボキシ基 =O
+            const o3 = m.addAtom('O', 484, 300); // カルボキシ基 -OH
+
+            m.addBond(c1.id, c2.id, 1);
+            m.addBond(c1.id, o1.id, 1);
+            m.addBond(c1.id, c3.id, 1);
+            m.addBond(c3.id, o2.id, 2);
+            m.addBond(c3.id, o3.id, 1);
+            return m;
+        }
     }
 ];
 
@@ -104,6 +126,7 @@ class Game {
         this.selectedBondType = 1;     // 1, 2, 3
         this.selectedAtomType = 'C';   // 'C', 'O', 'N', 'Cl'
         this.selectedModule = null;    // 'benzene', 'oh', 'cooh', 'nh2'
+        this.asymmetricMode = false;   // 不斉炭素マークモードが ON かどうか
         
         // ドラッグ状態
         this.isDragging = false;
@@ -136,6 +159,14 @@ class Game {
         
         this.winModal = document.getElementById('win-modal');
         this.btnNextStage = document.getElementById('btn-next-stage');
+
+        // 正解の例示・不斉炭素関連のDOM要素
+        this.btnShowTarget = document.getElementById('btn-show-target');
+        this.btnCloseTarget = document.getElementById('btn-close-target');
+        this.targetModal = document.getElementById('target-modal');
+        this.checkAsymmetricMode = document.getElementById('check-asymmetric-mode');
+        this.targetBonds = document.getElementById('target-bonds');
+        this.targetAtoms = document.getElementById('target-atoms');
         this.winMolDetails = document.getElementById('win-mol-details');
 
         // ステージ選択肢の追加
@@ -224,9 +255,27 @@ class Game {
             this.loadStage(nextIdx);
         });
 
+        // 不斉炭素マークモードのON/OFF切り替え
+        this.checkAsymmetricMode.addEventListener('change', (e) => {
+            this.asymmetricMode = e.target.checked;
+            this.clearUIOverlay();
+            this.updateDrawing();
+        });
+
+        // お手本モーダルの表示
+        this.btnShowTarget.addEventListener('click', () => {
+            this.renderTargetAnswer();
+            this.targetModal.classList.remove('hidden');
+        });
+
+        this.btnCloseTarget.addEventListener('click', () => {
+            this.targetModal.classList.add('hidden');
+        });
+
         // SVGキャンバス上でのインタラクション
         this.svg.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.svg.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.svg.addEventListener('mouseleave', () => this.clearUIOverlay());
         window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         
         // キーボードショートカット (Undo/Redo, ツール切替など)
@@ -252,7 +301,8 @@ class Game {
         // 簡易ディープコピーによる状態の保存
         const serialized = JSON.stringify({
             atoms: this.userMolecule.atoms,
-            bonds: this.userMolecule.bonds
+            bonds: this.userMolecule.bonds,
+            deletedBonds: this.userMolecule.deletedBonds
         });
         this.history.push(serialized);
         if (this.history.length > 30) this.history.shift(); // 履歴最大30件
@@ -263,6 +313,9 @@ class Game {
         const previousState = JSON.parse(this.history.pop());
         
         this.userMolecule = new Molecule();
+        if (previousState.deletedBonds) {
+            this.userMolecule.deletedBonds = previousState.deletedBonds;
+        }
         previousState.atoms.forEach(a => {
             const atom = new Atom(a.id, a.element, a.x, a.y, a.isLocked);
             if (a.benzeneCenter) atom.benzeneCenter = a.benzeneCenter;
@@ -281,6 +334,12 @@ class Game {
         this.userMolecule = new Molecule();
         this.history = [];
         
+        // 不斉炭素モードを解除・チェックボックスをOFFに初期化
+        this.asymmetricMode = false;
+        if (this.checkAsymmetricMode) {
+            this.checkAsymmetricMode.checked = false;
+        }
+
         const stage = STAGES[index];
         this.targetName.textContent = stage.name;
         this.targetFormula.textContent = stage.formula;
@@ -325,23 +384,23 @@ class Game {
             // 接続元の原子に空き結合手がある場合のみ、周りに接続可能
             if (this.userMolecule.getFreeValency(atom.id) < 1) return;
 
-            // ① 水平・垂直方向の GRID_SIZE (60px) 離れた4交点
+            // ① 水平・垂直方向の GRID_SIZE 離れた4交点
             const dirs = [
-                { x: atom.x + 60, y: atom.y },
-                { x: atom.x - 60, y: atom.y },
-                { x: atom.x, y: atom.y + 60 },
-                { x: atom.x, y: atom.y - 60 }
+                { x: atom.x + GRID_SIZE, y: atom.y },
+                { x: atom.x - GRID_SIZE, y: atom.y },
+                { x: atom.x, y: atom.y + GRID_SIZE },
+                { x: atom.x, y: atom.y - GRID_SIZE }
             ];
 
-            // ② ベンゼン環スナップガイド点 (頂点から外側に 50px)
+            // ② ベンゼン環スナップガイド点 (頂点から外側に GRID_SIZE * 1.666 = 70px)
             if (atom.benzeneCenter && atom.benzeneAngle !== undefined) {
                 dirs.push({
-                    x: atom.benzeneCenter.x + 100 * Math.cos(atom.benzeneAngle),
-                    y: atom.benzeneCenter.y + 100 * Math.sin(atom.benzeneAngle)
+                    x: atom.benzeneCenter.x + (GRID_SIZE * 1.666) * Math.cos(atom.benzeneAngle),
+                    y: atom.benzeneCenter.y + (GRID_SIZE * 1.666) * Math.sin(atom.benzeneAngle)
                 });
             }
 
-            // ③ C=C二重結合の120度スナップガイド点 (距離60px)
+            // ③ C=C二重結合の120度スナップガイド点 (距離 GRID_SIZE)
             if (atom.element === 'C') {
                 const neighbors = this.userMolecule.getNeighbors(atom.id);
                 const dbNeighbor = neighbors.find(n => n.atom.element === 'C' && n.type === 2);
@@ -350,8 +409,8 @@ class Game {
                     const angles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
                     angles.forEach(ang => {
                         dirs.push({
-                            x: atom.x + 60 * Math.cos(ang),
-                            y: atom.y + 60 * Math.sin(ang)
+                            x: atom.x + GRID_SIZE * Math.cos(ang),
+                            y: atom.y + GRID_SIZE * Math.sin(ang)
                         });
                     });
                 }
@@ -395,9 +454,23 @@ class Game {
         const coords = this.getSnappedCoords(e);
         this.coordDisplay.textContent = `X: ${Math.round(coords.rawX)}, Y: ${Math.round(coords.rawY)} (Snap: ${coords.x}, ${coords.y})`;
         
-        // 結合線ドラッグ中のプレビュー描画
+        // 1. 結合線ドラッグ中のプレビュー描画
         if (this.selectedTool === 'bond' && this.isDragging && this.bondStartAtom) {
             this.drawBondPreview(this.bondStartAtom.x, this.bondStartAtom.y, coords.rawX, coords.rawY);
+        }
+        // 2. 原子配置モード（ツールが 'select' かつ モジュールが選択されていない、かつ ドラッグ移動中でない、かつ マウスの下に既存原子がない）
+        else if (this.selectedTool === 'select' && !this.selectedModule && !this.isDragging) {
+            const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
+            
+            if (!clickedAtom && coords.isValid) {
+                // 最も近い親原子を探してプレビューに繋ぐ結合を描く
+                const nearest = this.findNearestAtom(coords.x, coords.y);
+                const parentAtom = nearest ? nearest.atom : null;
+                this.drawAtomPreview(this.selectedAtomType, coords.x, coords.y, parentAtom);
+            } else {
+                // 有効な位置でない、または既存アトムの上ならプレビューを消去
+                this.clearUIOverlay();
+            }
         }
     }
 
@@ -405,6 +478,16 @@ class Game {
         const coords = this.getSnappedCoords(e);
         const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
         
+        // --- 不斉炭素マークモード (ON) 時の特別処理 ---
+        if (this.asymmetricMode) {
+            if (clickedAtom && clickedAtom.element === 'C') {
+                this.saveState();
+                clickedAtom.isAsymmetricMarked = !clickedAtom.isAsymmetricMarked;
+                this.updateDrawing();
+            }
+            return; // 不斉マークモード時は他の配置/編集動作を完全にブロック
+        }
+
         if (this.selectedTool === 'select') {
             if (this.selectedModule) {
                 // モジュール（官能基/環）配置処理
@@ -418,17 +501,8 @@ class Game {
                     this.userMolecule.removeAtom(clickedAtom.id);
                     this.autoCleanIsolatedAtoms(); // 孤立した原子の自動消去
                     this.updateDrawing();
-                } else if (clickedAtom.element !== this.selectedAtomType && !clickedAtom.isLocked) {
-                    // 原子の上書き設置
-                    this.saveState();
-                    clickedAtom.element = this.selectedAtomType;
-                    // ベンゼン環属性は上書きされた（Cではなくなった）時点で削除
-                    delete clickedAtom.benzeneCenter;
-                    delete clickedAtom.benzeneAngle;
-                    this.autoConnectAdjacentAtoms();
-                    this.updateDrawing();
                 } else {
-                    // 原子移動ドラッグの開始
+                    // 【最新ルール】別元素への直接上書きを廃止。異なる元素またはロックされた原子をクリックした場合は移動ドラッグを開始
                     this.isDragging = true;
                     this.draggedAtom = clickedAtom;
                     this.saveState();
@@ -546,13 +620,13 @@ class Game {
             let canPlace = false;
             if (moduleType === 'benzene' || moduleType === 'cyclopentane' || moduleType === 'cyclohexane') {
                 // 環モジュールのいずれかの頂点が既存原子に近いか
-                let R = 50;
+                let R = GRID_SIZE * 0.833;
                 let count = 6;
                 if (moduleType === 'cyclopentane') {
-                    R = 51.0;
+                    R = GRID_SIZE * 0.85;
                     count = 5;
                 } else if (moduleType === 'cyclohexane') {
-                    R = 60;
+                    R = GRID_SIZE;
                     count = 6;
                 }
                 for (let i = 0; i < count; i++) {
@@ -582,13 +656,13 @@ class Game {
 
         if (moduleType === 'benzene' || moduleType === 'cyclopentane' || moduleType === 'cyclohexane') {
             // 環モジュールの配置
-            let R = 50;
+            let R = GRID_SIZE * 0.833;
             let count = 6;
             if (moduleType === 'cyclopentane') {
-                R = 51.0;
+                R = GRID_SIZE * 0.85;
                 count = 5;
             } else if (moduleType === 'cyclohexane') {
-                R = 60;
+                R = GRID_SIZE;
                 count = 6;
             }
 
@@ -684,8 +758,201 @@ class Game {
         this.uiGroup.appendChild(line);
     }
 
+    // 原子配置プレビュー（半透明の丸と元素記号、および結合線の表示）
+    drawAtomPreview(element, x, y, parentAtom) {
+        this.clearUIOverlay();
+
+        // 1. 親原子がある場合、そこからのプレビュー結合線を描画 (半透明)
+        if (parentAtom) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const dx = x - parentAtom.x;
+            const dy = y - parentAtom.y;
+            const len = Math.sqrt(dx*dx + dy*dy);
+            if (len > 0) {
+                const ux = dx / len;
+                const uy = dy / len;
+                const offsetStart = 10;
+                const offsetEnd = element === 'H' ? 6 : 10;
+                line.setAttribute('x1', parentAtom.x + ux * offsetStart);
+                line.setAttribute('y1', parentAtom.y + uy * offsetStart);
+                line.setAttribute('x2', x - ux * offsetEnd);
+                line.setAttribute('y2', y - uy * offsetEnd);
+                line.setAttribute('stroke', 'rgba(255, 255, 255, 0.25)');
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', '3,3');
+                this.uiGroup.appendChild(line);
+            }
+        }
+
+        // 2. 半透明の原子球
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', x);
+        circle.setAttribute('cy', y);
+        circle.setAttribute('r', element === 'H' ? '6' : '10');
+        circle.setAttribute('fill', '#0f141c');
+        circle.setAttribute('stroke', `var(--color-${element.toLowerCase()})`);
+        circle.setAttribute('stroke-width', '2');
+        circle.setAttribute('opacity', '0.45'); // 半透明
+        this.uiGroup.appendChild(circle);
+
+        // 3. 半透明の原子文字
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', x);
+        text.setAttribute('y', y + (element === 'H' ? 2.0 : 3.0));
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('class', 'svg-atom-text');
+        text.setAttribute('fill', `var(--color-${element.toLowerCase()})`);
+        text.style.fontSize = element === 'H' ? '6.5px' : '9px';
+        text.textContent = element;
+        text.setAttribute('opacity', '0.45'); // 半透明
+        this.uiGroup.appendChild(text);
+    }
+
     clearUIOverlay() {
         this.uiGroup.innerHTML = '';
+    }
+
+    // 正解の例示（お手本）をレンダリングする
+    renderTargetAnswer() {
+        this.targetBonds.innerHTML = '';
+        this.targetAtoms.innerHTML = '';
+
+        const targetMol = STAGES[this.currentStageIndex].createTarget();
+        const heavyAtoms = targetMol.atoms.filter(a => a.element !== 'H');
+        if (heavyAtoms.length === 0) return;
+
+        // 1. バウンディングボックスの計算とセンタリング
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        heavyAtoms.forEach(a => {
+            if (a.x < minX) minX = a.x;
+            if (a.x > maxX) maxX = a.x;
+            if (a.y < minY) minY = a.y;
+            if (a.y > maxY) maxY = a.y;
+        });
+
+        // ターゲット側水素も含めるため、水素も計算
+        const hydrogens = targetMol.calculateHydrogens();
+        hydrogens.forEach(h => {
+            if (h.x < minX) minX = h.x;
+            if (h.x > maxX) maxX = h.x;
+            if (h.y < minY) minY = h.y;
+            if (h.y > maxY) maxY = h.y;
+        });
+
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+
+        // target-svg の中心 (200, 200) に平行移動するためのオフセット
+        const offsetX = 200 - cx;
+        const offsetY = 200 - cy;
+
+        // 2. 結合の描画
+        // ① 水素の結合
+        hydrogens.forEach(h => {
+            const parent = targetMol.atoms.find(a => a.id === h.parentId);
+            if (parent) {
+                this.renderTargetBond(parent.x + offsetX, parent.y + offsetY, h.x + offsetX, h.y + offsetY, 1, true);
+            }
+        });
+
+        // ② 重原子間の結合
+        targetMol.bonds.forEach(bond => {
+            const a1 = targetMol.atoms.find(a => a.id === bond.atomId1);
+            const a2 = targetMol.atoms.find(a => a.id === bond.atomId2);
+            if (a1 && a2 && a1.element !== 'H' && a2.element !== 'H') {
+                this.renderTargetBond(a1.x + offsetX, a1.y + offsetY, a2.x + offsetX, a2.y + offsetY, bond.type, false);
+            }
+        });
+
+        // 3. 原子の描画
+        // ① 水素
+        hydrogens.forEach(h => {
+            this.renderTargetAtom(h.element, h.x + offsetX, h.y + offsetY);
+        });
+
+        // ② 重原子
+        heavyAtoms.forEach(a => {
+            this.renderTargetAtom(a.element, a.x + offsetX, a.y + offsetY);
+        });
+    }
+
+    renderTargetAtom(element, x, y) {
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', x);
+        circle.setAttribute('cy', y);
+        circle.setAttribute('r', element === 'H' ? '6' : '10');
+        circle.setAttribute('fill', '#0f141c');
+        circle.setAttribute('stroke', `var(--color-${element.toLowerCase()})`);
+        circle.setAttribute('stroke-width', '2');
+        
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', x);
+        text.setAttribute('y', y + (element === 'H' ? 2.0 : 3.0));
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('class', 'svg-atom-text');
+        text.setAttribute('fill', `var(--color-${element.toLowerCase()})`);
+        text.style.fontSize = element === 'H' ? '6.5px' : '9px';
+        text.textContent = element;
+
+        group.appendChild(circle);
+        group.appendChild(text);
+        this.targetAtoms.appendChild(group);
+    }
+
+    renderTargetBond(x1, y1, x2, y2, type, isHConnection = false) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.sqrt(dx*dx + dy*dy);
+        if (len === 0) return;
+        
+        const ux = dx / len;
+        const uy = dy / len;
+
+        const offsetStart = 10;
+        const offsetEnd = isHConnection ? 6 : 10;
+        
+        const sx = x1 + ux * offsetStart;
+        const sy = y1 + uy * offsetStart;
+        const ex = x2 - ux * offsetEnd;
+        const ey = y2 - uy * offsetEnd;
+
+        const strokeColor = isHConnection ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.4)';
+
+        if (type === 1) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', sx);
+            line.setAttribute('y1', sy);
+            line.setAttribute('x2', ex);
+            line.setAttribute('y2', ey);
+            line.setAttribute('stroke', strokeColor);
+            line.setAttribute('stroke-width', isHConnection ? '1.5' : '3');
+            this.targetBonds.appendChild(line);
+        } else if (type === 2) {
+            const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const nx = -uy * 2.5;
+            const ny = ux * 2.5;
+            
+            line1.setAttribute('x1', sx + nx);
+            line1.setAttribute('y1', sy + ny);
+            line1.setAttribute('x2', ex + nx);
+            line1.setAttribute('y2', ey + ny);
+            line1.setAttribute('stroke', strokeColor);
+            line1.setAttribute('stroke-width', '2.2');
+            
+            line2.setAttribute('x1', sx - nx);
+            line2.setAttribute('y1', sy - ny);
+            line2.setAttribute('x2', ex - nx);
+            line2.setAttribute('y2', ey - ny);
+            line2.setAttribute('stroke', strokeColor);
+            line2.setAttribute('stroke-width', '2.2');
+            
+            this.targetBonds.appendChild(line1);
+            this.targetBonds.appendChild(line2);
+        }
     }
 
     // SVG描画の更新
@@ -720,11 +987,11 @@ class Game {
 
         // 4. 重原子の描画 (一番手前に描くため最後に行う)
         this.userMolecule.atoms.forEach(atom => {
-            this.renderAtom(atom.id, atom.element, atom.x, atom.y, atom.isLocked);
+            this.renderAtom(atom.id, atom.element, atom.x, atom.y, atom.isLocked, atom.isAsymmetricMarked);
         });
     }
 
-    renderAtom(id, element, x, y, isLocked) {
+    renderAtom(id, element, x, y, isLocked, isAsymmetricMarked = false) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.setAttribute('class', 'svg-atom-node');
         group.setAttribute('data-id', id);
@@ -753,6 +1020,17 @@ class Game {
 
         group.appendChild(circle);
         group.appendChild(text);
+
+        // 不斉炭素マーク (*) の描画
+        if (element === 'C' && isAsymmetricMarked) {
+            const star = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            star.setAttribute('x', x + 7.5);
+            star.setAttribute('y', y - 4);
+            star.setAttribute('class', 'svg-asymmetric-star');
+            star.style.fontSize = '12px';
+            star.textContent = '*';
+            group.appendChild(star);
+        }
         
         this.atomsGroup.appendChild(group);
     }
@@ -872,18 +1150,44 @@ class Game {
         
         // 少し遅延を入れて判定（ゲーム的演出）
         setTimeout(() => {
-            const isCorrect = verifyMolecule(this.userMolecule, targetMolecule);
-            
-            if (isCorrect) {
-                this.verifyResult.className = "result-message success";
-                this.verifyResult.textContent = "正解です！構造が完全に一致しました！";
-                
-                // 勝利モーダルの表示
-                this.showWinModal(stage);
-            } else {
+            // 1. 分子トポロジー構造の一致判定
+            const isStructureCorrect = verifyMolecule(this.userMolecule, targetMolecule);
+            if (!isStructureCorrect) {
                 this.verifyResult.className = "result-message error";
                 this.verifyResult.textContent = "不一致です。結合の数や種類、繋がっている原子の順番を確認してください。";
+                return;
             }
+
+            // 2. 不斉炭素マークモード (ON) 時の不斉炭素マーク判定
+            if (this.asymmetricMode) {
+                // ユーザーの全炭素（C）について、本物であるかとマーク状態が一致しているか走査
+                const carbonAtoms = this.userMolecule.atoms.filter(a => a.element === 'C');
+                
+                let asymmetricErrors = [];
+                carbonAtoms.forEach(atom => {
+                    const actualAsymmetric = this.userMolecule.isAsymmetricCarbon(atom.id);
+                    const userMarked = atom.isAsymmetricMarked;
+                    
+                    if (actualAsymmetric && !userMarked) {
+                        asymmetricErrors.push(`(X:${Math.round(atom.x)}, Y:${Math.round(atom.y)}) の炭素は不斉炭素ですが、* マークがありません。`);
+                    } else if (!actualAsymmetric && userMarked) {
+                        asymmetricErrors.push(`(X:${Math.round(atom.x)}, Y:${Math.round(atom.y)}) の炭素に * マークがありますが、これは不斉炭素ではありません。`);
+                    }
+                });
+
+                if (asymmetricErrors.length > 0) {
+                    this.verifyResult.className = "result-message error";
+                    this.verifyResult.textContent = "分子構造は合っていますが、不斉炭素（C*）のマーク指定が正しくありません。\n" + asymmetricErrors[0];
+                    return;
+                }
+            }
+
+            // 3. すべて合格
+            this.verifyResult.className = "result-message success";
+            this.verifyResult.textContent = "正解です！構造および不斉炭素の位置が完全に一致しました！";
+            
+            // 勝利モーダルの表示
+            this.showWinModal(stage);
         }, 800);
     }
 
@@ -900,7 +1204,7 @@ class Game {
 
     // 隣接する重原子どうしを自動で単結合で結ぶ (グリッド接続は60pxに厳格に制限)
     autoConnectAdjacentAtoms() {
-        const threshold = 62; // 60px (GRID_SIZE) 付近のみ許可するよう厳格化
+        const threshold = GRID_SIZE + 2; // GRID_SIZE 付近のみ許可するよう厳格化
         const atoms = this.userMolecule.atoms;
         
         for (let i = 0; i < atoms.length; i++) {
@@ -925,9 +1229,9 @@ class Game {
                     if (!allowConnect) {
                         const checkBenzeneGuide = (benzeneAtom, targetAtom) => {
                             if (benzeneAtom.benzeneCenter && benzeneAtom.benzeneAngle !== undefined) {
-                                // ベンゼン頂点から外側に50px伸ばしたガイド点
-                                const sx = benzeneAtom.benzeneCenter.x + 100 * Math.cos(benzeneAtom.benzeneAngle);
-                                const sy = benzeneAtom.benzeneCenter.y + 100 * Math.sin(benzeneAtom.benzeneAngle);
+                                // ベンゼン頂点から外側に伸ばしたガイド点 (GRID_SIZE * 1.666 = 70px)
+                                const sx = benzeneAtom.benzeneCenter.x + (GRID_SIZE * 1.666) * Math.cos(benzeneAtom.benzeneAngle);
+                                const sy = benzeneAtom.benzeneCenter.y + (GRID_SIZE * 1.666) * Math.sin(benzeneAtom.benzeneAngle);
                                 const d = Math.sqrt((targetAtom.x - sx)**2 + (targetAtom.y - sy)**2);
                                 return d < 2; // 完全にスナップ吸着しているため2px以内で判定
                             }
@@ -948,11 +1252,11 @@ class Game {
                             const dbNeighbor = neighbors.find(n => n.atom.element === 'C' && n.type === 2);
                             if (dbNeighbor) {
                                 const baseAngle = Math.atan2(dbNeighbor.atom.y - cAtom.y, dbNeighbor.atom.x - cAtom.x);
-                                // 120度外側のガイド点（距離60px）
+                                // 120度外側のガイド点（距離 GRID_SIZE）
                                 const angles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
                                 return angles.some(ang => {
-                                    const sx = cAtom.x + 60 * Math.cos(ang);
-                                    const sy = cAtom.y + 60 * Math.sin(ang);
+                                    const sx = cAtom.x + GRID_SIZE * Math.cos(ang);
+                                    const sy = cAtom.y + GRID_SIZE * Math.sin(ang);
                                     const d = Math.sqrt((targetAtom.x - sx)**2 + (targetAtom.y - sy)**2);
                                     return d < 2; // 完全にスナップ吸着しているため2px以内で判定
                                 });
@@ -965,8 +1269,9 @@ class Game {
                     }
 
                     if (allowConnect) {
-                        // 既に結合が存在しない場合、かつ両原子に空き手が1以上ある場合のみ単結合(1)を追加する
-                        if (!this.userMolecule.getBond(a1.id, a2.id)) {
+                        // 既に結合が存在しない場合、かつ手動削除履歴に含まれない場合、かつ両原子に空き手が1以上ある場合のみ単結合(1)を追加する
+                        const key = [a1.id, a2.id].sort().join('_');
+                        if (!this.userMolecule.deletedBonds.includes(key) && !this.userMolecule.getBond(a1.id, a2.id)) {
                             if (this.userMolecule.getFreeValency(a1.id) >= 1 && this.userMolecule.getFreeValency(a2.id) >= 1) {
                                 console.log(`[AutoConnect] ${a1.element}(${a1.x}, ${a1.y}) - ${a2.element}(${a2.x}, ${a2.y}) dist=${dist.toFixed(1)} dx=${dx.toFixed(1)} dy=${dy.toFixed(1)}`);
                                 this.userMolecule.addBond(a1.id, a2.id, 1);

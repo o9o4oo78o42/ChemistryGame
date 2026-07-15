@@ -19,6 +19,7 @@ class Atom {
         this.x = x; // 画面上の描画位置（またはグリッド座標）
         this.y = y;
         this.isLocked = isLocked; // 固定原子か
+        this.isAsymmetricMarked = false; // ユーザーが不斉炭素としてマークしたか
     }
 }
 
@@ -43,6 +44,7 @@ class Molecule {
     constructor() {
         this.atoms = []; // Atom オブジェクトのリスト
         this.bonds = []; // Bond オブジェクトのリスト
+        this.deletedBonds = []; // 手動で削除された結合のキー (例: 'atom1_atom2') のリスト
     }
 
     addAtom(element, x, y, isLocked = false) {
@@ -53,6 +55,13 @@ class Molecule {
     }
 
     removeAtom(atomId) {
+        // 削除される原子に関連する結合を特定し、deletedBonds 履歴からは除外（原子自体が消えるため）
+        const relatedBonds = this.getBondsForAtom(atomId);
+        relatedBonds.forEach(b => {
+            const key = [b.atomId1, b.atomId2].sort().join('_');
+            this.deletedBonds = this.deletedBonds.filter(k => k !== key);
+        });
+
         this.atoms = this.atoms.filter(a => a.id !== atomId);
         // 関連する結合も削除
         this.bonds = this.bonds.filter(b => b.atomId1 !== atomId && b.atomId2 !== atomId);
@@ -61,6 +70,10 @@ class Molecule {
     addBond(atomId1, atomId2, type = 1) {
         if (atomId1 === atomId2) return null;
         
+        // 手動で結合が結ばれた場合は、削除履歴から削除
+        const key = [atomId1, atomId2].sort().join('_');
+        this.deletedBonds = this.deletedBonds.filter(k => k !== key);
+
         // 既存の結合があるかチェック
         const existing = this.getBond(atomId1, atomId2);
         if (existing) {
@@ -76,6 +89,13 @@ class Molecule {
     removeBond(atomId1, atomId2) {
         const id1 = atomId1 < atomId2 ? atomId1 : atomId2;
         const id2 = atomId1 < atomId2 ? atomId2 : atomId1;
+        
+        // 削除履歴に登録
+        const key = [id1, id2].sort().join('_');
+        if (!this.deletedBonds.includes(key)) {
+            this.deletedBonds.push(key);
+        }
+
         this.bonds = this.bonds.filter(b => !(b.atomId1 === id1 && b.atomId2 === id2));
     }
 
@@ -298,6 +318,76 @@ class Molecule {
         }
 
         return hydrogens;
+    }
+
+    // 炭素から特定の隣接原子方向へ伸びる部分木を再帰的にシリアライズ (グラフ同型判定の簡易版)
+    serializeSubtree(currentAtomId, parentAtomId, visitedAtomIds) {
+        visitedAtomIds.add(currentAtomId);
+        const atom = this.atoms.find(a => a.id === currentAtomId);
+        if (!atom) return '';
+
+        // 隣接する結合と原子をリストアップ（親方向は除く）
+        const neighbors = this.getNeighbors(currentAtomId)
+            .filter(n => n.atom.id !== parentAtomId);
+            
+        // この原子から生える水素(H)の数も置換基に含める
+        const hCount = this.getFreeValency(currentAtomId);
+        
+        const childrenStrings = [];
+        for (let i = 0; i < hCount; i++) {
+            childrenStrings.push("H");
+        }
+        
+        neighbors.forEach(n => {
+            if (visitedAtomIds.has(n.atom.id)) {
+                // ループ・環状構造の検出：環としての識別子を返す
+                childrenStrings.push(`Cycle_${n.atom.element}`);
+            } else {
+                const subStr = this.serializeSubtree(n.atom.id, currentAtomId, new Set(visitedAtomIds));
+                childrenStrings.push(`(${n.type})${subStr}`);
+            }
+        });
+        
+        // 順序に依存しないようにソートして結合
+        childrenStrings.sort();
+        return `${atom.element}[${childrenStrings.join(',')}]`;
+    }
+
+    // 特定の炭素が「不斉炭素（Asymmetric Carbon）」であるか判定
+    isAsymmetricCarbon(atomId) {
+        const atom = this.atoms.find(a => a.id === atomId);
+        if (!atom || atom.element !== 'C') return false;
+
+        // sp3 炭素である必要がある (結合数の合計が 4 かつ、すべて単結合であること)
+        const neighbors = this.getNeighbors(atomId);
+        
+        // 二重結合や三重結合がある場合は不斉炭素にならない
+        const hasMultipleBond = neighbors.some(n => n.type > 1);
+        if (hasMultipleBond) return false;
+
+        // 結合手が4つに伸びているか (隣接重原子と補完水素の合計が4)
+        const heavyNeighbors = neighbors.filter(n => n.atom.element !== 'H');
+        const hCount = this.getFreeValency(atomId);
+        if (heavyNeighbors.length + hCount !== 4) return false;
+
+        // 4つの置換基のシリアライズ文字列を取得
+        const substituentStrings = [];
+        
+        // 水素置換基
+        for (let i = 0; i < hCount; i++) {
+            substituentStrings.push("H");
+        }
+
+        // 重原子置換基
+        heavyNeighbors.forEach(n => {
+            const visited = new Set([atomId]);
+            const serialized = this.serializeSubtree(n.atom.id, atomId, visited);
+            substituentStrings.push(serialized);
+        });
+
+        // 4つの置換基がすべて互いに異なっているか判定
+        const uniqueSet = new Set(substituentStrings);
+        return uniqueSet.size === 4;
     }
 }
 
