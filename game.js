@@ -571,7 +571,6 @@ class Game {
                             // 構造を破壊せずに置換可能な場合のみ許可
                             this.saveState();
                             clickedAtom.element = this.selectedAtomType;
-                            this.autoLayoutBonds();
                             this.updateDrawing();
                         } else {
                             // 置換不可のメッセージを表示
