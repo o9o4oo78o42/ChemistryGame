@@ -710,28 +710,40 @@ class Game {
 
     // 迺ｰ繝ｻ螳倩�蝓ｺ繝｢繧ｸ繝･繝ｼ繝ｫ縺ｮ驟咲ｽｮ
     placeModule(moduleType, x, y, clickedAtom) {
-        // 繝｢繧ｸ繝･繝ｼ繝ｫ驟咲ｽｮ譎ゅ�蟄､遶句宛髯舌メ繧ｧ繝�け
+        // 環モジュールかどうかの判定と初期パラメータ決定
+        const isRing = (moduleType === 'benzene' || moduleType === 'cyclopentane' || moduleType === 'cyclohexane' || moduleType === 'n-ring');
+        let count = 6;
+        let R = GRID_SIZE * 0.833;
+        
+        if (isRing && moduleType === 'n-ring') {
+            const input = prompt("環の員数を入力してください (3〜8):", "7");
+            if (!input) return;
+            const nRingCount = parseInt(input);
+            if (isNaN(nRingCount) || nRingCount < 3 || nRingCount > 8) {
+                alert("3から8の数値を入力してください。");
+                return;
+            }
+            count = nRingCount;
+            // 正N角形の一辺の長さを GRID_SIZE にするための外接円半径の計算公式
+            R = GRID_SIZE / (2 * Math.sin(Math.PI / count));
+        } else if (moduleType === 'cyclopentane') {
+            R = GRID_SIZE * 0.85;
+            count = 5;
+        } else if (moduleType === 'cyclohexane') {
+            R = GRID_SIZE;
+            count = 6;
+        }
+
+        // モジュール配置時の孤立制限チェック
         if (this.userMolecule.atoms.length > 0) {
             let canPlace = false;
-            if (moduleType === 'benzene' || moduleType === 'cyclopentane' || moduleType === 'cyclohexane') {
-                // 迺ｰ繝｢繧ｸ繝･繝ｼ繝ｫ縺ｮ縺�★繧後°縺ｮ鬆らせ縺梧里蟄伜次蟄舌↓霑代＞縺�
-                let R = GRID_SIZE * 0.833;
-                let count = 6;
-                if (moduleType === 'cyclopentane') {
-                    R = GRID_SIZE * 0.85;
-                    count = 5;
-                } else if (moduleType === 'cyclohexane') {
-                    R = GRID_SIZE;
-                    count = 6;
-                }
+            if (isRing) {
                 for (let i = 0; i < count; i++) {
                     let ang;
                     if (moduleType === 'benzene') {
                         ang = (i * Math.PI) / 3;
-                    } else if (moduleType === 'cyclohexane') {
-                        ang = (i * Math.PI) / 3 - Math.PI / 2;
                     } else {
-                        ang = i * (2 * Math.PI / 5) - Math.PI / 2;
+                        ang = i * (2 * Math.PI / count) - Math.PI / 2;
                     }
                     const bx = x + R * Math.cos(ang);
                     const by = y + R * Math.sin(ang);
@@ -741,35 +753,21 @@ class Game {
                     }
                 }
             } else if (clickedAtom) {
-                // 螳倩�蝓ｺ縺ｯ繧ｯ繝ｪ繝�け縺励◆蜴溷ｭ舌↓邨仙粋縺吶ｋ縺溘ａ蟶ｸ縺ｫ驟咲ｽｮ蜿ｯ閭ｽ
                 canPlace = true;
             }
-            if (!canPlace) return; // 蟄､遶九＠縺滉ｽ咲ｽｮ縺ｪ繧蛾�鄂ｮ縺励↑縺�
+            if (!canPlace) return; // 孤立した位置なら配置しない
         }
 
         this.saveState();
 
-        if (moduleType === 'benzene' || moduleType === 'cyclopentane' || moduleType === 'cyclohexane') {
-            // 迺ｰ繝｢繧ｸ繝･繝ｼ繝ｫ縺ｮ驟咲ｽｮ
-            let R = GRID_SIZE * 0.833;
-            let count = 6;
-            if (moduleType === 'cyclopentane') {
-                R = GRID_SIZE * 0.85;
-                count = 5;
-            } else if (moduleType === 'cyclohexane') {
-                R = GRID_SIZE;
-                count = 6;
-            }
-
+        if (isRing) {
             const newCAtoms = [];
             for (let i = 0; i < count; i++) {
                 let ang;
                 if (moduleType === 'benzene') {
                     ang = (i * Math.PI) / 3;
-                } else if (moduleType === 'cyclohexane') {
-                    ang = (i * Math.PI) / 3 - Math.PI / 2;
                 } else {
-                    ang = i * (2 * Math.PI / 5) - Math.PI / 2;
+                    ang = i * (2 * Math.PI / count) - Math.PI / 2;
                 }
                 const c = this.userMolecule.addAtom('C', x + R * Math.cos(ang), y + R * Math.sin(ang));
                 if (moduleType === 'benzene') {
@@ -778,31 +776,29 @@ class Game {
                 }
                 newCAtoms.push(c);
             }
-            // 迺ｰ迥ｶ縺ｫ邨仙粋繧貞ｼｵ繧�
+            // 環状に結合を張る
             for (let i = 0; i < count; i++) {
                 const next = (i + 1) % count;
                 const type = (moduleType === 'benzene' && i % 2 === 0) ? 2 : 1;
                 this.userMolecule.addBond(newCAtoms[i].id, newCAtoms[next].id, type);
             }
         } else if (clickedAtom) {
-            // 螳倩�蝓ｺ縺ｯ縲梧里蟄倥�蜴溷ｭ舌ｒ繧ｯ繝ｪ繝�け縺励※謗･邯壹阪☆繧�
+            // 官能基の配置
             const baseAtom = clickedAtom;
             
-            // 遨ｺ縺�※縺�ｋ譁ｹ蜷代ｒ迚ｹ螳壹☆繧�
+            // 空いている方向を特定
             const neighbors = this.userMolecule.getNeighbors(baseAtom.id);
             const angles = neighbors.map(n => Math.atan2(n.atom.y - baseAtom.y, n.atom.x - baseAtom.x));
             
-            // 遨ｺ縺肴婿蜷� (繝�ヵ繧ｩ繝ｫ繝医�蜿ｳ譁ｹ蜷托ｼ�0繝ｩ繧ｸ繧｢繝ｳ)
+            // デフォルトは右方向（0ラジアン）
             let targetAng = 0;
             if (angles.length > 0) {
-                // 譌｢縺ｫ謗･邯壹′縺ゅｋ蝣ｴ蜷医√◎縺ｮ蟷ｳ蝮��繧ｯ繝医Ν縺ｮ蜿榊ｯｾ蛛ｴ縺ｫ縺吶ｋ
                 let sumX = 0, sumY = 0;
                 angles.forEach(ang => {
                     sumX += Math.cos(ang);
                     sumY += Math.sin(ang);
                 });
                 targetAng = Math.atan2(-sumY, -sumX);
-                // 90蠎ｦ蛻ｻ縺ｿ縺ｫ繧ｹ繝翫ャ繝励＆縺帙ｋ
                 targetAng = Math.round(targetAng / (Math.PI / 2)) * (Math.PI / 2);
             }
 
@@ -810,28 +806,22 @@ class Game {
             const dy = GRID_SIZE * Math.sin(targetAng);
 
             if (moduleType === 'oh') {
-                // -OH 驟咲ｽｮ
                 const o = this.userMolecule.addAtom('O', baseAtom.x + dx, baseAtom.y + dy);
                 this.userMolecule.addBond(baseAtom.id, o.id, 1);
             } else if (moduleType === 'cooh') {
-                // -COOH 驟咲ｽｮ (C=O 縺ｨ -OH 繧帝�鄂ｮ)
                 const c = this.userMolecule.addAtom('C', baseAtom.x + dx, baseAtom.y + dy);
                 this.userMolecule.addBond(baseAtom.id, c.id, 1);
                 
-                // C縺九ｉ縺輔ｉ縺ｫ譫晏�縺九ｌ繧剃ｼｸ縺ｰ縺�
-                // 騾ｲ陦梧婿蜷托ｼ�argetAng�峨↓蟇ｾ縺励※90蠎ｦ譖ｲ縺後▲縺滉ｽ咲ｽｮ縺ｫ莠碁㍾邨仙粋O縲∫峩騾ｲ譁ｹ蜷代↓蜊倡ｵ仙粋OH繧帝�鄂ｮ
-                const angO1 = targetAng + Math.PI / 2; // 90蠎ｦ荳�/蟾ｦ
+                const angO1 = targetAng + Math.PI / 2;
                 const o1 = this.userMolecule.addAtom('O', c.x + GRID_SIZE * Math.cos(angO1), c.y + GRID_SIZE * Math.sin(angO1));
-                this.userMolecule.addBond(c.id, o1.id, 2); // C=O (莠碁㍾邨仙粋)
+                this.userMolecule.addBond(c.id, o1.id, 2);
 
                 const o2 = this.userMolecule.addAtom('O', c.x + GRID_SIZE * Math.cos(targetAng), c.y + GRID_SIZE * Math.sin(targetAng));
-                this.userMolecule.addBond(c.id, o2.id, 1); // C-OH (蜊倡ｵ仙粋)
+                this.userMolecule.addBond(c.id, o2.id, 1);
             } else if (moduleType === 'nh2') {
-                // -NH2 驟咲ｽｮ
                 const n = this.userMolecule.addAtom('N', baseAtom.x + dx, baseAtom.y + dy);
                 this.userMolecule.addBond(baseAtom.id, n.id, 1);
             } else if (moduleType === 'no2') {
-                // -NO2 (ニトロ基) 配置: N に =O を2つ結合
                 const nAtom = this.userMolecule.addAtom('N', baseAtom.x + dx, baseAtom.y + dy);
                 this.userMolecule.addBond(baseAtom.id, nAtom.id, 1);
                 const angO1 = targetAng + Math.PI / 2;
@@ -842,8 +832,7 @@ class Game {
                 this.userMolecule.addBond(nAtom.id, oB.id, 2);
             }
         } else {
-            // 蜴溷ｭ舌′驕ｸ謚槭＆繧後★縺ｫ遨ｺ蝨ｰ繧偵け繝ｪ繝�け縺励◆蝣ｴ蜷医�縲∝腰縺ｫ譁ｰ隕上↓O/N縺ｪ縺ｩ繧堤ｽｮ縺�※郢九＄蝓ｺ遉弱↓縺吶ｋ縺溘ａ繝｡繝�そ繝ｼ繧ｸ陦ｨ遉ｺ
-            alert("螳倩�蝓ｺ繧堤ｵ仙粋縺吶ｋ縺ｫ縺ｯ縲∵磁邯壼�縺ｮ譌｢蟄倥�蜴溷ｭ撰ｼ�縺ｪ縺ｩ�峨ｒ繧ｯ繝ｪ繝�け縺励※縺上□縺輔＞縲�");
+            alert("官能基を結合するには、接続先の既存の原子（Cなど）をクリックしてください。");
         }
         this.autoConnectAdjacentAtoms();
         this.autoLayoutBonds();

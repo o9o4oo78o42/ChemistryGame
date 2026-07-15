@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=47">
+    <link rel="stylesheet" href="style.css?v=48">
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
             const errorMsg = "JSエラー発生:\n" + message + "\nファイル: " + source + "\n行: " + lineno + "\nスタック: " + (error ? error.stack : '');
@@ -20,7 +20,7 @@
         <!-- ヘッダー -->
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
-            <div class="version">v47</div>
+            <div class="version">v48</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -64,6 +64,7 @@
                         <button class="mod-btn" data-module="cyclopentane">⬠ 五員環</button>
                         <button class="mod-btn" data-module="cyclohexane">⬡ 六員環</button>
                         <button class="mod-btn" data-module="benzene">⌬ ベンゼン環</button>
+                        <button class="mod-btn" data-module="n-ring">◯ 任意員環</button>
                         <button class="mod-btn" data-module="oh">-OH ヒドロキシ基</button>
                         <button class="mod-btn" data-module="cooh">-COOH カルボキシ基</button>
                         <button class="mod-btn" data-module="nh2">-NH₂ アミノ基</button>
@@ -193,7 +194,7 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=47"></script>
-    <script src="game.js?v=47"></script>
+    <script src="chemistry.js?v=48"></script>
+    <script src="game.js?v=48"></script>
 </body>
 </html>
