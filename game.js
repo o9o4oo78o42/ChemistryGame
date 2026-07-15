@@ -305,12 +305,12 @@ class Game {
         let snapY = Math.round(y / GRID_SIZE) * GRID_SIZE;
         
         // ベンゼン環の延長線上スナップ点の探索
-        let bestSnapDist = 20; // 吸着する閾値
+        let bestSnapDist = 25; // 吸着する閾値
         this.userMolecule.atoms.forEach(atom => {
             if (atom.benzeneCenter && atom.benzeneAngle !== undefined) {
-                // 延長線上スナップ座標の計算 (頂点から外側に 40px)
-                const sx = atom.benzeneCenter.x + 80 * Math.cos(atom.benzeneAngle);
-                const sy = atom.benzeneCenter.y + 80 * Math.sin(atom.benzeneAngle);
+                // 延長線上スナップ座標の計算 (頂点から外側に 50px)
+                const sx = atom.benzeneCenter.x + 100 * Math.cos(atom.benzeneAngle);
+                const sy = atom.benzeneCenter.y + 100 * Math.sin(atom.benzeneAngle);
                 
                 const dx = sx - x;
                 const dy = sy - y;
@@ -318,7 +318,7 @@ class Game {
                 
                 if (dist < bestSnapDist) {
                     // 他にその位置にすでに原子がないか確認
-                    const existing = this.findAtomAt(sx, sy, 5);
+                    const existing = this.findAtomAt(sx, sy, 8);
                     if (!existing) {
                         bestSnapDist = dist;
                         snapX = sx;
@@ -348,7 +348,7 @@ class Game {
                         const dist = Math.sqrt(dx*dx + dy*dy);
                         
                         if (dist < bestSnapDist) {
-                            const existing = this.findAtomAt(sx, sy, 5);
+                            const existing = this.findAtomAt(sx, sy, 8);
                             if (!existing) {
                                 bestSnapDist = dist;
                                 snapX = sx;
@@ -410,7 +410,7 @@ class Game {
                 // 孤立配置の禁止 ＆ 接続元原子の飽和チェック
                 if (this.userMolecule.atoms.length > 0) {
                     const nearest = this.findNearestAtom(coords.x, coords.y);
-                    if (!nearest || nearest.distance > 45) {
+                    if (!nearest || nearest.distance > 65) {
                         return; // 孤立している
                     }
                     if (this.userMolecule.getFreeValency(nearest.atom.id) < 1) {
@@ -492,7 +492,7 @@ class Game {
     }
 
     // 座標近くにある原子を取得（クリック可能半径20px）
-    findAtomAt(x, y, radius = 16) {
+    findAtomAt(x, y, radius = 12) {
         return this.userMolecule.atoms.find(atom => {
             const dx = atom.x - x;
             const dy = atom.y - y;
@@ -526,7 +526,7 @@ class Game {
             let canPlace = false;
             if (moduleType === 'benzene') {
                 // ベンゼン環のいずれかの頂点が既存原子に近いか
-                const R = 40;
+                const R = 50;
                 for (let i = 0; i < 6; i++) {
                     const ang = (i * Math.PI) / 3;
                     const bx = x + R * Math.cos(ang);
@@ -547,7 +547,7 @@ class Game {
 
         if (moduleType === 'benzene') {
             // ベンゼン環の配置（中心をクリック座標とする）
-            const R = 40;
+            const R = 50;
             const newCAtoms = [];
             for (let i = 0; i < 6; i++) {
                 const ang = (i * Math.PI) / 3;
@@ -676,7 +676,7 @@ class Game {
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', x);
         circle.setAttribute('cy', y);
-        circle.setAttribute('r', element === 'H' ? '10' : '15'); // Hは小さめに描画
+        circle.setAttribute('r', element === 'H' ? '8' : '12'); // Hは小さめに描画
         circle.setAttribute('fill', '#0f141c');
         circle.setAttribute('stroke', `var(--color-${element.toLowerCase()})`);
         circle.setAttribute('stroke-width', '2');
@@ -687,11 +687,11 @@ class Game {
         // 原子文字
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('x', x);
-        text.setAttribute('y', y + (element === 'H' ? 3 : 4)); // 文字の垂直揃え微調整
+        text.setAttribute('y', y + (element === 'H' ? 2.5 : 3.5)); // 文字の垂直揃え微調整
         text.setAttribute('text-anchor', 'middle');
         text.setAttribute('class', 'svg-atom-text');
         text.setAttribute('fill', `var(--color-${element.toLowerCase()})`);
-        text.style.fontSize = element === 'H' ? '10px' : '13px';
+        text.style.fontSize = element === 'H' ? '8px' : '11px';
         text.textContent = element;
 
         group.appendChild(circle);
@@ -709,9 +709,9 @@ class Game {
         const ux = dx / len;
         const uy = dy / len;
 
-        // 原子ラベルと重ならないよう、端を少し縮める (重原子は半径15, 水素は半径10)
-        const offsetStart = 15;
-        const offsetEnd = isHConnection ? 10 : 15;
+        // 原子ラベルと重ならないよう、端を少し縮める (重原子は半径12, 水素は半径8)
+        const offsetStart = 12;
+        const offsetEnd = isHConnection ? 8 : 12;
         
         const sx = x1 + ux * offsetStart;
         const sy = y1 + uy * offsetStart;
@@ -729,14 +729,14 @@ class Game {
             line.setAttribute('x2', ex);
             line.setAttribute('y2', ey);
             line.setAttribute('stroke', strokeColor);
-            line.setAttribute('stroke-width', '4');
+            line.setAttribute('stroke-width', '3');
             line.setAttribute('pointer-events', 'none'); // クリック判定を透過
             this.bondsGroup.appendChild(line);
         } else if (type === 2) {
             // 二重結合 (平行な2本の線)
             const nx = -uy;
             const ny = ux;
-            const gap = 3.5; // 線どうしの隙間
+            const gap = 5; // 線どうしの隙間を広げて視認性アップ
 
             for (let offset of [-gap, gap]) {
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -745,7 +745,7 @@ class Game {
                 line.setAttribute('x2', ex + nx * offset);
                 line.setAttribute('y2', ey + ny * offset);
                 line.setAttribute('stroke', strokeColor);
-                line.setAttribute('stroke-width', '3');
+                line.setAttribute('stroke-width', '2.5');
                 line.setAttribute('pointer-events', 'none');
                 this.bondsGroup.appendChild(line);
             }
@@ -753,7 +753,7 @@ class Game {
             // 三重結合
             const nx = -uy;
             const ny = ux;
-            const gap = 5;
+            const gap = 6.5;
 
             // 中央、左、右
             const offsets = [-gap, 0, gap];
@@ -764,7 +764,7 @@ class Game {
                 line.setAttribute('x2', ex + nx * offset);
                 line.setAttribute('y2', ey + ny * offset);
                 line.setAttribute('stroke', strokeColor);
-                line.setAttribute('stroke-width', offset === 0 ? '3' : '2');
+                line.setAttribute('stroke-width', offset === 0 ? '2.5' : '1.8');
                 line.setAttribute('pointer-events', 'none');
                 this.bondsGroup.appendChild(line);
             });
@@ -779,7 +779,7 @@ class Game {
             hitLine.setAttribute('y2', ey);
             hitLine.setAttribute('stroke', '#ffffff');
             hitLine.setAttribute('stroke-opacity', '0'); // イベントを検知する透明設定
-            hitLine.setAttribute('stroke-width', '16');    // 広いクリック判定範囲
+            hitLine.setAttribute('stroke-width', '12');    // 衝突重なりを抑えるために12pxに調整
             hitLine.style.cursor = 'pointer';
             hitLine.setAttribute('class', 'svg-bond-hitbox');
             
@@ -840,7 +840,7 @@ class Game {
 
     // 隣接する重原子どうしを自動で単結合で結ぶ
     autoConnectAdjacentAtoms() {
-        const threshold = 45; // 40px (GRID_SIZE) + α の許容範囲
+        const threshold = 65; // 60px (GRID_SIZE) + α の許容範囲
         const atoms = this.userMolecule.atoms;
         
         for (let i = 0; i < atoms.length; i++) {
@@ -911,7 +911,7 @@ class Game {
     }
 
     // 指定された座標の近くに既存の原子があるかチェックする
-    isNearAnyExistingAtom(x, y, threshold = 45) {
+    isNearAnyExistingAtom(x, y, threshold = 65) {
         const nearest = this.findNearestAtom(x, y);
         return nearest ? nearest.distance <= threshold : false;
     }
