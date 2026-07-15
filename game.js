@@ -4,6 +4,7 @@
  */
 
 let STAGES = [];
+const GRID_SIZE = 42;
 
 class Game {
     constructor() {
