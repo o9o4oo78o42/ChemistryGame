@@ -98,7 +98,7 @@ const STAGES = [
         name: "乳酸",
         formula: "CH₃CH(OH)COOH",
         desc: "運動時の疲労物質や、ヨーグルトなどの乳製品に含まれる酸味成分。中心の炭素(C)は4つの異なる原子団（H、CH₃、OH、COOH）と結合しており、不斉炭素原子となっています。",
-        hint: "中心のCから、左にC(メチル基)、上にO(ヒドロキシ基)、右にC(カルボキシ基)を単結合で伸ばします。さらに右のCには上に=O、右に-OHを配置します。",
+        hint: "中心のCから、左にC(メチル基)、上にO(ヒドロキシ基)、右にC(カルボキシ基)を単結合で伸ばします。さらに右 of Cには上に=O、右に-OHを配置します。",
         createTarget: () => {
             const m = new Molecule();
             const c1 = m.addAtom('C', 400, 300); // 不斉炭素
@@ -113,6 +113,71 @@ const STAGES = [
             m.addBond(c1.id, c3.id, 1);
             m.addBond(c3.id, o2.id, 2);
             m.addBond(c3.id, o3.id, 1);
+            return m;
+        }
+    },
+    {
+        name: "プロペン",
+        formula: "C₃H₆",
+        desc: "最も単純なアルケン（二重結合を含む炭素化合物）の1つ。プラスチック（ポリプロピレン）の原料として広く用いられます。",
+        hint: "3つの炭素(C)を繋ぎ、そのうち1箇所を「二重結合」にします。二重結合の端のCから120度方向に結合が広がります。",
+        createTarget: () => {
+            const m = new Molecule();
+            const c1 = m.addAtom('C', 358, 300);
+            const c2 = m.addAtom('C', 400, 300);
+            const c3 = m.addAtom('C', 442, 300);
+            m.addBond(c1.id, c2.id, 1);
+            m.addBond(c2.id, c3.id, 2);
+            return m;
+        }
+    },
+    {
+        name: "アセチレン",
+        formula: "C₂H₂",
+        desc: "三重結合を持つ最も単純なアルキン。酸素と混ぜて燃焼させると3000℃を超える高温（酸素アセチレン炎）になり、金属の溶接に使われます。",
+        hint: "2つの炭素(C)を繋ぎ、「三重結合」に変更します。水素は軸上の直線方向（180度）に真っ直ぐ伸びます。",
+        createTarget: () => {
+            const m = new Molecule();
+            const c1 = m.addAtom('C', 379, 300);
+            const c2 = m.addAtom('C', 421, 300);
+            m.addBond(c1.id, c2.id, 3);
+            return m;
+        }
+    },
+    {
+        name: "アラニン",
+        formula: "CH₃CH(NH₂)COOH",
+        desc: "タンパク質を構成するアミノ酸の1つ。中心の炭素は4つの異なるグループ（H、メチル基、アミノ基、カルボキシ基）と結合した不斉炭素です。",
+        hint: "窒素(N)が初登場！中心のCから左にC、上にN、右にCを単結合で繋ぎます。右のCにカルボキシ基（=O と -OH）を作れば完成です。",
+        createTarget: () => {
+            const m = new Molecule();
+            const c1 = m.addAtom('C', 400, 300); // 不斉炭素
+            const c2 = m.addAtom('C', 358, 300); // メチル基
+            const n = m.addAtom('N', 400, 258);  // アミノ基
+            const c3 = m.addAtom('C', 442, 300); // カルボキシ炭素
+            const o1 = m.addAtom('O', 442, 258); // =O
+            const o2 = m.addAtom('O', 484, 300); // -OH
+            
+            m.addBond(c1.id, c2.id, 1);
+            m.addBond(c1.id, n.id, 1);
+            m.addBond(c1.id, c3.id, 1);
+            m.addBond(c3.id, o1.id, 2);
+            m.addBond(c3.id, o2.id, 1);
+            return m;
+        }
+    },
+    {
+        name: "アセトニトリル",
+        formula: "CH₃CN",
+        desc: "アセトニトリルは、極性溶媒や化学合成の原料として重要な有機化合物。炭素と窒素の間に三重結合(C≡N)を持っています。",
+        hint: "C - C - N の順に繋ぎ、C-Nの結合を「三重結合」にトグルします。三重結合により、分子全体が一直線に並びます。",
+        createTarget: () => {
+            const m = new Molecule();
+            const c1 = m.addAtom('C', 358, 300);
+            const c2 = m.addAtom('C', 400, 300);
+            const n = m.addAtom('N', 442, 300);
+            m.addBond(c1.id, c2.id, 1);
+            m.addBond(c2.id, n.id, 3);
             return m;
         }
     }
