@@ -509,6 +509,7 @@ class Game {
                     this.saveState();
                     this.userMolecule.removeAtom(clickedAtom.id);
                     this.autoCleanIsolatedAtoms(); // 孤立した原子の自動消去
+                    this.autoLayoutBonds();
                     this.updateDrawing();
                 } else {
                     // 【最新ルール】別元素への直接上書きを廃止。異なる元素またはロックされた原子をクリックした場合は移動ドラッグを開始
@@ -522,6 +523,7 @@ class Game {
                     this.saveState();
                     this.userMolecule.addAtom(this.selectedAtomType, coords.x, coords.y);
                     this.autoConnectAdjacentAtoms();
+                    this.autoLayoutBonds();
                     this.updateDrawing();
                 }
             }
@@ -545,6 +547,7 @@ class Game {
                     this.autoCleanIsolatedAtoms();
                 }
             }
+            this.autoLayoutBonds();
             this.updateDrawing();
         }
     }
@@ -559,6 +562,7 @@ class Game {
             this.draggedAtom.x = coords.x;
             this.draggedAtom.y = coords.y;
             this.autoConnectAdjacentAtoms();
+            this.autoLayoutBonds();
             this.updateDrawing();
         } else if (this.selectedTool === 'bond' && this.bondStartAtom) {
             const endAtom = this.findAtomAt(coords.rawX, coords.rawY);
@@ -566,18 +570,25 @@ class Game {
             if (endAtom && endAtom.id !== this.bondStartAtom.id) {
                 const existing = this.userMolecule.getBond(this.bondStartAtom.id, endAtom.id);
                 if (existing) {
-                    // すでに結合がある場合は次数をトグル (1 -> 2 -> 3 -> 1)
-                    const nextType = (existing.type % 3) + 1;
-                    const diff = nextType - existing.type;
-                    
-                    // 次数を増やす場合のみ、両原子の空き結合手が十分にあるかチェック
-                    if (diff <= 0 || (this.userMolecule.getFreeValency(this.bondStartAtom.id) >= diff && this.userMolecule.getFreeValency(endAtom.id) >= diff)) {
-                        this.saveState();
-                        this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, nextType);
+                    const maxType = this.getMaxBondType(this.bondStartAtom.element, endAtom.element);
+                    if (maxType > 1) {
+                        const currentType = Number(existing.type) || 1;
+                        let nextType = currentType + 1;
+                        if (nextType > maxType) {
+                            nextType = 1;
+                        }
+                        const diff = nextType - currentType;
+                        // 次数を増やす場合のみ、両原子の空き結合手が十分にあるかチェック
+                        if (diff <= 0 || (this.userMolecule.getFreeValency(this.bondStartAtom.id) >= diff && this.userMolecule.getFreeValency(endAtom.id) >= diff)) {
+                            this.saveState();
+                            this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, nextType);
+                        }
                     }
                 } else {
                     // 新規結合を結ぶのに十分な空き結合手があるかチェック
-                    const reqType = this.selectedBondType;
+                    // 選択された結合次数がそもそも両原子の限界を超えていないかもチェック
+                    const maxType = this.getMaxBondType(this.bondStartAtom.element, endAtom.element);
+                    const reqType = Math.min(this.selectedBondType, maxType);
                     if (this.userMolecule.getFreeValency(this.bondStartAtom.id) >= reqType && this.userMolecule.getFreeValency(endAtom.id) >= reqType) {
                         this.saveState();
                         this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, reqType);
@@ -591,7 +602,7 @@ class Game {
         this.isDragging = false;
         this.draggedAtom = null;
         this.bondStartAtom = null;
-        this.autoLayoutDoubleBonds();
+        this.autoLayoutBonds();
         this.updateDrawing();
     }
 
@@ -751,6 +762,7 @@ class Game {
             alert("官能基を結合するには、接続先の既存の原子（Cなど）をクリックしてください。");
         }
         this.autoConnectAdjacentAtoms();
+        this.autoLayoutBonds();
         this.updateDrawing();
     }
 
@@ -822,18 +834,19 @@ class Game {
         this.uiGroup.innerHTML = '';
     }
 
-    // 二重結合 (C=C) が形成された際、周囲の結合重原子を自動的に 120度方向にリレイアウトする
-    autoLayoutDoubleBonds() {
+    // 二重結合 (C=C) は 120度方向、三重結合 (C≡C) は 180度直線方向、それ以外の sp3 重原子は直角グリッド上に自動アジャストする
+    autoLayoutBonds() {
         let changed = false;
         
+        // 1. sp2 (二重結合) および sp (三重結合) の自動レイアウト
         this.userMolecule.bonds.forEach(bond => {
-            if (bond.type !== 2) return; // 二重結合のみ対象
+            if (bond.type !== 2 && bond.type !== 3) return; // 二重結合(2)または三重結合(3)のみ対象
             
             const a1 = this.userMolecule.atoms.find(a => a.id === bond.atomId1);
             const a2 = this.userMolecule.atoms.find(a => a.id === bond.atomId2);
             if (!a1 || !a2 || a1.element !== 'C' || a2.element !== 'C') return;
             
-            // ベンゼン環の原子はモジュール生成時にすでに配置が決まっているため除外
+            // ベンゼン環の原子は除外
             if (a1.benzeneCenter || a2.benzeneCenter) return;
             
             const adjustNeighbors = (centerAtom, partnerAtom) => {
@@ -843,14 +856,20 @@ class Game {
                 if (neighbors.length === 0) return;
                 
                 const baseAngle = Math.atan2(partnerAtom.y - centerAtom.y, partnerAtom.x - centerAtom.x);
-                // 120度外側の2方向
-                const targetAngles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
+                
+                let targetAngles = [];
+                if (bond.type === 2) {
+                    // 二重結合：120度外側の2方向
+                    targetAngles = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
+                } else if (bond.type === 3) {
+                    // 三重結合：180度反対側の直線上の1方向のみ
+                    targetAngles = [baseAngle + Math.PI];
+                }
                 
                 neighbors.forEach((n, idx) => {
                     const neighborAtom = n.atom;
                     
-                    // すでに綺麗に120度に並んでいるかチェック (誤差2px以内)
-                    // 2方向のうち、現在の neighbor に最も近い角度を選ぶ
+                    // ズレをチェックし、最も近い角度を選ぶ（三重結合の場合は1つだけなのでそれを選ぶ）
                     let bestAngle = targetAngles[0];
                     let minDist = Infinity;
                     
@@ -864,13 +883,12 @@ class Game {
                         }
                     });
                     
-                    // もし 2px 以上ズレている場合、正しい 120度位置に強制移動
+                    // もし 2px 以上ズレている場合、正しい位置に強制移動
                     if (minDist > 2) {
                         const targetX = centerAtom.x + GRID_SIZE * Math.cos(bestAngle);
                         const targetY = centerAtom.y + GRID_SIZE * Math.sin(bestAngle);
                         
-                        // 移動させるとさらにその先の原子群も並行移動させる必要があるため、
-                        // この隣接原子からさらに繋がっているサブツリー全体を平行移動する
+                        // サブツリー全体を平行移動
                         const dx = targetX - neighborAtom.x;
                         const dy = targetY - neighborAtom.y;
                         
@@ -882,6 +900,33 @@ class Game {
             
             adjustNeighbors(a1, a2);
             adjustNeighbors(a2, a1);
+        });
+
+        // 2. sp3 (単結合のみ) の重原子を、最も近い直角グリッド交点 (GRID_SIZE の倍数) に吸着アジャスト
+        //    ※ただし、sp2/sp の自動レイアウトによって配置されたものは直角グリッドから外れるため、
+        //      「二重結合または三重結合に接続していない重原子」のみをスナップ対象とする。
+        const sp3Atoms = this.userMolecule.atoms.filter(atom => {
+            if (atom.element === 'H') return false;
+            if (atom.benzeneCenter) return false; // ベンゼンは固定レイアウト
+            
+            // この原子が二重結合(2)または三重結合(3)に接続されているかチェック
+            const neighbors = this.userMolecule.getNeighbors(atom.id);
+            const hasSp2SpBond = neighbors.some(n => n.type === 2 || n.type === 3);
+            return !hasSp2SpBond;
+        });
+
+        sp3Atoms.forEach(atom => {
+            const targetX = Math.round(atom.x / GRID_SIZE) * GRID_SIZE;
+            const targetY = Math.round(atom.y / GRID_SIZE) * GRID_SIZE;
+            
+            const dx = targetX - atom.x;
+            const dy = targetY - atom.y;
+            
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+                // サブツリー全体を平行移動して直角グリッドに吸着させる
+                this.translateSubtree(atom.id, null, dx, dy, new Set());
+                changed = true;
+            }
         });
         
         if (changed) {
@@ -1388,15 +1433,27 @@ class Game {
             this.autoCleanIsolatedAtoms(); // 孤立した原子のクリーンアップ
             this.updateDrawing();
         } else {
-            // シングルクリックで結合次数のトグル (1 -> 2 -> 3 -> 1)
-            const nextType = (parseInt(bond.type) % 3) + 1;
-            const diff = nextType - parseInt(bond.type);
+            // シングルクリックで結合次数のトグル (1 -> 2 -> ... -> maxType -> 1)
+            const a1 = this.userMolecule.atoms.find(a => a.id === bond.atomId1);
+            const a2 = this.userMolecule.atoms.find(a => a.id === bond.atomId2);
+            if (!a1 || !a2) return;
+
+            const maxType = this.getMaxBondType(a1.element, a2.element);
+            if (maxType <= 1) return; // 単結合しか作れない結合（例: C-Cl）は変更不可
+
+            const currentType = Number(bond.type) || 1;
+            let nextType = currentType + 1;
+            if (nextType > maxType) {
+                nextType = 1;
+            }
+
+            const diff = nextType - currentType;
             
             // 減らすトグルであるか、または増やすのに十分な空き手がある場合のみ許可
             if (diff <= 0 || (this.userMolecule.getFreeValency(bond.atomId1) >= diff && this.userMolecule.getFreeValency(bond.atomId2) >= diff)) {
                 this.saveState();
                 bond.type = nextType;
-                this.autoLayoutDoubleBonds();
+                this.autoLayoutBonds();
                 this.updateDrawing();
             }
         }
@@ -1490,6 +1547,22 @@ class Game {
         });
         
         return { minX, maxX, minY, maxY };
+    }
+
+    // 接続している2つの原子の元素種から、化学的に取り得る最大結合次数 (1:単, 2:二重, 3:三重) を返す
+    getMaxBondType(element1, element2) {
+        const getValency = (elem) => {
+            switch(elem) {
+                case 'C': return 4;
+                case 'N': return 3;
+                case 'O': return 2;
+                case 'Cl': return 1;
+                case 'H': return 1;
+                default: return 1;
+            }
+        };
+        // 両原子の最大手の最小値、かつ現実の共有結合の最大次数である 3 を限界値とする
+        return Math.min(getValency(element1), getValency(element2), 3);
     }
 }
 
