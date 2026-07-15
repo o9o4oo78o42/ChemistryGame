@@ -407,9 +407,15 @@ class Game {
                 }
             } else {
                 // 空き地をクリックしたら原子を新規配置
-                // 孤立配置の禁止：すでに原子があり、既存原子のどれとも隣接しない位置なら配置しない
-                if (this.userMolecule.atoms.length > 0 && !this.isNearAnyExistingAtom(coords.x, coords.y)) {
-                    return;
+                // 孤立配置の禁止 ＆ 接続元原子の飽和チェック
+                if (this.userMolecule.atoms.length > 0) {
+                    const nearest = this.findNearestAtom(coords.x, coords.y);
+                    if (!nearest || nearest.distance > 45) {
+                        return; // 孤立している
+                    }
+                    if (this.userMolecule.getFreeValency(nearest.atom.id) < 1) {
+                        return; // 接続相手の原子がすでに飽和している
+                    }
                 }
                 this.saveState();
                 this.userMolecule.addAtom(this.selectedAtomType, coords.x, coords.y);
@@ -455,14 +461,24 @@ class Game {
             const endAtom = this.findAtomAt(coords.rawX, coords.rawY);
             // 別の原子に着地したか
             if (endAtom && endAtom.id !== this.bondStartAtom.id) {
-                this.saveState();
                 const existing = this.userMolecule.getBond(this.bondStartAtom.id, endAtom.id);
                 if (existing) {
                     // すでに結合がある場合は次数をトグル (1 -> 2 -> 3 -> 1)
                     const nextType = (existing.type % 3) + 1;
-                    this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, nextType);
+                    const diff = nextType - existing.type;
+                    
+                    // 次数を増やす場合のみ、両原子の空き結合手が十分にあるかチェック
+                    if (diff <= 0 || (this.userMolecule.getFreeValency(this.bondStartAtom.id) >= diff && this.userMolecule.getFreeValency(endAtom.id) >= diff)) {
+                        this.saveState();
+                        this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, nextType);
+                    }
                 } else {
-                    this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, this.selectedBondType);
+                    // 新規結合を結ぶのに十分な空き結合手があるかチェック
+                    const reqType = this.selectedBondType;
+                    if (this.userMolecule.getFreeValency(this.bondStartAtom.id) >= reqType && this.userMolecule.getFreeValency(endAtom.id) >= reqType) {
+                        this.saveState();
+                        this.userMolecule.addBond(this.bondStartAtom.id, endAtom.id, reqType);
+                    }
                 }
             }
             // プレビュー消去
@@ -840,9 +856,11 @@ class Game {
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 
                 if (dist <= threshold) {
-                    // 既に結合が存在しない場合、単結合(1)を追加する
+                    // 既に結合が存在しない場合、かつ両原子に空き手が1以上ある場合のみ単結合(1)を追加する
                     if (!this.userMolecule.getBond(a1.id, a2.id)) {
-                        this.userMolecule.addBond(a1.id, a2.id, 1);
+                        if (this.userMolecule.getFreeValency(a1.id) >= 1 && this.userMolecule.getFreeValency(a2.id) >= 1) {
+                            this.userMolecule.addBond(a1.id, a2.id, 1);
+                        }
                     }
                 }
             }
@@ -859,9 +877,15 @@ class Game {
             this.updateDrawing();
         } else {
             // シングルクリックで結合次数のトグル (1 -> 2 -> 3 -> 1)
-            this.saveState();
-            bond.type = (parseInt(bond.type) % 3) + 1;
-            this.updateDrawing();
+            const nextType = (parseInt(bond.type) % 3) + 1;
+            const diff = nextType - parseInt(bond.type);
+            
+            // 減らすトグルであるか、または増やすのに十分な空き手がある場合のみ許可
+            if (diff <= 0 || (this.userMolecule.getFreeValency(bond.atomId1) >= diff && this.userMolecule.getFreeValency(bond.atomId2) >= diff)) {
+                this.saveState();
+                bond.type = nextType;
+                this.updateDrawing();
+            }
         }
     }
 
@@ -888,11 +912,24 @@ class Game {
 
     // 指定された座標の近くに既存の原子があるかチェックする
     isNearAnyExistingAtom(x, y, threshold = 45) {
-        return this.userMolecule.atoms.some(atom => {
+        const nearest = this.findNearestAtom(x, y);
+        return nearest ? nearest.distance <= threshold : false;
+    }
+
+    // 指定された座標から最も近い既存原子を探す
+    findNearestAtom(x, y) {
+        let bestDist = Infinity;
+        let nearest = null;
+        this.userMolecule.atoms.forEach(atom => {
             const dx = atom.x - x;
             const dy = atom.y - y;
-            return Math.sqrt(dx*dx + dy*dy) <= threshold;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < bestDist) {
+                bestDist = dist;
+                nearest = atom;
+            }
         });
+        return nearest ? { atom: nearest, distance: bestDist } : null;
     }
 }
 
