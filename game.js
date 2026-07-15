@@ -491,8 +491,8 @@ class Game {
         this.updateDrawing();
     }
 
-    // 座標近くにある原子を取得（クリック可能半径20px）
-    findAtomAt(x, y, radius = 12) {
+    // 座標近くにある原子を取得（クリック判定半径は広めの24px）
+    findAtomAt(x, y, radius = 24) {
         return this.userMolecule.atoms.find(atom => {
             const dx = atom.x - x;
             const dy = atom.y - y;
@@ -779,23 +779,18 @@ class Game {
             hitLine.setAttribute('y2', ey);
             hitLine.setAttribute('stroke', '#ffffff');
             hitLine.setAttribute('stroke-opacity', '0'); // イベントを検知する透明設定
-            hitLine.setAttribute('stroke-width', '12');    // 衝突重なりを抑えるために12pxに調整
+            hitLine.setAttribute('stroke-width', '14');    // 判定範囲を少し広げて14pxに設定
             hitLine.style.cursor = 'pointer';
             hitLine.setAttribute('class', 'svg-bond-hitbox');
             
-            let clickTimer = null;
+            // ネイティブのclickとdblclickイベントを使用し、タイマー遅延を完全に排除
             hitLine.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (clickTimer) {
-                    clearTimeout(clickTimer);
-                    clickTimer = null;
-                    this.handleBondInteraction(bondObj, true); // ダブルクリックで切断
-                } else {
-                    clickTimer = setTimeout(() => {
-                        clickTimer = null;
-                        this.handleBondInteraction(bondObj, false); // シングルクリックで次数トグル
-                    }, 220);
-                }
+                this.handleBondInteraction(bondObj, false); // シングルクリックで次数トグル
+            });
+            hitLine.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this.handleBondInteraction(bondObj, true); // ダブルクリックで切断
             });
             this.bondsGroup.appendChild(hitLine);
         }
