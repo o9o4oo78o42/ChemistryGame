@@ -2,7 +2,7 @@
   {
     "name": "水",
     "formula": "H2O",
-    "series": "基本分子",
+    "series": "有名な慣用名（脂肪族）",
     "desc": "生命に不可欠な最も基本的な化合物です。酸素原子(O)に2つの水素原子(H)が結合しています。",
     "hint": "酸素(O)を1つ配置するだけで、自動的に2つの水素(H)が補完されます。",
     "target": {
@@ -13,29 +13,27 @@
     }
   },
   {
-    "name": "二酸化炭素",
-    "formula": "CO2",
-    "series": "基本分子",
-    "desc": "温暖化ガスとしても知られる無色無臭の気体。炭素(C)を中心に、両側に酸素(O)がそれぞれ二重結合で結合しています。",
-    "hint": "Cを中心に、左右 of Oへ「二重結合」を繋ぎましょう。",
+    "name": "メタノール",
+    "formula": "CH3OH",
+    "series": "有名な慣用名（脂肪族）",
+    "desc": "最も単純な一価アルコール。燃料や溶剤として広く使用されますが、人体には有毒です。",
+    "hint": "炭素(C)に酸素(O)を単結合で繋ぎます。",
     "target": {
       "atoms": [
-        {"element": "C", "x": 400, "y": 300},
-        {"element": "O", "x": 320, "y": 300},
-        {"element": "O", "x": 480, "y": 300}
+        {"element": "C", "x": 379, "y": 300},
+        {"element": "O", "x": 421, "y": 300}
       ],
       "bonds": [
-        {"atom1Index": 0, "atom2Index": 1, "type": 2},
-        {"atom1Index": 0, "atom2Index": 2, "type": 2}
+        {"atom1Index": 0, "atom2Index": 1, "type": 1}
       ]
     }
   },
   {
     "name": "エタノール",
     "formula": "CH3CH2OH",
-    "series": "基本分子",
+    "series": "有名な慣用名（脂肪族）",
     "desc": "お酒のアルコール成分であり、消毒液としても使われます。2つの炭素(C)が繋がり、その端にヒドロキシ基(-OH)が結合しています。",
-    "hint": "C - C - O の順に単結合で繋ぎましょう。Hは自動で入ります。官能基パレットの「-OH」を使うこともできます。",
+    "hint": "C - C - O の順に単結合で繋ぎましょう。Hは自動で入ります。",
     "target": {
       "atoms": [
         {"element": "C", "x": 360, "y": 300},
@@ -49,11 +47,83 @@
     }
   },
   {
+    "name": "ホルムアルデヒド",
+    "formula": "HCHO",
+    "series": "有名な慣用名（脂肪族）",
+    "desc": "刺激臭を持つ無色の気体。水溶液は「ホルマリン」と呼ばれ、防腐剤などに用いられます。",
+    "hint": "炭素(C)に酸素(O)を二重結合(=)で繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 400, "y": 300},
+        {"element": "O", "x": 400, "y": 240}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2}
+      ]
+    }
+  },
+  {
+    "name": "アセトアルデヒド",
+    "formula": "CH3CHO",
+    "series": "有名な慣用名（脂肪族）",
+    "desc": "お酒を飲んだ時に体内で生成され、二日酔いの原因となる物質です。特有の刺激臭があります。",
+    "hint": "C - C の順に繋ぎ、端の炭素(C)に酸素(O)を二重結合で結合します。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 358, "y": 300},
+        {"element": "C", "x": 400, "y": 300},
+        {"element": "O", "x": 400, "y": 240}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 1},
+        {"atom1Index": 1, "atom2Index": 2, "type": 2}
+      ]
+    }
+  },
+  {
+    "name": "アセトン",
+    "formula": "CH3COCH3",
+    "series": "有名な慣用名（脂肪族）",
+    "desc": "代表的なケトンで、除光液や有機溶剤として広く利用される非常に揮発性の高い液体です。",
+    "hint": "C - C - C の炭素鎖を作り、中央の炭素(C)に酸素(O)を二重結合で繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 358, "y": 300},
+        {"element": "C", "x": 400, "y": 300},
+        {"element": "C", "x": 442, "y": 300},
+        {"element": "O", "x": 400, "y": 240}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 1},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 1, "atom2Index": 3, "type": 2}
+      ]
+    }
+  },
+  {
+    "name": "ギ酸",
+    "formula": "HCOOH",
+    "series": "有名な慣用名（脂肪族）",
+    "desc": "アリ（蟻）などが分泌する最も単純なカルボン酸で、強い刺激臭と酸性を持っています。",
+    "hint": "炭素(C)に、二重結合の酸素(=O)と、単結合の酸素(-OH)を繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 400, "y": 300},
+        {"element": "O", "x": 400, "y": 240},
+        {"element": "O", "x": 442, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 0, "atom2Index": 2, "type": 1}
+      ]
+    }
+  },
+  {
     "name": "酢酸",
     "formula": "CH3COOH",
-    "series": "基本分子",
+    "series": "有名な慣用名（脂肪族）",
     "desc": "食酢に含まれる酸味成分。炭素(C)の隣の炭素に、二重結合の酸素(=O)と単結合のヒドロキシ基(-OH)が繋がっています。",
-    "hint": "カルボキシ基(-COOH)を炭素に繋ぐか、C-Cを繋いだ後、先端のCに=Oと-OHを手動で配置します。",
+    "hint": "C-Cを繋いだ後、先端のCに=Oと-OHを配置します。",
     "target": {
       "atoms": [
         {"element": "C", "x": 360, "y": 300},
@@ -69,130 +139,29 @@
     }
   },
   {
-    "name": "ベンゼン",
-    "formula": "C6H6",
-    "series": "基本分子",
-    "desc": "代表的な芳香族化合物。6つの炭素(C)が六角形を形成し、単結合と二重結合が交互に配置（共鳴）しています。",
-    "hint": "「ベンゼン環」モジュールを使って一発配置すると簡単です。",
+    "name": "ジエチルエーテル",
+    "formula": "CH3CH2OCH2CH3",
+    "series": "有名な慣用名（脂肪族）",
+    "desc": "エーテル臭を持つ無色透明の極めて揮発しやすい液体。麻酔薬や溶剤として使われます。",
+    "hint": "C - C - O - C - C の順に単結合で直鎖を繋ぎます。",
     "target": {
       "atoms": [
-        {"element": "C", "x": 440, "y": 300},
-        {"element": "C", "x": 420, "y": 334.64},
-        {"element": "C", "x": 380, "y": 334.64},
-        {"element": "C", "x": 360, "y": 300},
-        {"element": "C", "x": 380, "y": 265.36},
-        {"element": "C", "x": 420, "y": 265.36}
+        {"element": "C", "x": 316, "y": 300},
+        {"element": "C", "x": 358, "y": 300},
+        {"element": "O", "x": 400, "y": 300},
+        {"element": "C", "x": 442, "y": 300},
+        {"element": "C", "x": 484, "y": 300}
       ],
       "bonds": [
-        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 0, "atom2Index": 1, "type": 1},
         {"atom1Index": 1, "atom2Index": 2, "type": 1},
-        {"atom1Index": 2, "atom2Index": 3, "type": 2},
-        {"atom1Index": 3, "atom2Index": 4, "type": 1},
-        {"atom1Index": 4, "atom2Index": 5, "type": 2},
-        {"atom1Index": 5, "atom2Index": 0, "type": 1}
+        {"atom1Index": 2, "atom2Index": 3, "type": 1},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1}
       ]
     }
   },
-  {
-    "name": "乳酸",
-    "formula": "CH3CH(OH)COOH",
-    "series": "基本分子",
-    "desc": "運動時の疲労物質や、ヨーグルトなどの乳製品に含まれる酸味成分。中心の炭素(C)は4つの異なる原子団（H、CH3、OH、COOH）と結合しており、不斉炭素原子となっています。",
-    "hint": "中心のCから、左にC(メチル基)、上にO(ヒドロキシ基)、右にC(カルボキシ基)を単結合で伸ばします。さらに右のCには上に=O、右に-OHを配置します。",
-    "target": {
-      "atoms": [
-        {"element": "C", "x": 400, "y": 300},
-        {"element": "C", "x": 358, "y": 300},
-        {"element": "O", "x": 400, "y": 258},
-        {"element": "C", "x": 442, "y": 300},
-        {"element": "O", "x": 442, "y": 258},
-        {"element": "O", "x": 484, "y": 300}
-      ],
-      "bonds": [
-        {"atom1Index": 0, "atom2Index": 1, "type": 1},
-        {"atom1Index": 0, "atom2Index": 2, "type": 1},
-        {"atom1Index": 0, "atom2Index": 3, "type": 1},
-        {"atom1Index": 3, "atom2Index": 4, "type": 2},
-        {"atom1Index": 3, "atom2Index": 5, "type": 1}
-      ]
-    }
-  },
-  {
-    "name": "プロペン",
-    "formula": "C3H6",
-    "series": "基本分子",
-    "desc": "最も単純なアルケン（二重結合を含む炭素化合物）の1つ。プラスチック（ポリプロピレン）の原料として広く用いられます。",
-    "hint": "3つの炭素(C)を繋ぎ、そのうち1箇所を「二重結合」にします。二重結合の端のCから120度方向に結合が広がります。",
-    "target": {
-      "atoms": [
-        {"element": "C", "x": 358, "y": 300},
-        {"element": "C", "x": 400, "y": 300},
-        {"element": "C", "x": 442, "y": 300}
-      ],
-      "bonds": [
-        {"atom1Index": 0, "atom2Index": 1, "type": 1},
-        {"atom1Index": 1, "atom2Index": 2, "type": 2}
-      ]
-    }
-  },
-  {
-    "name": "アセチレン",
-    "formula": "C2H2",
-    "series": "基本分子",
-    "desc": "三重結合を持つ最も単純なアルキン。酸素と混ぜて燃焼させると3000℃を超える高温（酸素アセチレン炎）になり、金属の溶接に使われます。",
-    "hint": "2つの炭素(C)を繋ぎ、「三重結合」に変更します。水素は軸上の直線方向（180度）に真っ直ぐ伸びます。",
-    "target": {
-      "atoms": [
-        {"element": "C", "x": 379, "y": 300},
-        {"element": "C", "x": 421, "y": 300}
-      ],
-      "bonds": [
-        {"atom1Index": 0, "atom2Index": 1, "type": 3}
-      ]
-    }
-  },
-  {
-    "name": "アラニン",
-    "formula": "CH3CH(NH2)COOH",
-    "series": "基本分子",
-    "desc": "タンパク質を構成するアミノ酸の1つ。中心の炭素は4つの異なるグループ（H、メチル基、アミノ基、カルボキシ基）と結合した不斉炭素です。",
-    "hint": "窒素(N)が初登場！中心のCから左にC、上にN、右にCを単結合で繋ぎます。右のCにカルボキシ基（=O と -OH）を作れば完成です。",
-    "target": {
-      "atoms": [
-        {"element": "C", "x": 400, "y": 300},
-        {"element": "C", "x": 358, "y": 300},
-        {"element": "N", "x": 400, "y": 258},
-        {"element": "C", "x": 442, "y": 300},
-        {"element": "O", "x": 442, "y": 258},
-        {"element": "O", "x": 484, "y": 300}
-      ],
-      "bonds": [
-        {"atom1Index": 0, "atom2Index": 1, "type": 1},
-        {"atom1Index": 0, "atom2Index": 2, "type": 1},
-        {"atom1Index": 0, "atom2Index": 3, "type": 1},
-        {"atom1Index": 3, "atom2Index": 4, "type": 2},
-        {"atom1Index": 3, "atom2Index": 5, "type": 1}
-      ]
-    }
-  },
-  {
-    "name": "アセトニトリル",
-    "formula": "CH3CN",
-    "series": "基本分子",
-    "desc": "アセトニトリルは、極性溶媒や化学合成の原料として重要な有機化合物。炭素と窒素の間に三重結合(C≡N)を持っています。",
-    "hint": "C - C - N の順に繋ぎ、C-Nの結合を「三重結合」にトグルします。三重結合により、分子全体が一直線に並びます。",
-    "target": {
-      "atoms": [
-        {"element": "C", "x": 358, "y": 300},
-        {"element": "C", "x": 400, "y": 300},
-        {"element": "N", "x": 442, "y": 300}
-      ],
-      "bonds": [
-        {"atom1Index": 0, "atom2Index": 1, "type": 1},
-        {"atom1Index": 1, "atom2Index": 2, "type": 3}
-      ]
-    }
-  },
+
+  // --- シリーズ: 飽和炭化水素 (アルカン・異性体) ---
   {
     "name": "エタン",
     "formula": "C2H6",
@@ -251,7 +220,7 @@
     "name": "ペンタン",
     "formula": "C5H12",
     "series": "飽和炭化水素",
-    "desc: ": "炭素数5の直鎖アルカンです。",
+    "desc": "炭素数5の直鎖アルカンです。",
     "hint": "5つの炭素(C)を横一列に単結合で繋ぎます。",
     "target": {
       "atoms": [
@@ -344,7 +313,7 @@
     "formula": "C5H12",
     "series": "飽和炭化水素",
     "desc": "ペンタンの構造異性体（イソペンタン）です。",
-    "hint": "炭素4つの直鎖を作り、左から2番目の炭素から上にメチル基（炭素1つ）を伸ばします。",
+    "hint": "炭素4つの直鎖を作り、左から2番目の炭素から上にメチル基を伸ばします。",
     "target": {
       "atoms": [
         {"element": "C", "x": 358, "y": 300},
@@ -611,7 +580,7 @@
   },
   {
     "name": "2,4-ジメチルペンタン",
-    "formula: ": "C7H16",
+    "formula": "C7H16",
     "series": "飽和炭化水素",
     "desc": "ヘプタンの構造異性体の1つです。",
     "hint": "炭素5つの直鎖を作り、左から2番目と4番目の炭素からそれぞれ上にメチル基を伸ばします。",
@@ -684,6 +653,539 @@
         {"atom1Index": 1, "atom2Index": 4, "type": 1},
         {"atom1Index": 1, "atom2Index": 5, "type": 1},
         {"atom1Index": 2, "atom2Index": 6, "type": 1}
+      ]
+    }
+  },
+
+  // --- シリーズ: 有名な慣用名（芳香族） ---
+  {
+    "name": "トルエン",
+    "formula": "C6H5CH3",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環にメチル基が1つ結合した芳香族炭化水素。染料や溶剤として広く使用されます。",
+    "hint": "ベンゼン環モジュールを置き、その炭素の1つに炭素(C)を単結合で繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "o-キシレン",
+    "formula": "C6H4(CH3)2",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環の隣り合う2つの炭素(オルト位)にメチル基が結合したキシレンの異性体です。",
+    "hint": "ベンゼン環を配置し、隣り合う2つの炭素にそれぞれ炭素(C)を単結合で伸ばします。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "C", "x": 441, "y": 371.01}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 1, "atom2Index": 7, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "m-キシレン",
+    "formula": "C6H4(CH3)2",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環の1つ置いた位置(メタ位)に2つのメチル基が結合したキシレンの異性体です。",
+    "hint": "ベンゼン環を配置し、1つ飛ばしの位置にある2つの炭素にそれぞれ炭素(C)を単結合で伸ばします。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "C", "x": 359, "y": 371.01}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 2, "atom2Index": 7, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "p-キシレン",
+    "formula": "C6H4(CH3)2",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環の向かい合う位置(パラ位)に2つのメチル基が結合したキシレンの異性体です。",
+    "hint": "ベンゼン環を配置し、対角線上に向かい合う位置の炭素にそれぞれ炭素(C)を単結合で伸ばします。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "C", "x": 318, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 3, "atom2Index": 7, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "フェノール",
+    "formula": "C6H5OH",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環にヒドロキシ基(-OH)が直接結合した芳香族化合物。特有の消毒臭があり弱酸性を示します。",
+    "hint": "ベンゼン環に酸素(O)を1つ単結合で繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "O", "x": 482, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "o-クレゾール",
+    "formula": "C6H4(OH)(CH3)",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環にメチル基とヒドロキシ基が隣り合う位置(オルト位)に結合した化合物です。",
+    "hint": "ベンゼン環を配置し、隣り合う炭素に炭素(C)と酸素(O)をそれぞれ単結合で伸ばします。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 441, "y": 371.01}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 1, "atom2Index": 7, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "m-クレゾール",
+    "formula": "C6H4(OH)(CH3)",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環にメチル基とヒドロキシ基が1つ置いた位置(メタ位)に結合した化合物です。",
+    "hint": "ベンゼン環を配置し、1つ飛ばしの炭素に炭素(C)と酸素(O)をそれぞれ単結合で伸ばします。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 359, "y": 371.01}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 2, "atom2Index": 7, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "p-クレゾール",
+    "formula": "C6H4(OH)(CH3)",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環にメチル基とヒドロキシ基が向かい合う位置(パラ位)に結合した化合物です。",
+    "hint": "ベンゼン環を配置し、対角線上に向かい合う位置の炭素に炭素(C)と酸素(O)をそれぞれ単結合で伸ばします。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 318, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 3, "atom2Index": 7, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "安息香酸",
+    "formula": "C6H5COOH",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "最も単純な芳香族カルボン酸。防腐剤や医薬品の原料として古くから用いられています。",
+    "hint": "ベンゼン環にカルボキシ基(-COOH)を繋ぎます。Cには=Oと-OHが付きます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 482, "y": 240},
+        {"element": "O", "x": 524, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 6, "atom2Index": 7, "type": 2},
+        {"atom1Index": 6, "atom2Index": 8, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "ベンジルアルコール",
+    "formula": "C6H5CH2OH",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "特有の芳香を持つアルコール。溶剤や化粧品の保存料、香料として用いられます。",
+    "hint": "ベンゼン環に炭素(C)を繋ぎ、さらにその先に酸素(O)を繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 524, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 6, "atom2Index": 7, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "サリチル酸",
+    "formula": "o-C6H4(OH)(COOH)",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "消炎鎮痛作用を持つ医薬品の原料。ベンゼン環にカルボキシ基とヒドロキシ基がオルト位で隣り合っています。",
+    "hint": "ベンゼン環の隣り合う位置に、カルボキシ基(-COOH)とヒドロキシ基(-OH)を繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 482, "y": 240},
+        {"element": "O", "x": 524, "y": 300},
+        {"element": "O", "x": 441, "y": 371.01}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 6, "atom2Index": 7, "type": 2},
+        {"atom1Index": 6, "atom2Index": 8, "type": 1},
+        {"atom1Index": 1, "atom2Index": 9, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "サリチル酸メチル",
+    "formula": "o-C6H4(OH)(COOCH3)",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "消炎鎮痛剤(シップ薬)の主成分で、特有のすっとする強い香りを持つ液体です。",
+    "hint": "サリチル酸のエステルです。カルボキシ基の-OHの水素の代わりにメチル基(-CH3)が結合します。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 482, "y": 240},
+        {"element": "O", "x": 524, "y": 300},
+        {"element": "C", "x": 566, "y": 300},
+        {"element": "O", "x": 441, "y": 371.01}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 6, "atom2Index": 7, "type": 2},
+        {"atom1Index": 6, "atom2Index": 8, "type": 1},
+        {"atom1Index": 8, "atom2Index": 9, "type": 1},
+        {"atom1Index": 1, "atom2Index": 10, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "アセチルサリチル酸",
+    "formula": "o-C6H4(OCOCH3)(COOH)",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "代表的な解熱鎮痛薬「アスピリン」の主成分。サリチル酸のヒドロキシ基をアセチル化した構造です。",
+    "hint": "サリチル酸の隣接する-OHが-O-CO-CH3(アセチルオキシ基)に変わります。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "C", "x": 482, "y": 300},
+        {"element": "O", "x": 482, "y": 240},
+        {"element": "O", "x": 524, "y": 300},
+        {"element": "O", "x": 441, "y": 371.01},
+        {"element": "C", "x": 482, "y": 395},
+        {"element": "O", "x": 524, "y": 395},
+        {"element": "C", "x": 482, "y": 437}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 6, "atom2Index": 7, "type": 2},
+        {"atom1Index": 6, "atom2Index": 8, "type": 1},
+        {"atom1Index": 1, "atom2Index": 9, "type": 1},
+        {"atom1Index": 9, "atom2Index": 10, "type": 1},
+        {"atom1Index": 10, "atom2Index": 11, "type": 2},
+        {"atom1Index": 10, "atom2Index": 12, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "アニリン",
+    "formula": "C6H5NH2",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環にアミノ基(-NH2)が結合したアミン。医薬品や合成染料の最も重要な原料の1つです。",
+    "hint": "ベンゼン環に窒素(N)を1つ単結合で繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "N", "x": 482, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "ニトロベンゼン",
+    "formula": "C6H5NO2",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "特有の杏仁豆腐のような甘い芳香を持つ薄黄色の有毒な液体。アニリンの合成などに使用されます。",
+    "hint": "ベンゼン環にニトロ基(-NO2)を繋ぎます。Nに=Oが1つ、-Oが1つ繋がります。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "N", "x": 482, "y": 300},
+        {"element": "O", "x": 524, "y": 275},
+        {"element": "O", "x": 524, "y": 325}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 6, "atom2Index": 7, "type": 2},
+        {"atom1Index": 6, "atom2Index": 8, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "ベンゼンスルホン酸",
+    "formula": "C6H5SO3H",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環に強酸性のスルホ基(-SO3H)が結合した水溶性の高い結晶性化合物です。",
+    "hint": "ベンゼン環に硫黄(S)を繋ぎ、そのSに2つの=Oと1つの-OHを単結合で繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "S", "x": 482, "y": 300},
+        {"element": "O", "x": 482, "y": 240},
+        {"element": "O", "x": 482, "y": 360},
+        {"element": "O", "x": 524, "y": 300}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 6, "atom2Index": 7, "type": 2},
+        {"atom1Index": 6, "atom2Index": 8, "type": 2},
+        {"atom1Index": 6, "atom2Index": 9, "type": 1}
+      ]
+    }
+  },
+  {
+    "name": "ピクリン酸",
+    "formula": "2,4,6-C6H2(OH)(NO2)3",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "フェノールのオルト位2箇所とパラ位にニトロ基が結合した、非常に爆発性の高い黄色の強酸性物質です。",
+    "hint": "フェノールのヒドロキシ基(-OH)の両隣(オルト位)と向かい側(パラ位)にニトロ基(-NO2)を繋ぎます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "C", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36},
+        {"element": "O", "x": 482, "y": 300},
+        {"element": "N", "x": 441, "y": 371.01},
+        {"element": "O", "x": 483, "y": 396},
+        {"element": "O", "x": 441, "y": 413},
+        {"element": "N", "x": 318, "y": 300},
+        {"element": "O", "x": 276, "y": 275},
+        {"element": "O", "x": 276, "y": 325},
+        {"element": "N", "x": 441, "y": 228.99},
+        {"element": "O", "x": 483, "y": 203},
+        {"element": "O", "x": 441, "y": 186}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1},
+        {"atom1Index": 0, "atom2Index": 6, "type": 1},
+        {"atom1Index": 1, "atom2Index": 7, "type": 1},
+        {"atom1Index": 7, "atom2Index": 8, "type": 2},
+        {"atom1Index": 7, "atom2Index": 9, "type": 1},
+        {"atom1Index": 3, "atom2Index": 10, "type": 1},
+        {"atom1Index": 10, "atom2Index": 11, "type": 2},
+        {"atom1Index": 10, "atom2Index": 12, "type": 1},
+        {"atom1Index": 5, "atom2Index": 13, "type": 1},
+        {"atom1Index": 13, "atom2Index": 14, "type": 2},
+        {"atom1Index": 13, "atom2Index": 15, "type": 1}
       ]
     }
   }
