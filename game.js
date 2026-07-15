@@ -761,7 +761,8 @@ class Game {
             hitLine.setAttribute('y1', sy);
             hitLine.setAttribute('x2', ex);
             hitLine.setAttribute('y2', ey);
-            hitLine.setAttribute('stroke', 'transparent'); // 透明
+            hitLine.setAttribute('stroke', '#ffffff');
+            hitLine.setAttribute('stroke-opacity', '0'); // イベントを検知する透明設定
             hitLine.setAttribute('stroke-width', '16');    // 広いクリック判定範囲
             hitLine.style.cursor = 'pointer';
             hitLine.setAttribute('class', 'svg-bond-hitbox');
@@ -859,7 +860,7 @@ class Game {
         } else {
             // シングルクリックで結合次数のトグル (1 -> 2 -> 3 -> 1)
             this.saveState();
-            bond.type = (bond.type % 3) + 1;
+            bond.type = (parseInt(bond.type) % 3) + 1;
             this.updateDrawing();
         }
     }
