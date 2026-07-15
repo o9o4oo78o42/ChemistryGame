@@ -1307,7 +1307,7 @@ class Game {
         
         this.verifyResult.classList.remove('hidden');
         this.verifyResult.className = "result-message animate-pulse";
-        this.verifyResult.textContent = "讒矩�蛻､螳壻ｸｭ...";
+        this.verifyResult.textContent = "判定中...";
         
         // 蟆代＠驕�ｻｶ繧貞�繧後※蛻､螳夲ｼ医ご繝ｼ繝�逧�ｼ泌���
         setTimeout(() => {
@@ -1315,7 +1315,7 @@ class Game {
             const isStructureCorrect = verifyMolecule(this.userMolecule, targetMolecule);
             if (!isStructureCorrect) {
                 this.verifyResult.className = "result-message error";
-                this.verifyResult.textContent = "荳堺ｸ閾ｴ縺ｧ縺吶らｵ仙粋縺ｮ謨ｰ繧�ｨｮ鬘槭∫ｹ九′縺｣縺ｦ縺�ｋ蜴溷ｭ舌�鬆�分繧堤｢ｺ隱阪＠縺ｦ縺上□縺輔＞縲�";
+                this.verifyResult.textContent = "不一致です。結合の数や種類、繋がっている原子の順番を確認してください。";
                 return;
             }
 
@@ -1338,14 +1338,14 @@ class Game {
 
                 if (asymmetricErrors.length > 0) {
                     this.verifyResult.className = "result-message error";
-                    this.verifyResult.textContent = "蛻�ｭ先ｧ矩�縺ｯ蜷医▲縺ｦ縺�∪縺吶′縲∽ｸ肴哩轤ｭ邏���*�峨�繝槭�繧ｯ謖�ｮ壹′豁｣縺励￥縺ゅｊ縺ｾ縺帙ｓ縲�n" + asymmetricErrors[0];
+                    this.verifyResult.textContent = "分子構造は合っていますが、不斉炭素（*）のマーク指定が正しくありません。\n" + asymmetricErrors[0];
                     return;
                 }
             }
 
             // 3. 縺吶∋縺ｦ蜷域�ｼ
             this.verifyResult.className = "result-message success";
-            this.verifyResult.textContent = "豁｣隗｣縺ｧ縺呻ｼ∵ｧ矩�縺翫ｈ縺ｳ荳肴哩轤ｭ邏�縺ｮ菴咲ｽｮ縺悟ｮ悟�縺ｫ荳閾ｴ縺励∪縺励◆��";
+            this.verifyResult.textContent = "正解です！構造および不斉炭素の位置が完全に一致しました！";
             
             // 蜍晏茜繝｢繝ｼ繝繝ｫ縺ｮ陦ｨ遉ｺ
             this.showWinModal(stage);
