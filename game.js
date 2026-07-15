@@ -1,686 +1,6 @@
 /**
  * Game Logic for Chem-Assembler
- * 逕ｻ髱｢縺ｮ謠冗判譖ｴ譁ｰ縲√う繝ｳ繧ｿ繝ｩ繧ｯ繧ｷ繝ｧ繝ｳ縲√せ繝��繧ｸ騾ｲ陦後√♀繧医�UI繧､繝吶Φ繝医ｒ蛻ｶconst STAGES = [
-    // --- 繧ｷ繝ｪ繝ｼ繧ｺ: 蝓ｺ譛ｬ蛻�ｭ� ---
-    {
-        name: "豌ｴ",
-        formula: "H2O",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "逕溷多縺ｫ荳榊庄谺�縺ｪ譛繧ょ渕譛ｬ逧�↑蛹門粋迚ｩ縺ｧ縺吶る�邏�蜴溷ｭ�(O)縺ｫ2縺､縺ｮ豌ｴ邏�蜴溷ｭ�(H)縺檎ｵ仙粋縺励※縺�∪縺吶�",
-        hint: "驟ｸ邏�(O)繧�1縺､驟咲ｽｮ縺吶ｋ縺�縺代〒縲∬�蜍慕噪縺ｫ2縺､縺ｮ豌ｴ邏�(H)縺瑚｣懷ｮ後＆繧後∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            m.addAtom('O', 400, 300);
-            return m;
-        }
-    },
-    {
-        name: "莠碁�蛹也く邏�",
-        formula: "CO2",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "貂ｩ證門喧繧ｬ繧ｹ縺ｨ縺励※繧ら衍繧峨ｌ繧狗┌濶ｲ辟｡閾ｭ縺ｮ豌嶺ｽ薙らく邏�(C)繧剃ｸｭ蠢�↓縲∽ｸ｡蛛ｴ縺ｫ驟ｸ邏�(O)縺後◎繧後◇繧御ｺ碁㍾邨仙粋縺ｧ邨仙粋縺励※縺�∪縺吶�",
-        hint: "C繧剃ｸｭ蠢�↓縲∝ｷｦ蜿ｳ縺ｮO縺ｸ縲御ｺ碁㍾邨仙粋縲阪ｒ郢九℃縺ｾ縺励ｇ縺��",
-        createTarget: () => {
-            const m = new Molecule();
-            const c = m.addAtom('C', 400, 300);
-            const o1 = m.addAtom('O', 320, 300);
-            const o2 = m.addAtom('O', 480, 300);
-            m.addBond(c.id, o1.id, 2);
-            m.addBond(c.id, o2.id, 2);
-            return m;
-        }
-    },
-    {
-        name: "繧ｨ繧ｿ繝弱�繝ｫ",
-        formula: "CH3CH2OH",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "縺企�縺ｮ繧｢繝ｫ繧ｳ繝ｼ繝ｫ謌仙�縺ｧ縺ゅｊ縲∵ｶ域ｯ呈ｶｲ縺ｨ縺励※繧ゆｽｿ繧上ｌ縺ｾ縺吶�2縺､縺ｮ轤ｭ邏�(C)縺檎ｹ九′繧翫√◎縺ｮ遶ｯ縺ｫ繝偵ラ繝ｭ繧ｭ繧ｷ蝓ｺ(-OH)縺檎ｵ仙粋縺励※縺�∪縺吶�",
-        hint: "C - C - O 縺ｮ鬆�↓蜊倡ｵ仙粋縺ｧ郢九℃縺ｾ縺励ｇ縺��縺ｯ閾ｪ蜍輔〒蜈･繧翫∪縺吶ょｮ倩�蝓ｺ繝代Ξ繝�ヨ縺ｮ縲�-OH縲阪ｒ菴ｿ縺�％縺ｨ繧ゅ〒縺阪∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 360, 300);
-            const c2 = m.addAtom('C', 440, 300);
-            const o = m.addAtom('O', 520, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, o.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "驟｢驟ｸ",
-        formula: "CH3COOH",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "鬟滄�縺ｫ蜷ｫ縺ｾ繧後ｋ驟ｸ蜻ｳ謌仙�縲らく邏�(C)縺ｮ髫｣縺ｮ轤ｭ邏�縺ｫ縲∽ｺ碁㍾邨仙粋縺ｮ驟ｸ邏�(=O)縺ｨ蜊倡ｵ仙粋縺ｮ繝偵ラ繝ｭ繧ｭ繧ｷ蝓ｺ(-OH)縺檎ｹ九′縺｣縺ｦ縺�∪縺吶�",
-        hint: "繧ｫ繝ｫ繝懊く繧ｷ蝓ｺ(-COOH)繧堤く邏�縺ｫ郢九＄縺九，-C繧堤ｹ九＞縺�蠕後∝�遶ｯ縺ｮC縺ｫ=O縺ｨ-OH繧呈焔蜍輔〒驟咲ｽｮ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 360, 300);
-            const c2 = m.addAtom('C', 440, 300);
-            const o1 = m.addAtom('O', 440, 220); // =O
-            const o2 = m.addAtom('O', 520, 300); // -OH
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, o1.id, 2);
-            m.addBond(c2.id, o2.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繝吶Φ繧ｼ繝ｳ",
-        formula: "C6H6",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "莉｣陦ｨ逧�↑闃ｳ鬥呎酪蛹門粋迚ｩ縲�6縺､縺ｮ轤ｭ邏�(C)縺悟�隗貞ｽ｢繧貞ｽ｢謌舌＠縲∝腰邨仙粋縺ｨ莠碁㍾邨仙粋縺御ｺ､莠偵↓驟咲ｽｮ�亥�魑ｴ�峨＠縺ｦ縺�∪縺吶�",
-        hint: "縲後�繝ｳ繧ｼ繝ｳ迺ｰ縲阪Δ繧ｸ繝･繝ｼ繝ｫ繧剃ｽｿ縺｣縺ｦ荳逋ｺ驟咲ｽｮ縺吶ｋ縺ｨ邁｡蜊倥〒縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const R = 40;
-            const cx = 400, cy = 300;
-            const cIds = [];
-            for (let i = 0; i < 6; i++) {
-                const ang = (i * Math.PI) / 3;
-                const c = m.addAtom('C', cx + R * Math.cos(ang), cy + R * Math.sin(ang));
-                cIds.push(c.id);
-            }
-            for (let i = 0; i < 6; i++) {
-                const next = (i + 1) % 6;
-                const bType = i % 2 === 0 ? 2 : 1;
-                m.addBond(cIds[i], cIds[next], bType);
-            }
-            return m;
-        }
-    },
-    {
-        name: "荵ｳ驟ｸ",
-        formula: "CH3CH(OH)COOH",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "驕句虚譎ゅ�逍ｲ蜉ｴ迚ｩ雉ｪ繧�√Κ繝ｼ繧ｰ繝ｫ繝医↑縺ｩ縺ｮ荵ｳ陬ｽ蜩√↓蜷ｫ縺ｾ繧後ｋ驟ｸ蜻ｳ謌仙�縲ゆｸｭ蠢��轤ｭ邏�(C)縺ｯ4縺､縺ｮ逡ｰ縺ｪ繧句次蟄仙屮��縲，H3縲＾H縲，OOH�峨→邨仙粋縺励※縺翫ｊ縲∽ｸ肴哩轤ｭ邏�蜴溷ｭ舌→縺ｪ縺｣縺ｦ縺�∪縺吶�",
-        hint: "荳ｭ蠢��C縺九ｉ縲∝ｷｦ縺ｫC(繝｡繝√Ν蝓ｺ)縲∽ｸ翫↓O(繝偵ラ繝ｭ繧ｭ繧ｷ蝓ｺ)縲∝承縺ｫC(繧ｫ繝ｫ繝懊く繧ｷ蝓ｺ)繧貞腰邨仙粋縺ｧ莨ｸ縺ｰ縺励∪縺吶ゅ＆繧峨↓蜿ｳ縺ｮC縺ｫ縺ｯ荳翫↓=O縲∝承縺ｫ-OH繧帝�鄂ｮ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 400, 300); // 荳肴哩轤ｭ邏�
-            const c2 = m.addAtom('C', 358, 300); // 繝｡繝√Ν蝓ｺ
-            const o1 = m.addAtom('O', 400, 258); // 繝偵ラ繝ｭ繧ｭ繧ｷ蝓ｺ
-            const c3 = m.addAtom('C', 442, 300); // 繧ｫ繝ｫ繝懊く繧ｷ蝓ｺ轤ｭ邏�
-            const o2 = m.addAtom('O', 442, 258); // 繧ｫ繝ｫ繝懊く繧ｷ蝓ｺ =O
-            const o3 = m.addAtom('O', 484, 300); // 繧ｫ繝ｫ繝懊く繧ｷ蝓ｺ -OH
-
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c1.id, o1.id, 1);
-            m.addBond(c1.id, c3.id, 1);
-            m.addBond(c3.id, o2.id, 2);
-            m.addBond(c3.id, o3.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繝励Ο繝壹Φ",
-        formula: "C3H6",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "譛繧ょ腰邏斐↑繧｢繝ｫ繧ｱ繝ｳ�井ｺ碁㍾邨仙粋繧貞性繧轤ｭ邏�蛹門粋迚ｩ�峨�1縺､縲ゅ�繝ｩ繧ｹ繝√ャ繧ｯ�医�繝ｪ繝励Ο繝斐Ξ繝ｳ�峨�蜴滓侭縺ｨ縺励※蠎�￥逕ｨ縺�ｉ繧後∪縺吶�",
-        hint: "3縺､縺ｮ轤ｭ邏�(C)繧堤ｹ九℃縲√◎縺ｮ縺�■1邂�園繧偵御ｺ碁㍾邨仙粋縲阪↓縺励∪縺吶ゆｺ碁㍾邨仙粋縺ｮ遶ｯ縺ｮC縺九ｉ120蠎ｦ譁ｹ蜷代↓邨仙粋縺悟ｺ�′繧翫∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const c3 = m.addAtom('C', 442, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 2);
-            return m;
-        }
-    },
-    {
-        name: "繧｢繧ｻ繝√Ξ繝ｳ",
-        formula: "C2H2",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "荳蛾㍾邨仙粋繧呈戟縺､譛繧ょ腰邏斐↑繧｢繝ｫ繧ｭ繝ｳ縲る�邏�縺ｨ豺ｷ縺懊※辯�┥縺輔○繧九→3000邃�ｒ雜�∴繧矩ｫ俶ｸｩ�磯�邏�繧｢繧ｻ繝√Ξ繝ｳ轤趣ｼ峨↓縺ｪ繧翫�≡螻槭�貅ｶ謗･縺ｫ菴ｿ繧上ｌ縺ｾ縺吶�",
-        hint: "2縺､縺ｮ轤ｭ邏�(C)繧堤ｹ九℃縲√御ｸ蛾㍾邨仙粋縲阪↓螟画峩縺励∪縺吶よｰｴ邏�縺ｯ霆ｸ荳翫�逶ｴ邱壽婿蜷托ｼ�180蠎ｦ�峨↓逵溘▲逶ｴ縺蝉ｼｸ縺ｳ縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 379, 300);
-            const c2 = m.addAtom('C', 421, 300);
-            m.addBond(c1.id, c2.id, 3);
-            return m;
-        }
-    },
-    {
-        name: "繧｢繝ｩ繝九Φ",
-        formula: "CH3CH(NH2)COOH",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "繧ｿ繝ｳ繝代け雉ｪ繧呈ｧ区�縺吶ｋ繧｢繝溘ヮ驟ｸ縺ｮ1縺､縲ゆｸｭ蠢��轤ｭ邏�縺ｯ4縺､縺ｮ逡ｰ縺ｪ繧九げ繝ｫ繝ｼ繝暦ｼ�縲√Γ繝√Ν蝓ｺ縲√い繝溘ヮ蝓ｺ縲√き繝ｫ繝懊く繧ｷ蝓ｺ�峨→邨仙粋縺励◆荳肴哩轤ｭ邏�縺ｧ縺吶�",
-        hint: "遯堤ｴ�(N)縺悟�逋ｻ蝣ｴ�∽ｸｭ蠢��C縺九ｉ蟾ｦ縺ｫC縲∽ｸ翫↓N縲∝承縺ｫC繧貞腰邨仙粋縺ｧ郢九℃縺ｾ縺吶ょ承縺ｮC縺ｫ繧ｫ繝ｫ繝懊く繧ｷ蝓ｺ��=O 縺ｨ -OH�峨ｒ菴懊ｌ縺ｰ螳梧�縺ｧ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 400, 300); // 荳肴哩轤ｭ邏�
-            const c2 = m.addAtom('C', 358, 300); // 繝｡繝√Ν蝓ｺ
-            const n = m.addAtom('N', 400, 258);  // 繧｢繝溘ヮ蝓ｺ
-            const c3 = m.addAtom('C', 442, 300); // 繧ｫ繝ｫ繝懊く繧ｷ轤ｭ邏�
-            const o1 = m.addAtom('O', 442, 258); // =O
-            const o2 = m.addAtom('O', 484, 300); // -OH
-            
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c1.id, n.id, 1);
-            m.addBond(c1.id, c3.id, 1);
-            m.addBond(c3.id, o1.id, 2);
-            m.addBond(c3.id, o2.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繧｢繧ｻ繝医ル繝医Μ繝ｫ",
-        formula: "CH3CN",
-        series: "蝓ｺ譛ｬ蛻�ｭ�",
-        desc: "繧｢繧ｻ繝医ル繝医Μ繝ｫ縺ｯ縲∵･ｵ諤ｧ貅ｶ蟐偵ｄ蛹門ｭｦ蜷域� of 蜴滓侭縺ｨ縺励※驥崎ｦ√↑譛画ｩ溷喧蜷育黄縲らく邏�縺ｨ遯堤ｴ�縺ｮ髢薙↓荳蛾㍾邨仙粋(C竕｡N)繧呈戟縺｣縺ｦ縺�∪縺吶�",
-        hint: "C - C - N 縺ｮ鬆�↓郢九℃縲，-N縺ｮ邨仙粋繧偵御ｸ蛾㍾邨仙粋縲阪↓繝医げ繝ｫ縺励∪縺吶ゆｸ蛾㍾邨仙粋縺ｫ繧医ｊ縲∝�蟄仙�菴薙′荳逶ｴ邱壹↓荳ｦ縺ｳ縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const n = m.addAtom('N', 442, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, n.id, 3);
-            return m;
-        }
-    },
-
-    // --- 繧ｷ繝ｪ繝ｼ繧ｺ: 鬟ｽ蜥檎く蛹匁ｰｴ邏� (繧｢繝ｫ繧ｫ繝ｳ繝ｻ逡ｰ諤ｧ菴�) ---
-    {
-        name: "繧ｨ繧ｿ繝ｳ",
-        formula: "C2H6",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "譛繧ょ腰邏斐↑轤ｭ邏�-轤ｭ邏�蜊倡ｵ仙粋繧呈戟縺､繧｢繝ｫ繧ｫ繝ｳ縺ｧ縺吶�",
-        hint: "轤ｭ邏�(C)繧�2縺､蜊倡ｵ仙粋縺ｧ郢九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 379, 300);
-            const c2 = m.addAtom('C', 421, 300);
-            m.addBond(c1.id, c2.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繝励Ο繝代Φ",
-        formula: "C3H8",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "螳ｶ蠎ｭ逕ｨ縺ｮLP繧ｬ繧ｹ縺ｮ荳ｻ謌仙�縺ｨ縺励※遏･繧峨ｌ繧狗く邏�謨ｰ3縺ｮ繧｢繝ｫ繧ｫ繝ｳ縺ｧ縺吶�",
-        hint: "3縺､縺ｮ轤ｭ邏�(C)繧呈ｨｪ縺ｫ蜊倡ｵ仙粋縺ｧ郢九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const c3 = m.addAtom('C', 442, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繝悶ち繝ｳ",
-        formula: "C4H10",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝ｩ繧､繧ｿ繝ｼ縺ｮ辯�侭縺ｪ縺ｩ縺ｫ菴ｿ繧上ｌ繧狗く邏�謨ｰ4縺ｮ逶ｴ骼悶い繝ｫ繧ｫ繝ｳ縺ｧ縺吶�",
-        hint: "4縺､縺ｮ轤ｭ邏�(C)繧呈ｨｪ荳蛻励↓蜊倡ｵ仙粋縺ｧ郢九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 337, 300);
-            const c2 = m.addAtom('C', 379, 300);
-            const c3 = m.addAtom('C', 421, 300);
-            const c4 = m.addAtom('C', 463, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繝壹Φ繧ｿ繝ｳ",
-        formula: "C5H12",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "轤ｭ邏�謨ｰ5縺ｮ逶ｴ骼悶い繝ｫ繧ｫ繝ｳ縺ｧ縺吶�",
-        hint: "5縺､縺ｮ轤ｭ邏�(C)繧呈ｨｪ荳蛻励↓蜊倡ｵ仙粋縺ｧ郢九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300);
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繝倥く繧ｵ繝ｳ",
-        formula: "C6H14",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "轤ｭ邏�謨ｰ6縺ｮ逶ｴ骼悶い繝ｫ繧ｫ繝ｳ縺ｧ縺吶よｺｶ蜑､縺ｪ縺ｩ縺ｫ繧医￥菴ｿ繧上ｌ縺ｾ縺吶�",
-        hint: "6縺､縺ｮ轤ｭ邏�(C)繧呈ｨｪ荳蛻励↓蜊倡ｵ仙粋縺ｧ郢九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 295, 300);
-            const c2 = m.addAtom('C', 337, 300);
-            const c3 = m.addAtom('C', 379, 300);
-            const c4 = m.addAtom('C', 421, 300);
-            const c5 = m.addAtom('C', 463, 300);
-            const c6 = m.addAtom('C', 505, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c5.id, c6.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繝倥�繧ｿ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "轤ｭ邏�謨ｰ7縺ｮ逶ｴ骼悶い繝ｫ繧ｫ繝ｳ縺ｧ縺吶�",
-        hint: "7縺､縺ｮ轤ｭ邏�(C)繧呈ｨｪ荳蛻励↓蜊倡ｵ仙粋縺ｧ郢九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 274, 300);
-            const c2 = m.addAtom('C', 316, 300);
-            const c3 = m.addAtom('C', 358, 300);
-            const c4 = m.addAtom('C', 400, 300);
-            const c5 = m.addAtom('C', 442, 300);
-            const c6 = m.addAtom('C', 484, 300);
-            const c7 = m.addAtom('C', 526, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c5.id, c6.id, 1);
-            m.addBond(c6.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2-繝｡繝√Ν繝励Ο繝代Φ",
-        formula: "C4H10",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝悶ち繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴難ｼ医う繧ｽ繝悶ち繝ｳ�峨〒縺吶�",
-        hint: "荳ｭ蠢��轤ｭ邏�(C)縺九ｉ3譛ｬ縺ｮ轤ｭ邏�譫昴ｒ謾ｾ蟆�憾��蟄暦ｼ峨↓莨ｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 400, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 442, 300);
-            const c4 = m.addAtom('C', 400, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c1.id, c3.id, 1);
-            m.addBond(c1.id, c4.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2-繝｡繝√Ν繝悶ち繝ｳ",
-        formula: "C5H12",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝壹Φ繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴難ｼ医う繧ｽ繝壹Φ繧ｿ繝ｳ�峨〒縺吶�",
-        hint: "轤ｭ邏�4縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ荳翫↓繝｡繝√Ν蝓ｺ�育く邏�1縺､�峨ｒ莨ｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const c3 = m.addAtom('C', 442, 300);
-            const c4 = m.addAtom('C', 484, 300);
-            const c5 = m.addAtom('C', 400, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c2.id, c5.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2,2-繧ｸ繝｡繝√Ν繝励Ο繝代Φ",
-        formula: "C5H12",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝壹Φ繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴難ｼ医ロ繧ｪ繝壹Φ繧ｿ繝ｳ�峨〒縺吶ょｯｾ遘ｰ諤ｧ縺ｮ鬮倥＞蜊∝ｭ玲ｧ矩�繧偵＠縺ｦ縺�∪縺吶�",
-        hint: "荳ｭ蠢��轤ｭ邏�(C)縺九ｉ荳贋ｸ句ｷｦ蜿ｳ縺ｮ4譁ｹ蜷代↓轤ｭ邏�繧貞腰邨仙粋縺ｧ郢九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 400, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 442, 300);
-            const c4 = m.addAtom('C', 400, 258);
-            const c5 = m.addAtom('C', 400, 342);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c1.id, c3.id, 1);
-            m.addBond(c1.id, c4.id, 1);
-            m.addBond(c1.id, c5.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2-繝｡繝√Ν繝壹Φ繧ｿ繝ｳ",
-        formula: "C6H14",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥く繧ｵ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�5縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ荳翫↓繝｡繝√Ν蝓ｺ繧剃ｼｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300);
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            const c6 = m.addAtom('C', 358, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c6.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "3-繝｡繝√Ν繝壹Φ繧ｿ繝ｳ",
-        formula: "C6H14",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥く繧ｵ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�5縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∽ｸｭ螟ｮ縺ｮ3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ荳翫↓繝｡繝√Ν蝓ｺ繧剃ｼｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300);
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            const c6 = m.addAtom('C', 400, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c3.id, c6.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2,2-繧ｸ繝｡繝√Ν繝悶ち繝ｳ",
-        formula: "C6H14",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥く繧ｵ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�4縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｮ轤ｭ邏�縺ｫ荳贋ｸ�2縺､縺ｮ繝｡繝√Ν蝓ｺ繧堤ｹ九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const c3 = m.addAtom('C', 442, 300);
-            const c4 = m.addAtom('C', 484, 300);
-            const c5 = m.addAtom('C', 400, 258);
-            const c6 = m.addAtom('C', 400, 342);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c2.id, c5.id, 1);
-            m.addBond(c2.id, c6.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2,3-繧ｸ繝｡繝√Ν繝悶ち繝ｳ",
-        formula: "C6H14",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥く繧ｵ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�4縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∽ｸｭ螟ｮ縺ｮ2縺､縺ｮ轤ｭ邏��亥ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｨ3逡ｪ逶ｮ�峨°繧峨◎繧後◇繧御ｸ翫↓繝｡繝√Ν蝓ｺ繧剃ｼｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const c3 = m.addAtom('C', 442, 300);
-            const c4 = m.addAtom('C', 484, 300);
-            const c5 = m.addAtom('C', 400, 258);
-            const c6 = m.addAtom('C', 442, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c2.id, c5.id, 1);
-            m.addBond(c3.id, c6.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2-繝｡繝√Ν繝倥く繧ｵ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�6縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ荳翫↓繝｡繝√Ν蝓ｺ繧剃ｼｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 295, 300);
-            const c2 = m.addAtom('C', 337, 300);
-            const c3 = m.addAtom('C', 379, 300);
-            const c4 = m.addAtom('C', 421, 300);
-            const c5 = m.addAtom('C', 463, 300);
-            const c6 = m.addAtom('C', 505, 300);
-            const c7 = m.addAtom('C', 337, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c5.id, c6.id, 1);
-            m.addBond(c2.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "3-繝｡繝√Ν繝倥く繧ｵ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶ゅ％縺ｮ蛻�ｭ舌�3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺御ｸ肴哩轤ｭ邏�縺ｫ縺ｪ繧翫∪縺吶�",
-        hint: "轤ｭ邏�6縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ荳翫↓繝｡繝√Ν蝓ｺ繧剃ｼｸ縺ｰ縺励∪縺吶ゅ％縺ｮ3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺御ｸ肴哩轤ｭ邏�縺ｧ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 295, 300);
-            const c2 = m.addAtom('C', 337, 300);
-            const c3 = m.addAtom('C', 379, 300); // 荳肴哩轤ｭ邏�
-            const c4 = m.addAtom('C', 421, 300);
-            const c5 = m.addAtom('C', 463, 300);
-            const c6 = m.addAtom('C', 505, 300);
-            const c7 = m.addAtom('C', 379, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c5.id, c6.id, 1);
-            m.addBond(c3.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2,2-繧ｸ繝｡繝√Ν繝壹Φ繧ｿ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�5縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｮ轤ｭ邏�縺ｫ荳贋ｸ�2縺､縺ｮ繝｡繝√Ν蝓ｺ繧堤ｹ九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300);
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            const c6 = m.addAtom('C', 358, 258);
-            const c7 = m.addAtom('C', 358, 342);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c2.id, c6.id, 1);
-            m.addBond(c2.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2,3-繧ｸ繝｡繝√Ν繝壹Φ繧ｿ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺御ｸ肴哩轤ｭ邏�縺ｫ縺ｪ繧翫∪縺吶�",
-        hint: "轤ｭ邏�5縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｨ3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ縺昴ｌ縺槭ｌ荳翫↓繝｡繝√Ν蝓ｺ繧剃ｼｸ縺ｰ縺励∪縺吶�3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺御ｸ肴哩轤ｭ邏�縺ｧ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300); // 荳肴哩轤ｭ邏�
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            const c6 = m.addAtom('C', 358, 258);
-            const c7 = m.addAtom('C', 400, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c2.id, c6.id, 1);
-            m.addBond(c3.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "3,3-繧ｸ繝｡繝√Ν繝壹Φ繧ｿ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�5縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∽ｸｭ螟ｮ縺ｮ3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺ｫ荳贋ｸ�2縺､縺ｮ繝｡繝√Ν蝓ｺ繧堤ｹ九℃縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300);
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            const c6 = m.addAtom('C', 400, 258);
-            const c7 = m.addAtom('C', 400, 342);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c3.id, c6.id, 1);
-            m.addBond(c3.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2,4-繧ｸ繝｡繝√Ν繝壹Φ繧ｿ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�5縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｨ4逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ縺昴ｌ縺槭ｌ荳翫↓繝｡繝√Ν蝓ｺ繧剃ｼｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300);
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            const c6 = m.addAtom('C', 358, 258);
-            const c7 = m.addAtom('C', 442, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c2.id, c6.id, 1);
-            m.addBond(c4.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "3-繧ｨ繝√Ν繝壹Φ繧ｿ繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�",
-        hint: "轤ｭ邏�5縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∽ｸｭ螟ｮ縺ｮ3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺九ｉ荳翫↓繧ｨ繝√Ν蝓ｺ�育く邏�2縺､縺ｮ骼�: -CH2-CH3�峨ｒ莨ｸ縺ｰ縺励∪縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 316, 300);
-            const c2 = m.addAtom('C', 358, 300);
-            const c3 = m.addAtom('C', 400, 300);
-            const c4 = m.addAtom('C', 442, 300);
-            const c5 = m.addAtom('C', 484, 300);
-            const c6 = m.addAtom('C', 400, 258);
-            const c7 = m.addAtom('C', 400, 216);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c4.id, c5.id, 1);
-            m.addBond(c3.id, c6.id, 1);
-            m.addBond(c6.id, c7.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "2,2,3-繝医Μ繝｡繝√Ν繝悶ち繝ｳ",
-        formula: "C7H16",
-        series: "鬟ｽ蜥檎く蛹匁ｰｴ邏�",
-        desc: "繝倥�繧ｿ繝ｳ縺ｮ讒矩�逡ｰ諤ｧ菴薙�1縺､縺ｧ縺吶�3逡ｪ逶ｮ縺ｮ轤ｭ邏�縺御ｸ肴哩轤ｭ邏�縺ｫ縺ｪ繧翫∪縺吶�",
-        hint: "轤ｭ邏�4縺､縺ｮ逶ｴ骼悶ｒ菴懊ｊ縲∝ｷｦ縺九ｉ2逡ｪ逶ｮ縺ｫ荳贋ｸ�2縺､縲�3逡ｪ逶ｮ縺ｫ荳翫↓1縺､縺ｮ繝｡繝√Ν蝓ｺ繧帝�鄂ｮ縺励∪縺吶�3逡ｪ逶ｮ縺ｮC縺御ｸ肴哩轤ｭ邏�縺ｧ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const c3 = m.addAtom('C', 442, 300); // 荳肴哩轤ｭ邏�
-            const c4 = m.addAtom('C', 484, 300);
-            const c5 = m.addAtom('C', 400, 258);
-            const c6 = m.addAtom('C', 400, 342);
-            const c7 = m.addAtom('C', 442, 258);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, c3.id, 1);
-            m.addBond(c3.id, c4.id, 1);
-            m.addBond(c2.id, c5.id, 1);
-            m.addBond(c2.id, c6.id, 1);
-            m.addBond(c3.id, c7.id, 1);
-            return m;
-        }
-    }
-];ｵ仙粋縲阪↓螟画峩縺励∪縺吶よｰｴ邏�縺ｯ霆ｸ荳翫�逶ｴ邱壽婿蜷托ｼ�180蠎ｦ�峨↓逵溘▲逶ｴ縺蝉ｼｸ縺ｳ縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 379, 300);
-            const c2 = m.addAtom('C', 421, 300);
-            m.addBond(c1.id, c2.id, 3);
-            return m;
-        }
-    },
-    {
-        name: "繧｢繝ｩ繝九Φ",
-        formula: "CH竄イH(NH竄�)COOH",
-        desc: "繧ｿ繝ｳ繝代け雉ｪ繧呈ｧ区�縺吶ｋ繧｢繝溘ヮ驟ｸ縺ｮ1縺､縲ゆｸｭ蠢��轤ｭ邏�縺ｯ4縺､縺ｮ逡ｰ縺ｪ繧九げ繝ｫ繝ｼ繝暦ｼ�縲√Γ繝√Ν蝓ｺ縲√い繝溘ヮ蝓ｺ縲√き繝ｫ繝懊く繧ｷ蝓ｺ�峨→邨仙粋縺励◆荳肴哩轤ｭ邏�縺ｧ縺吶�",
-        hint: "遯堤ｴ�(N)縺悟�逋ｻ蝣ｴ�∽ｸｭ蠢��C縺九ｉ蟾ｦ縺ｫC縲∽ｸ翫↓N縲∝承縺ｫC繧貞腰邨仙粋縺ｧ郢九℃縺ｾ縺吶ょ承縺ｮC縺ｫ繧ｫ繝ｫ繝懊く繧ｷ蝓ｺ��=O 縺ｨ -OH�峨ｒ菴懊ｌ縺ｰ螳梧�縺ｧ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 400, 300); // 荳肴哩轤ｭ邏�
-            const c2 = m.addAtom('C', 358, 300); // 繝｡繝√Ν蝓ｺ
-            const n = m.addAtom('N', 400, 258);  // 繧｢繝溘ヮ蝓ｺ
-            const c3 = m.addAtom('C', 442, 300); // 繧ｫ繝ｫ繝懊く繧ｷ轤ｭ邏�
-            const o1 = m.addAtom('O', 442, 258); // =O
-            const o2 = m.addAtom('O', 484, 300); // -OH
-            
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c1.id, n.id, 1);
-            m.addBond(c1.id, c3.id, 1);
-            m.addBond(c3.id, o1.id, 2);
-            m.addBond(c3.id, o2.id, 1);
-            return m;
-        }
-    },
-    {
-        name: "繧｢繧ｻ繝医ル繝医Μ繝ｫ",
-        formula: "CH竄イN",
-        desc: "繧｢繧ｻ繝医ル繝医Μ繝ｫ縺ｯ縲∵･ｵ諤ｧ貅ｶ蟐偵ｄ蛹門ｭｦ蜷域�縺ｮ蜴滓侭縺ｨ縺励※驥崎ｦ√↑譛画ｩ溷喧蜷育黄縲らく邏�縺ｨ遯堤ｴ�縺ｮ髢薙↓荳蛾㍾邨仙粋(C竕｡N)繧呈戟縺｣縺ｦ縺�∪縺吶�",
-        hint: "C - C - N 縺ｮ鬆�↓郢九℃縲，-N縺ｮ邨仙粋繧偵御ｸ蛾㍾邨仙粋縲阪↓繝医げ繝ｫ縺励∪縺吶ゆｸ蛾㍾邨仙粋縺ｫ繧医ｊ縲∝�蟄仙�菴薙′荳逶ｴ邱壹↓荳ｦ縺ｳ縺ｾ縺吶�",
-        createTarget: () => {
-            const m = new Molecule();
-            const c1 = m.addAtom('C', 358, 300);
-            const c2 = m.addAtom('C', 400, 300);
-            const n = m.addAtom('N', 442, 300);
-            m.addBond(c1.id, c2.id, 1);
-            m.addBond(c2.id, n.id, 3);
-            return m;
-        }
-    }
-];
+ * 逕ｻ髱｢縺ｮ謠冗判譖ｴ譁ｰ縲√う繝ｳ繧ｿ繝ｩ繧ｯ繧ｷ繝ｧ繝ｳ縲√せ繝��繧ｸ騾ｲ陦後√♀繧医�UI繧､繝吶Φ繝医ｒ蛻ｶlet STAGES = [];
 
 class Game {
     constructor() {
@@ -945,6 +265,28 @@ class Game {
         });
         this.updateDrawing();
         this.verifyResult.classList.add('hidden');
+    }
+
+    // JSONで定義された問題構造データからMoleculeオブジェクトを動的に生成する
+    createTargetFromData(stage) {
+        const m = new Molecule();
+        if (!stage || !stage.target) return m;
+        
+        const addedAtoms = [];
+        stage.target.atoms.forEach(atomData => {
+            const a = m.addAtom(atomData.element, atomData.x, atomData.y);
+            addedAtoms.push(a);
+        });
+        
+        stage.target.bonds.forEach(bondData => {
+            const atom1 = addedAtoms[bondData.atom1Index];
+            const atom2 = addedAtoms[bondData.atom2Index];
+            if (atom1 && atom2) {
+                m.addBond(atom1.id, atom2.id, bondData.type);
+            }
+        });
+        
+        return m;
     }
 
     loadStage(index) {
@@ -1481,11 +823,11 @@ class Game {
         
         const neighbors = this.userMolecule.getNeighbors(atomId);
         
-        // 1. 閾ｪ霄ｫ縺御ｺ碁㍾邨仙粋(2)縺倶ｸ蛾㍾邨仙粋(3)縺ｫ逶ｴ謗･郢九′縺｣縺ｦ縺�ｋ縺�
+        // 1. 閾ｪ霄ｫ縺御ｺ碁㍾邨仙粋(2)縺倶ｸ蛾㍾邨仙粋(3)縺ｫ逶ｴ謗･郢九′縺｣縺ｦ縺ｋ縺
         const hasSp2Sp = neighbors.some(n => n.type === 2 || n.type === 3);
         if (hasSp2Sp) return true;
         
-        // 2. 髫｣謗･縺吶ｋ驥榊次蟄舌�蜈医′郢九′縺｣縺ｦ縺�ｋ縺句�蟶ｰ謗｢邏｢
+        // 2. 髫｣謗･縺吶ｋ驥榊次蟄舌蜈医′郢九′縺｣縺ｦ縺ｋ縺句蟶ｰ謗｢邏｢
         for (let i = 0; i < neighbors.length; i++) {
             const nextAtom = neighbors[i].atom;
             if (nextAtom.element === 'H') continue;
@@ -1632,7 +974,7 @@ class Game {
         this.targetBonds.innerHTML = '';
         this.targetAtoms.innerHTML = '';
 
-        const targetMol = STAGES[this.currentStageIndex].createTarget();
+        const targetMol = this.createTargetFromData(STAGES[this.currentStageIndex]);
         const heavyAtoms = targetMol.atoms.filter(a => a.element !== 'H');
         if (heavyAtoms.length === 0) return;
 
@@ -1957,7 +1299,7 @@ class Game {
     // 迴ｾ蝨ｨ邨�∩遶九※繧峨ｌ縺ｦ縺�ｋ蛻�ｭ舌�讀懆ｨｼ
     verifyCurrentStructure() {
         const stage = STAGES[this.currentStageIndex];
-        const targetMolecule = stage.createTarget();
+        const targetMolecule = this.createTargetFromData(stage);
         
         this.verifyResult.classList.remove('hidden');
         this.verifyResult.className = "result-message animate-pulse";
@@ -2194,7 +1536,7 @@ class Game {
     // 豁｣隗｣繧ｿ繝ｼ繧ｲ繝�ヨ蛻�ｭ舌�螟ｧ縺阪＆縺ｫ繧ｭ繝｣繝ｳ繝舌せ繧定�蜍輔ヵ繧｣繝�ヨ縺輔○繧�
     fitCanvasToTarget() {
         const stage = STAGES[this.currentStageIndex];
-        const targetMolecule = stage.createTarget();
+        const targetMolecule = this.createTargetFromData(stage);
         
         const bounds = this.calculateTargetBounds(targetMolecule);
         const W = bounds.maxX - bounds.minX;
@@ -2250,12 +1592,27 @@ class Game {
                 default: return 1;
             }
         };
-        // 荳｡蜴溷ｭ舌�譛螟ｧ謇九�譛蟆丞､縲√°縺､迴ｾ螳溘�蜈ｱ譛臥ｵ仙粋縺ｮ譛螟ｧ谺｡謨ｰ縺ｧ縺ゅｋ 3 繧帝剞逡悟､縺ｨ縺吶ｋ
+        // 荳｡蜴溷ｭ舌譛€螟ｧ謇九譛€蟆丞€､縲√°縺､迴ｾ螳溘蜈ｱ譛臥ｵ仙粋縺ｮ譛€螟ｧ谺｡謨ｰ縺ｧ縺ゅｋ 3 繧帝剞逡悟€､縺ｨ縺吶ｋ
         return Math.min(getValency(element1), getValency(element2), 3);
     }
 }
 
-// 襍ｷ蜍�
-window.addEventListener('DOMContentLoaded', () => {
-    window.game = new Game();
+// 起動
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const response = await fetch('./stages.json');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        STAGES = await response.json();
+        window.game = new Game();
+    } catch (e) {
+        console.error('Failed to load stages.json:', e);
+        const resultDiv = document.getElementById('verify-result');
+        if (resultDiv) {
+            resultDiv.textContent = 'エラー: 問題データ(stages.json)のロードに失敗しました。ローカルサーバー(http://localhost:8080など)経由で起動してください。';
+            resultDiv.className = 'result-message error';
+            resultDiv.classList.remove('hidden');
+        }
+    }
 });
