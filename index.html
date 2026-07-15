@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=36">
+    <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
     <div id="app-container">
@@ -91,11 +91,19 @@
             <!-- 右パネル: ステージとお題情報 -->
             <section id="right-panel" class="glass-panel">
                 <h2>STAGE</h2>
-                <div class="stage-select-box">
-                    <label for="select-stage">問題を選択:</label>
-                    <select id="select-stage">
-                        <!-- 動的にJavaScriptで挿入 -->
-                    </select>
+                <div class="stage-select-box" style="display:flex; flex-direction:column; gap:8px;">
+                    <div>
+                        <label for="select-series">シリーズを選択:</label>
+                        <select id="select-series" style="width:100%; margin-top:4px;">
+                            <!-- 動的にJavaScriptで挿入 -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="select-stage">問題を選択:</label>
+                        <select id="select-stage" style="width:100%; margin-top:4px;">
+                            <!-- 動的にJavaScriptで挿入 -->
+                        </select>
+                    </div>
                 </div>
 
                 <div id="target-info" class="card">
@@ -174,7 +182,7 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=36"></script>
-    <script src="game.js?v=36"></script>
+    <script src="chemistry.js?v=37"></script>
+    <script src="game.js?v=37"></script>
 </body>
 </html>
