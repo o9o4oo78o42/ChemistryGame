@@ -699,17 +699,51 @@ class Game {
         // 2. 原子配置モード（ツールが 'select' かつ モジュール未選択、かつ ドラッグ移動中でない、かつ マウスの下に既存原子がない）
         else if (this.selectedTool === 'select' && !this.selectedModule && !this.isDragging) {
             const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
-            
+
             if (!clickedAtom && coords.isValid) {
-                // 最も近い親原子を探して、プレビューに繋ぐ結合線を描く
-                const nearest = this.findNearestAtom(coords.x, coords.y);
-                const parentAtom = nearest ? nearest.atom : null;
-                this.drawAtomPreview(this.selectedAtomType, coords.x, coords.y, parentAtom);
+                // 配置時に実際に形成される結合と同一の判定でプレビューを描く（プレビュー＝実結果を保証）
+                const bondTargets = this.getPlacementBondTargets(coords);
+                this.drawAtomPreview(this.selectedAtomType, coords.x, coords.y, bondTargets);
             } else {
                 // 有効な位置でない、または既存原子の上ならプレビューを消去
                 this.clearUIOverlay();
             }
         }
+    }
+
+    // 新しい原子を coords に配置したときに結合すべき既存原子のリストを返す。
+    // プレビューと実配置の両方がこの関数を使うことで「プレビュー＝実際にできる結合」を保証する。
+    // 複数の原子と隣接できる位置（格子の交点など）では可能な結合をすべて返す（環を閉じられる）。
+    getPlacementBondTargets(coords) {
+        if (!coords.isValid) return [];
+        const targets = [];
+        const seen = new Set();
+        const addTarget = (atom) => {
+            if (atom && !seen.has(atom.id)) {
+                seen.add(atom.id);
+                targets.push(atom);
+            }
+        };
+
+        // 1. スナップ元の原子（延長結合の場合は隣接判定距離を超えるため明示的に含める）
+        if (coords.snapAtom) addTarget(coords.snapAtom);
+
+        // 2. 配置点に直交方向で隣接し、空き価標のある重原子（autoConnectと同じ整列条件）
+        const threshold = GRID_SIZE + 2;
+        this.userMolecule.atoms.forEach(a => {
+            if (a.element === 'H' || seen.has(a.id)) return;
+            const dx = a.x - coords.x;
+            const dy = a.y - coords.y;
+            if (Math.sqrt(dx * dx + dy * dy) > threshold) return;
+            const isAligned = Math.abs(dy) < 2 || Math.abs(dx) < 2; // 水平または垂直に整列
+            if (!isAligned) return;
+            if (this.userMolecule.getFreeValency(a.id) < 1) return;
+            addTarget(a);
+        });
+
+        // 3. 新原子の価標を超える本数は結合しない（スナップ元を優先）
+        const maxBonds = VALENCIES[this.selectedAtomType] || 0;
+        return targets.slice(0, maxBonds);
     }
 
     handleMouseDown(e) {
@@ -776,13 +810,12 @@ class Game {
                     }
                 } else if (coords.isValid) {
                     this.saveState();
+                    // プレビューと同一の判定関数で結合相手を決める（プレビュー＝実結果を保証）
+                    const bondTargets = this.getPlacementBondTargets(coords);
                     const newAtom = this.userMolecule.addAtom(this.selectedAtomType, coords.x, coords.y);
-                    if (coords.snapAtom) {
-                        // 拡張結合でも確実に結合を張る（autoConnect の距離閾値を超える場合があるため）
-                        this.userMolecule.addBond(coords.snapAtom.id, newAtom.id, 1);
-                    } else {
-                        this.autoConnectAdjacentAtoms();
-                    }
+                    bondTargets.forEach(t => {
+                        this.userMolecule.addBond(t.id, newAtom.id, 1);
+                    });
                     this.updateDrawing();
                 }
             }
@@ -1124,12 +1157,12 @@ class Game {
         this.uiGroup.appendChild(line);
     }
 
-    // 原子配置プレビュー（半透明の丸と元素記号、および結合線の表示）
-    drawAtomPreview(element, x, y, parentAtom) {
+    // 原子配置プレビュー（半透明の丸と元素記号、および実際に形成される全結合線の表示）
+    drawAtomPreview(element, x, y, parentAtoms) {
         this.clearUIOverlay();
 
-        // 1. 親原子がある場合、そこからのプレビュー結合線を描画 (半透明)
-        if (parentAtom) {
+        // 1. 結合予定の全親原子から、プレビュー結合線を描画 (半透明)
+        (parentAtoms || []).forEach(parentAtom => {
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             const dx = x - parentAtom.x;
             const dy = y - parentAtom.y;
@@ -1148,7 +1181,7 @@ class Game {
                 line.setAttribute('stroke-dasharray', '3,3');
                 this.uiGroup.appendChild(line);
             }
-        }
+        });
 
         // 2. 半透明の原子円
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
