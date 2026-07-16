@@ -1340,5 +1340,30 @@
         {"atom1Index": 13, "atom2Index": 15, "type": 1}
       ]
     }
+  },
+  {
+    "name": "ピリジン",
+    "formula": "C5H5N",
+    "series": "有名な慣用名（芳香族）",
+    "desc": "ベンゼン環の炭素1つが窒素に置き換わった複素芳香環。特有の不快臭を持つ塩基性の液体です。",
+    "hint": "ベンゼン環モジュールを置き、環の炭素1つに窒素(N)を選択して重ねてクリックすると置換できます。",
+    "target": {
+      "atoms": [
+        {"element": "C", "x": 440, "y": 300},
+        {"element": "C", "x": 420, "y": 334.64},
+        {"element": "C", "x": 380, "y": 334.64},
+        {"element": "N", "x": 360, "y": 300},
+        {"element": "C", "x": 380, "y": 265.36},
+        {"element": "C", "x": 420, "y": 265.36}
+      ],
+      "bonds": [
+        {"atom1Index": 0, "atom2Index": 1, "type": 2},
+        {"atom1Index": 1, "atom2Index": 2, "type": 1},
+        {"atom1Index": 2, "atom2Index": 3, "type": 2},
+        {"atom1Index": 3, "atom2Index": 4, "type": 1},
+        {"atom1Index": 4, "atom2Index": 5, "type": 2},
+        {"atom1Index": 5, "atom2Index": 0, "type": 1}
+      ]
+    }
   }
 ]

@@ -743,31 +743,14 @@ class Game {
                         this.userMolecule.removeAtom(clickedAtom.id);
                         this.updateDrawing();
                     } else {
-                        // 異なる元素なら上書き置換チェック（価標制限）
-                        const relatedBonds = this.userMolecule.getBondsForAtom(clickedAtom.id);
-                        let currentValencySum = 0;
-                        relatedBonds.forEach(bond => {
-                            currentValencySum += (Number(bond.type) || 1);
-                        });
-                        
-                        const maxValency = VALENCIES[this.selectedAtomType] || 0;
-                        
-                        if (currentValencySum <= maxValency) {
-                            // 構造を破壊せずに置換可能な場合のみ許可
-                            this.saveState();
-                            clickedAtom.element = this.selectedAtomType;
-                            this.updateDrawing();
-                        } else {
-                            // 置換不可のメッセージを表示
-                            const resultDiv = document.getElementById('verify-result');
-                            if (resultDiv) {
-                                resultDiv.textContent = `結合数が多いため、${clickedAtom.element}を${this.selectedAtomType}に置換できません。（現在の結合数: ${currentValencySum}、${this.selectedAtomType}の最大結合数: ${maxValency}）`;
-                                resultDiv.className = 'result-message error';
-                                resultDiv.classList.remove('hidden');
-                                setTimeout(() => resultDiv.classList.add('hidden'), 3500);
-                            }
-                        }
+                        // 異なる元素なら上書き置換（価標チェック付き）
+                        this.trySwapElement(clickedAtom);
                     }
+                } else if (!clickedAtom.isLocked && clickedAtom.benzeneCenter &&
+                           clickedAtom.element !== this.selectedAtomType) {
+                    // ベンゼン環内の原子も異なる元素への置換は許可（ピリジン等の複素環を作れるように）
+                    // 同じ元素のクリックは従来通りドラッグ扱い（環原子のクリック削除はしない）
+                    this.trySwapElement(clickedAtom);
                 } else {
                     // ロックされた原子またはベンゼン環内の原子は移動ドラッグを開始
                     this.isDragging = true;
@@ -920,6 +903,33 @@ class Game {
         this.draggedAtom = null;
         this.bondStartAtom = null;
         this.updateDrawing();
+    }
+
+    // クリックされた原子を現在選択中の元素へ置換する（価標チェック付き）
+    trySwapElement(atom) {
+        const relatedBonds = this.userMolecule.getBondsForAtom(atom.id);
+        let currentValencySum = 0;
+        relatedBonds.forEach(bond => {
+            currentValencySum += (Number(bond.type) || 1);
+        });
+
+        const maxValency = VALENCIES[this.selectedAtomType] || 0;
+
+        if (currentValencySum <= maxValency) {
+            // 構造を破壊せずに置換可能な場合のみ許可
+            this.saveState();
+            atom.element = this.selectedAtomType;
+            this.updateDrawing();
+        } else {
+            // 置換不可のメッセージを表示
+            const resultDiv = document.getElementById('verify-result');
+            if (resultDiv) {
+                resultDiv.textContent = `結合数が多いため、${atom.element}を${this.selectedAtomType}に置換できません。（現在の結合数: ${currentValencySum}、${this.selectedAtomType}の最大結合数: ${maxValency}）`;
+                resultDiv.className = 'result-message error';
+                resultDiv.classList.remove('hidden');
+                setTimeout(() => resultDiv.classList.add('hidden'), 3500);
+            }
+        }
     }
 
     // 座標近くにある原子を取得（クリック判定半径は広めの28px）
