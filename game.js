@@ -741,7 +741,6 @@ class Game {
                         // 同じ元素なら削除（消しゴム代わり）。削除の影響は対象原子のみ（開発方針 5章）
                         this.saveState();
                         this.userMolecule.removeAtom(clickedAtom.id);
-                        this.autoLayoutBonds();
                         this.updateDrawing();
                     } else {
                         // 異なる元素なら上書き置換チェック（価標制限）
@@ -797,7 +796,6 @@ class Game {
                     } else {
                         this.autoConnectAdjacentAtoms();
                     }
-                    this.autoLayoutBonds();
                     this.updateDrawing();
                 }
             }
@@ -819,7 +817,6 @@ class Game {
             } else {
                 this.userMolecule.removeBond(clickedBond.atomId1, clickedBond.atomId2);
             }
-            this.autoLayoutBonds();
             this.updateDrawing();
         }
     }
@@ -865,7 +862,6 @@ class Game {
                 this.draggedAtom.x = coords.x;
                 this.draggedAtom.y = coords.y;
                 this.autoConnectAdjacentAtoms();
-                this.autoLayoutBonds();
                 this.updateDrawing();
             }
             this.dragStartPos = null;
@@ -923,7 +919,6 @@ class Game {
         this.isDragging = false;
         this.draggedAtom = null;
         this.bondStartAtom = null;
-        this.autoLayoutBonds();
         this.updateDrawing();
     }
 
@@ -1097,7 +1092,6 @@ class Game {
             }
         }
         this.autoConnectAdjacentAtoms();
-        this.autoLayoutBonds();
         this.updateDrawing();
     }
 
@@ -1165,57 +1159,10 @@ class Game {
         this.uiGroup.appendChild(text);
     }
 
-    // この原子が、分子内で二重結合または三重結合のいずれかを有する炭素の枝ツリーに属しているか判定
-    belongsToSp2SpTree(atomId, visited = new Set()) {
-        visited.add(atomId);
-        
-        const neighbors = this.userMolecule.getNeighbors(atomId);
-        
-        // 1. 自身が二重結合(2)か三重結合(3)に直接繋がっているか
-        const hasSp2Sp = neighbors.some(n => n.type === 2 || n.type === 3);
-        if (hasSp2Sp) return true;
-        
-        // 2. 隣接する重原子の先が繋がっているか再帰探索
-        for (let i = 0; i < neighbors.length; i++) {
-            const nextAtom = neighbors[i].atom;
-            if (nextAtom.element === 'H') continue;
-            if (!visited.has(nextAtom.id)) {
-                if (this.belongsToSp2SpTree(nextAtom.id, visited)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     clearUIOverlay() {
         this.uiGroup.innerHTML = '';
     }
 
-    // 二重結合 (C=C) は 120度方向、三重結合 (C≡C) は 180度直線方向、それ以外の sp3 重原子は直角グリッド上に自動アジャストする
-    autoLayoutBonds() {
-        // ドリフトバグを完全に防止するため、自動レイアウト調整は無効化しました。
-        // ハイブリッドスナップが配置時点で最適な角度に吸着するため、この処理は不要です。
-    }
-
-    // 特定の原子から先のサブツリー全体を平行移動させる再帰ヘルパー
-    translateSubtree(atomId, parentId, dx, dy, visited) {
-        visited.add(atomId);
-        const atom = this.userMolecule.atoms.find(a => a.id === atomId);
-        if (atom) {
-            atom.x += dx;
-            atom.y += dy;
-        }
-        
-        const neighbors = this.userMolecule.getNeighbors(atomId)
-            .filter(n => n.atom.id !== parentId && n.atom.element !== 'H');
-            
-        neighbors.forEach(n => {
-            if (!visited.has(n.atom.id)) {
-                this.translateSubtree(n.atom.id, atomId, dx, dy, visited);
-            }
-        });
-    }
 
     // 正解の例示（お手本）をレンダリングする
     renderTargetAnswer() {
@@ -1734,7 +1681,6 @@ class Game {
             if (found && nextType !== currentType) {
                 this.saveState();
                 bond.type = nextType;
-                this.autoLayoutBonds();
                 this.updateDrawing();
             }
         }
@@ -1809,21 +1755,12 @@ class Game {
     }
 
     // 接続している2つの原子の元素種から、化学的に取り得る最大結合次数 (1:単, 2:二重, 3:三重) を返す
+    // 価標は VALENCIES (chemistry.js) を唯一の情報源とする（開発方針 2章）
     getMaxBondType(element1, element2) {
-        const getValency = (elem) => {
-            switch(elem) {
-                case 'C': return 4;
-                case 'N': return 3;
-                case 'O': return 2;
-                case 'Cl': return 1;
-                case 'Br': return 1;
-                case 'S': return 6;
-                case 'H': return 1;
-                default: return 1;
-            }
-        };
+        const v1 = VALENCIES[element1] || 1;
+        const v2 = VALENCIES[element2] || 1;
         // 両原子の最大手の最小値、かつ現実の共有結合の最大次数である 3 を限界値とする
-        return Math.min(getValency(element1), getValency(element2), 3);
+        return Math.min(v1, v2, 3);
     }
 }
 

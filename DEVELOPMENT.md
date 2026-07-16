@@ -143,7 +143,7 @@
 - [x] **P4-1** ユーザー可視の文字化け修正（Delete確認ダイアログ）と、化けコメントの一掃（自動逆変換14行＋手動書き直し117行）— v64
 - [x] **P4-2** ヘルプと実装の整合 — 原子の右クリック削除を実装（右ドラッグはパンのまま、移動量3px以下で削除と判別）— v65
 - [x] **P4-3** `window.onerror` の alert 撤去（#verify-resultトースト＋console出力へ）— v66
-- [ ] **P4-4** デッドコード削除（`autoLayoutBonds` 空実装と呼び出し、`belongsToSp2SpTree`、`translateSubtree` 等）、`getMaxBondType` の `VALENCIES` 一元化
+- [x] **P4-4** デッドコード削除（`autoLayoutBonds` 空実装と呼び出し7箇所、`belongsToSp2SpTree`、`translateSubtree`）、`getMaxBondType` の `VALENCIES` 一元化 — v67
 - [ ] **P4-5** 背景グリッド 60px → `GRID_SIZE`(42px) に一致させる
 - [ ] **P4-6** 判定成功メッセージの文言を検証内容に合わせる
 - [ ] **P4-7** `renderTargetBond` の三重結合描画対応（お手本機能復活の前提）
