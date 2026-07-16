@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=67">
+    <link rel="stylesheet" href="style.css?v=68">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -25,7 +25,7 @@
         <!-- ヘッダー -->
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
-            <div class="version">v67</div>
+            <div class="version">v68</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -90,8 +90,9 @@
                     <svg id="chem-svg" width="100%" height="100%" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
                         <!-- グリッド背景パターン -->
                         <defs>
-                            <pattern id="grid-pattern" width="60" height="60" patternUnits="userSpaceOnUse">
-                                <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="1"/>
+                            <!-- グリッド間隔はスナップ格子 GRID_SIZE (game.js) = 42px と一致させること -->
+                            <pattern id="grid-pattern" width="42" height="42" patternUnits="userSpaceOnUse">
+                                <path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="1"/>
                             </pattern>
                         </defs>
                         <rect width="100%" height="100%" fill="url(#grid-pattern)" />
@@ -200,7 +201,7 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=67"></script>
-    <script src="game.js?v=67"></script>
+    <script src="chemistry.js?v=68"></script>
+    <script src="game.js?v=68"></script>
 </body>
 </html>

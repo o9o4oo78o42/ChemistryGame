@@ -144,7 +144,7 @@
 - [x] **P4-2** ヘルプと実装の整合 — 原子の右クリック削除を実装（右ドラッグはパンのまま、移動量3px以下で削除と判別）— v65
 - [x] **P4-3** `window.onerror` の alert 撤去（#verify-resultトースト＋console出力へ）— v66
 - [x] **P4-4** デッドコード削除（`autoLayoutBonds` 空実装と呼び出し7箇所、`belongsToSp2SpTree`、`translateSubtree`）、`getMaxBondType` の `VALENCIES` 一元化 — v67
-- [ ] **P4-5** 背景グリッド 60px → `GRID_SIZE`(42px) に一致させる
+- [x] **P4-5** 背景グリッド 60px → `GRID_SIZE`(42px) に一致させる — v68
 - [ ] **P4-6** 判定成功メッセージの文言を検証内容に合わせる
 - [ ] **P4-7** `renderTargetBond` の三重結合描画対応（お手本機能復活の前提）
 
