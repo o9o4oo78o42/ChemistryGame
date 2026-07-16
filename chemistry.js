@@ -394,9 +394,64 @@ class Molecule {
 }
 
 /**
+ * ベンゼン環（＝6員環で単結合・二重結合が交互に並ぶ環＝ケクレ構造）を検出し、
+ * その環に属する結合のキー ('id1_id2'、ID昇順) の集合を返します。
+ * ケクレ構造の二重結合の位置は化学的に無意味（共鳴）なので、
+ * 検証時にこの集合に含まれる結合の次数差を吸収するために使います（開発方針 4章-3）。
+ */
+function findAromaticBondKeys(mol) {
+    const aromatic = new Set();
+    const bondKey = (a, b) => a < b ? `${a}_${b}` : `${b}_${a}`;
+
+    // 各原子を起点に、長さ6の単純閉路をDFSで列挙する。
+    // 重複列挙を避けるため、起点IDが閉路中の最小IDになる経路のみ探索する。
+    const findSixCycles = (startId) => {
+        const cycles = [];
+        const path = [startId];
+        const dfs = (currentId) => {
+            const neighbors = mol.getNeighbors(currentId).filter(n => n.atom.element !== 'H');
+            for (const n of neighbors) {
+                if (n.atom.id === startId && path.length === 6) {
+                    cycles.push([...path]);
+                } else if (path.length < 6 && n.atom.id > startId && !path.includes(n.atom.id)) {
+                    path.push(n.atom.id);
+                    dfs(n.atom.id);
+                    path.pop();
+                }
+            }
+        };
+        dfs(startId);
+        return cycles;
+    };
+
+    mol.atoms.forEach(atom => {
+        if (atom.element === 'H') return;
+        findSixCycles(atom.id).forEach(cycle => {
+            // 環に沿った結合次数を取得し、単・二重の交互配置(1,2,1,2,1,2 または 2,1,2,1,2,1)か判定
+            const types = [];
+            for (let i = 0; i < 6; i++) {
+                const b = mol.getBond(cycle[i], cycle[(i + 1) % 6]);
+                if (!b) return;
+                types.push(b.type);
+            }
+            const isAlternating = types.every((t, i) => t === (i % 2 === 0 ? types[0] : types[1]));
+            const isKekule = isAlternating &&
+                ((types[0] === 1 && types[1] === 2) || (types[0] === 2 && types[1] === 1));
+            if (isKekule) {
+                for (let i = 0; i < 6; i++) {
+                    aromatic.add(bondKey(cycle[i], cycle[(i + 1) % 6]));
+                }
+            }
+        });
+    });
+    return aromatic;
+}
+
+/**
  * グラフ同型性判定 (Graph Isomorphism) を用いて、
  * ユーザーが作った分子構造がお題の分子構造と一致しているかを判定します。
  * 水素(H)は除外し、重原子間のトポロジー（元素種と結合次数）で比較します。
+ * ベンゼン環の結合は「芳香族」として扱い、ケクレ位相の違い（二重結合の位置）は不問とします。
  */
 function verifyMolecule(userMol, targetMol) {
     // 1. 重原子（H以外）のみを抽出
@@ -443,13 +498,19 @@ function verifyMolecule(userMol, targetMol) {
     const mapping = {}; // userAtomId -> targetAtomId
     const usedTargetIds = new Set();
 
+    // ベンゼン環に属する結合は次数比較を 'ar'（芳香族）に正規化し、ケクレ位相の違いを吸収する
+    const userAromaticKeys = findAromaticBondKeys(userMol);
+    const targetAromaticKeys = findAromaticBondKeys(targetMol);
+    const bondKeyOf = (a, b) => a < b ? `${a}_${b}` : `${b}_${a}`;
+
     // 隣接行列/リストを使いやすくしておく
     const getUserNeighbors = (atomId) => {
         return userHeavyBonds
             .filter(b => b.atomId1 === atomId || b.atomId2 === atomId)
             .map(b => {
                 const nId = b.atomId1 === atomId ? b.atomId2 : b.atomId1;
-                return { id: nId, type: b.type };
+                const type = userAromaticKeys.has(bondKeyOf(atomId, nId)) ? 'ar' : b.type;
+                return { id: nId, type: type };
             });
     };
 
@@ -457,7 +518,8 @@ function verifyMolecule(userMol, targetMol) {
         const idA = id1 < id2 ? id1 : id2;
         const idB = id1 < id2 ? id2 : id1;
         const bond = targetHeavyBonds.find(b => b.atomId1 === idA && b.atomId2 === idB);
-        return bond ? bond.type : 0;
+        if (!bond) return 0;
+        return targetAromaticKeys.has(bondKeyOf(idA, idB)) ? 'ar' : bond.type;
     };
 
     function checkConsistency(uId, tId) {
