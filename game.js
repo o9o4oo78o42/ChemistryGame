@@ -1301,9 +1301,24 @@ class Game {
             line2.setAttribute('y2', ey - ny);
             line2.setAttribute('stroke', strokeColor);
             line2.setAttribute('stroke-width', '2.2');
-            
+
             this.targetBonds.appendChild(line1);
             this.targetBonds.appendChild(line2);
+        } else if (type === 3) {
+            // 三重結合（中央＋左右の3本線。ユーザー側キャンバスのrenderBondと同じ見た目）
+            const nx = -uy;
+            const ny = ux;
+            const gap = 5;
+            [-gap, 0, gap].forEach(offset => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', sx + nx * offset);
+                line.setAttribute('y1', sy + ny * offset);
+                line.setAttribute('x2', ex + nx * offset);
+                line.setAttribute('y2', ey + ny * offset);
+                line.setAttribute('stroke', strokeColor);
+                line.setAttribute('stroke-width', offset === 0 ? '2.2' : '1.6');
+                this.targetBonds.appendChild(line);
+            });
         }
     }
 
