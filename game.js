@@ -105,6 +105,62 @@ class Game {
     }
 
     initEventListeners() {
+        // マウスホイール・タッチパッド2本指スワイプによるパン＆ズーム
+        this.svg.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = this.svg.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const viewBox = this.svg.viewBox.baseVal;
+            
+            // ctrlKey はタッチパッドのピンチズーム時、または Ctrl+ホイール時に true になる
+            if (e.ctrlKey) {
+                const logicalX = viewBox.x + mouseX * (viewBox.width / rect.width);
+                const logicalY = viewBox.y + mouseY * (viewBox.height / rect.height);
+                
+                const zoomIntensity = 0.05;
+                const delta = e.deltaY < 0 ? 1 - zoomIntensity : 1 + zoomIntensity;
+                
+                const newWidth = viewBox.width * delta;
+                const newHeight = viewBox.height * delta;
+                if (newWidth < 150 || newWidth > 5000) return;
+                
+                viewBox.x = logicalX - mouseX * (newWidth / rect.width);
+                viewBox.y = logicalY - mouseY * (newHeight / rect.height);
+                viewBox.width = newWidth;
+                viewBox.height = newHeight;
+            } else {
+                // 2本指スクロールによるパン（平行移動）
+                const scaleX = viewBox.width / rect.width;
+                const scaleY = viewBox.height / rect.height;
+                viewBox.x += e.deltaX * scaleX;
+                viewBox.y += e.deltaY * scaleY;
+            }
+        }, { passive: false });
+
+        // 右クリックドラッグによるパン（PC用フォールバック）
+        this.svg.addEventListener('contextmenu', (e) => e.preventDefault());
+        this.svg.addEventListener('mousedown', (e) => {
+            if (e.button === 2) {
+                e.preventDefault();
+                const viewBox = this.svg.viewBox.baseVal;
+                this.pan.isPanning = true;
+                this.pan.startX = e.clientX;
+                this.pan.startY = e.clientY;
+                this.pan.startViewX = viewBox.x;
+                this.pan.startViewY = viewBox.y;
+                this.svg.style.cursor = 'grabbing';
+            }
+        });
+
+        // 全体表示リセットボタンの紐付け
+        if (this.btnResetView) {
+            this.btnResetView.addEventListener('click', () => {
+                this.fitCanvasToTarget();
+            });
+        }
+
         // モバイル・タブレット用のタッチズーム＆パンのサポート
         let touchStartDist = 0;
         let touchStartWidth = 0;
@@ -618,18 +674,7 @@ class Game {
         const coords = this.getSnappedCoords(e);
         const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
 
-        if (this.selectedTool === 'select' && !clickedAtom) {
-            // 空地ドラッグによるパン（タッチ・タッチパッド対応）
-            const viewBox = this.svg.viewBox.baseVal;
-            this.pan.isPanning = true;
-            this.pan.startX = e.clientX;
-            this.pan.startY = e.clientY;
-            this.pan.startViewX = viewBox.x;
-            this.pan.startViewY = viewBox.y;
-            this.svg.style.cursor = 'grabbing';
-            this.clearUIOverlay();
-            return;
-        }
+
         
         // --- 荳肴哩轤ｭ邏�繝槭�繧ｯ繝｢繝ｼ繝� (ON) 譎ゅ�迚ｹ蛻･蜃ｦ逅� ---
         if (this.asymmetricMode) {
