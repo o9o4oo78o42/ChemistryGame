@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=79">
+    <link rel="stylesheet" href="style.css?v=80">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -25,7 +25,7 @@
         <!-- ヘッダー -->
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
-            <div class="version">v79</div>
+            <div class="version">v80</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -175,6 +175,9 @@
                     </div>
                     <div id="reaction-step-label" style="text-align:center; font-size:11px; color:var(--text-muted); font-family:var(--font-code);"></div>
                     <p id="reaction-caption" style="font-size:12px; color:var(--text-secondary); line-height:1.5; min-height:1em; margin:0;"></p>
+                    <button id="btn-rx-predict" class="primary-btn" style="padding:8px; font-size:13px;">🎯 生成物を予測する</button>
+                    <button id="btn-rx-judge" class="primary-btn hidden" style="padding:8px; font-size:13px;">予測を判定</button>
+                    <button id="btn-rx-cancel-predict" class="view-btn hidden" style="width:100%;">予測をやめて再生に戻る</button>
                 </div>
 
                 <div class="hint-box" style="margin-top: 15px; font-size: 0.85rem; line-height: 1.5; color: var(--text-secondary);">
@@ -232,8 +235,8 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=79"></script>
-    <script src="game.js?v=79"></script>
-    <script src="reaction.js?v=79"></script>
+    <script src="chemistry.js?v=80"></script>
+    <script src="game.js?v=80"></script>
+    <script src="reaction.js?v=80"></script>
 </body>
 </html>

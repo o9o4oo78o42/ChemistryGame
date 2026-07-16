@@ -23,12 +23,24 @@ class ReactionPlayer {
         this.btnNext = document.getElementById('btn-rx-next');
         this.btnRestart = document.getElementById('btn-rx-restart');
         this.btnPlay = document.getElementById('btn-rx-play');
+        this.btnPredict = document.getElementById('btn-rx-predict');
+        this.btnJudge = document.getElementById('btn-rx-judge');
+        this.btnCancelPredict = document.getElementById('btn-rx-cancel-predict');
 
         // 再生アニメーションの状態
         this.animating = false;
         this.stopRequested = false;
 
+        // 生成物予測モード（M4）: パズルUIで主生成物を組み立てて判定する
+        this.prediction = false;
+        this.savedPuzzleMolecule = null; // 予測中に退避するパズルの作業分子
+
         this.initEvents();
+    }
+
+    // 反応モード中にパズル編集をブロックするか（予測モード中は編集を許可する）
+    blocksEditing() {
+        return this.active && !this.prediction;
     }
 
     async load() {
@@ -65,15 +77,19 @@ class ReactionPlayer {
         this.selectEl.addEventListener('change', (e) => {
             if (this.active) this.enter(parseInt(e.target.value));
         });
-        this.btnPrev.addEventListener('click', () => { if (!this.animating) this.goto(this.view - 1); });
-        this.btnNext.addEventListener('click', () => { if (!this.animating) this.goto(this.view + 1); });
-        this.btnRestart.addEventListener('click', () => { if (!this.animating) this.goto(0); });
+        this.btnPrev.addEventListener('click', () => { if (!this.animating && !this.prediction) this.goto(this.view - 1); });
+        this.btnNext.addEventListener('click', () => { if (!this.animating && !this.prediction) this.goto(this.view + 1); });
+        this.btnRestart.addEventListener('click', () => { if (!this.animating && !this.prediction) this.goto(0); });
         this.btnPlay.addEventListener('click', () => this.play());
+        this.btnPredict.addEventListener('click', () => this.startPrediction());
+        this.btnJudge.addEventListener('click', () => this.judgePrediction());
+        this.btnCancelPredict.addEventListener('click', () => this.endPrediction(false));
     }
 
     // 反応機構モードに入る
     enter(reactionIndex) {
         if (!this.reactions.length) return;
+        if (this.prediction) this.endPrediction(false);
         this.currentReaction = this.reactions[reactionIndex] || this.reactions[0];
         this.active = true;
         this.checkMode.checked = true;
@@ -85,6 +101,7 @@ class ReactionPlayer {
     // パズルモードへ戻る
     exit() {
         this.stopRequested = true; // 再生中なら中断
+        if (this.prediction) this.endPrediction(false);
         this.active = false;
         this.checkMode.checked = false;
         this.clearArrows();
@@ -235,7 +252,7 @@ class ReactionPlayer {
             this.stopRequested = true;
             return;
         }
-        if (!this.currentReaction || !this.active) return;
+        if (!this.currentReaction || !this.active || this.prediction) return;
         const steps = this.currentReaction.steps;
         if (this.view >= steps.length) this.view = 0; // 完了状態からは最初に戻って再生
 
@@ -363,6 +380,109 @@ class ReactionPlayer {
         for (let i = before; i < children.length; i++) {
             children[i].setAttribute('opacity', String(Math.max(0, Math.min(1, opacity))));
         }
+    }
+
+    // ===== 生成物予測モード（M4） =====
+
+    // 予測モード開始: キャンバスを空にしてパズルUIで主生成物を組み立てさせる
+    startPrediction() {
+        if (!this.active || this.animating || this.prediction) return;
+        this.prediction = true;
+
+        // パズル側の作業中分子を退避してキャンバスを空にする
+        this.savedPuzzleMolecule = this.game.userMolecule;
+        this.game.userMolecule = new Molecule();
+        this.game.history = [];
+        this.clearArrows();
+        this.game.updateDrawing();
+
+        this.captionEl.textContent = 'この反応の主生成物（有機化合物）を組み立てて「予測を判定」を押しましょう。副生成物（水・HClなど）は不要です。';
+        this.stepLabelEl.textContent = '🎯 生成物予測モード';
+        this.btnPredict.classList.add('hidden');
+        this.btnJudge.classList.remove('hidden');
+        this.btnCancelPredict.classList.remove('hidden');
+        this.setControlsEnabled(false);
+        this.fitToReaction(); // 反応と同じ視野のまま組み立てさせる
+    }
+
+    // 予測の判定: 最終状態の主生成物（最大の重原子連結成分）と比較する
+    judgePrediction() {
+        if (!this.prediction) return;
+        const target = this.buildMainProductTarget();
+        const correct = verifyMolecule(this.game.userMolecule, target);
+
+        const resultDiv = document.getElementById('verify-result');
+        if (resultDiv) {
+            resultDiv.textContent = correct
+                ? '正解です！反応の主生成物を正しく予測できました！'
+                : '不一致です。反応をもう一度再生して、結合の組み換えを確認してみましょう。';
+            resultDiv.className = correct ? 'result-message success' : 'result-message error';
+            resultDiv.classList.remove('hidden');
+            setTimeout(() => resultDiv.classList.add('hidden'), 4000);
+        }
+        if (correct) {
+            // 正解したら答え（最終状態）を表示して予測モードを終える
+            this.endPrediction(true);
+        }
+    }
+
+    // 予測モード終了。showAnswer=true なら最終状態を表示する
+    endPrediction(showAnswer) {
+        if (!this.prediction) return;
+        this.prediction = false;
+
+        // 退避していたパズル分子を復元（描画は反応モードが上書きする）
+        if (this.savedPuzzleMolecule) {
+            this.game.userMolecule = this.savedPuzzleMolecule;
+            this.savedPuzzleMolecule = null;
+        }
+        this.game.history = [];
+        this.game.clearUIOverlay();
+
+        this.btnPredict.classList.remove('hidden');
+        this.btnJudge.classList.add('hidden');
+        this.btnCancelPredict.classList.add('hidden');
+
+        if (this.active) {
+            this.fitToReaction();
+            this.goto(showAnswer ? this.currentReaction.steps.length : this.view);
+        }
+    }
+
+    // 最終状態から「主生成物」の検証用分子を構築する。
+    // 明示水素は取り除き（自動水素の価標検証と整合させるため）、
+    // 最大の重原子連結成分＝主生成物だけを残す。
+    buildMainProductTarget() {
+        const states = this.currentReaction.states;
+        const state = states[states.length - 1];
+        const m = new Molecule();
+        const added = state.atoms.map(a => m.addAtom(a.element, a.x, a.y));
+        state.bonds.forEach(b => m.addBond(added[b.atom1Index].id, added[b.atom2Index].id, b.type));
+
+        // 明示水素を除去（除去後は空き価標が自動水素として扱われる）
+        added.forEach((atom, i) => {
+            if (state.atoms[i].element === 'H') m.removeAtom(atom.id);
+        });
+
+        // 連結成分に分解し、最大成分（主生成物）以外を除去
+        const components = [];
+        const seen = new Set();
+        m.atoms.forEach(a => {
+            if (seen.has(a.id)) return;
+            const comp = [];
+            const stack = [a.id];
+            while (stack.length) {
+                const id = stack.pop();
+                if (seen.has(id)) continue;
+                seen.add(id);
+                comp.push(id);
+                m.getNeighbors(id).forEach(n => { if (!seen.has(n.atom.id)) stack.push(n.atom.id); });
+            }
+            components.push(comp);
+        });
+        components.sort((a, b) => b.length - a.length);
+        components.slice(1).forEach(comp => comp.forEach(id => m.removeAtom(id)));
+        return m;
     }
 
     // 全状態の原子を含む境界にキャンバスをフィットさせる

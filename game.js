@@ -686,8 +686,8 @@ class Game {
             viewBox.y = this.pan.startViewY - (e.clientY - this.pan.startY) * scale;
             return;
         }
-        // 反応機構モード中はプレビュー等のパズル系処理を行わない
-        if (window.reactionPlayer && window.reactionPlayer.active) return;
+        // 反応機構モード中はプレビュー等のパズル系処理を行わない（生成物予測モード中は許可）
+        if (window.reactionPlayer && window.reactionPlayer.blocksEditing()) return;
 
         const coords = this.getSnappedCoords(e);
         this.coordDisplay.textContent = `X: ${Math.round(coords.rawX)}, Y: ${Math.round(coords.rawY)} (Snap: ${coords.x}, ${coords.y})`;
@@ -716,8 +716,8 @@ class Game {
         if (e.button === 2) {
             return; // 右クリックはパン専用に予約
         }
-        // 反応機構モード中はパズル編集を無効化（パン・ズームはビューポート側で処理されるため影響なし）
-        if (window.reactionPlayer && window.reactionPlayer.active) return;
+        // 反応機構モード中はパズル編集を無効化（生成物予測モード中は編集を許可）
+        if (window.reactionPlayer && window.reactionPlayer.blocksEditing()) return;
         const coords = this.getSnappedCoords(e);
         const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
 
@@ -816,8 +816,8 @@ class Game {
             // （ヘルプ記載の操作。右ドラッグはパンのまま。結合線の右クリック削除はヒットライン側で処理）
             const moved = Math.abs(e.clientX - this.pan.startX) > 3 ||
                           Math.abs(e.clientY - this.pan.startY) > 3;
-            // 反応機構モード中は右クリック削除も無効（描画されていないパズル分子を誤って消さない）
-            if (!moved && !this.asymmetricMode && !(window.reactionPlayer && window.reactionPlayer.active)) {
+            // 反応機構モード中は右クリック削除も無効（描画されていないパズル分子を誤って消さない。予測モード中は許可）
+            if (!moved && !this.asymmetricMode && !(window.reactionPlayer && window.reactionPlayer.blocksEditing())) {
                 const coords = this.getSnappedCoords(e);
                 const atom = this.findAtomAt(coords.rawX, coords.rawY);
                 if (atom) {
