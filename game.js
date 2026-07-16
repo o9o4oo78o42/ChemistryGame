@@ -828,6 +828,19 @@ class Game {
         if (this.pan.isPanning) {
             this.pan.isPanning = false;
             this.svg.style.cursor = 'default';
+            // ほぼ動かさず離した右クリックはパンではなく「原子の削除」として扱う
+            // （ヘルプ記載の操作。右ドラッグはパンのまま。結合線の右クリック削除はヒットライン側で処理）
+            const moved = Math.abs(e.clientX - this.pan.startX) > 3 ||
+                          Math.abs(e.clientY - this.pan.startY) > 3;
+            if (!moved && !this.asymmetricMode) {
+                const coords = this.getSnappedCoords(e);
+                const atom = this.findAtomAt(coords.rawX, coords.rawY);
+                if (atom) {
+                    this.saveState();
+                    this.userMolecule.removeAtom(atom.id);
+                    this.updateDrawing();
+                }
+            }
             return;
         }
 
