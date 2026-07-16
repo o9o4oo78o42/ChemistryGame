@@ -1048,8 +1048,10 @@ class Game {
                 const angO2 = targetAng - Math.PI / 2;
                 const oA = this.userMolecule.addAtom('O', nAtom.x + GRID_SIZE * Math.cos(angO1), nAtom.y + GRID_SIZE * Math.sin(angO1));
                 const oB = this.userMolecule.addAtom('O', nAtom.x + GRID_SIZE * Math.cos(angO2), nAtom.y + GRID_SIZE * Math.sin(angO2));
+                // ニトロ基は N(=O)(-O) で構築する。N(=O)(=O) は価標超過であり、
+                // 正解データ(stages.json)の結合次数とも一致しなくなる（開発方針 4章-2）。
                 this.userMolecule.addBond(nAtom.id, oA.id, 2);
-                this.userMolecule.addBond(nAtom.id, oB.id, 2);
+                this.userMolecule.addBond(nAtom.id, oB.id, 1);
             }
         } else {
             alert("官能基を結合するには、接続先の既存の原子（Cなど）をクリックしてください。");
