@@ -527,7 +527,7 @@ class Game {
             return { x: pt.x, y: pt.y, rawX: x, rawY: y, isValid: !occupied, snapAtom: atom };
         }
 
-        // 環内原子（ループの一部であるか）を動的にDFS判定 (3員環〜8員環に対応)
+        // 環内原子判定 (3員環〜8員環に対応するDFS閉路検出)
         const checkIsInRing = (atomId) => {
             const visited = new Set();
             let foundRing = false;
@@ -584,22 +584,8 @@ class Game {
             }
         } else {
             // 【鎖式原子（直鎖・通常の分岐）の場合】: 基本直交（90度単位）で4方向への結合を完全にサポート！
-            if (bondAngles.length === 0) {
-                candidateAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
-            } else {
-                // 既存の結合方向（90度単位）と重ならない直交方向を候補にする
-                const allDirs = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
-                allDirs.forEach(ang => {
-                    const isOccupied = bondAngles.some(bAng => {
-                        let diff = Math.abs(ang - bAng) % (2 * Math.PI);
-                        if (diff > Math.PI) diff = 2 * Math.PI - diff;
-                        return diff < 0.3; // 約17度以内の差なら重なっていると判定
-                    });
-                    if (!isOccupied) {
-                        candidateAngles.push(ang);
-                    }
-                });
-            }
+            // 既存の隣接結合の方向と直接重ならない方向（座標衝突ベース判定）を候補にする
+            candidateAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
         }
 
         // 7. 候補座標を生成（既存原子に重複する点は除外）
@@ -610,7 +596,15 @@ class Game {
                 y: atom.y + BOND_LENGTH * Math.sin(ang),
                 angle: ang
             };
-            if (!this.findAtomAt(pt.x, pt.y, 8)) {
+            
+            // すでにこの原子（atom）からその座標（pt）の近くへ結合が伸びているかチェック（結合相手の存在確認）
+            const isOccupied = neighbors.some(n => {
+                const dx = n.atom.x - pt.x;
+                const dy = n.atom.y - pt.y;
+                return Math.sqrt(dx*dx + dy*dy) <= 15; // 15px以内なら既にそこに隣接原子が存在する
+            });
+
+            if (!isOccupied && !this.findAtomAt(pt.x, pt.y, 8)) {
                 candidatePoints.push(pt);
             }
         });
