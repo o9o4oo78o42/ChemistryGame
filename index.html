@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=83">
+    <link rel="stylesheet" href="style.css?v=84">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -25,7 +25,7 @@
         <!-- ヘッダー -->
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
-            <div class="version">v83</div>
+            <div class="version">v84</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -183,7 +183,7 @@
                 <div class="hint-box" style="margin-top: 15px; font-size: 0.85rem; line-height: 1.5; color: var(--text-secondary);">
                     <h4 style="color: var(--neon-blue); margin-bottom: 8px;">📝 遊び方と操作方法:</h4>
                     <ul style="padding-left: 18px; margin: 0; display: flex; flex-direction: column; gap: 6px;">
-                        <li><strong>原子の配置</strong>：元素（C, O等）を選択し、キャンバス上の半透明プレビューの箇所をクリックして確定配置します。複数の原子と隣接できる位置では、プレビューに表示された結合が<strong>すべて</strong>作られます（環を閉じられます。不要な結合は右クリックで削除）。</li>
+                        <li><strong>原子の配置</strong>：元素（C, O等）を選択し、キャンバス上の半透明プレビューの箇所をクリックして確定配置します。複数の原子と隣接できる位置では、プレビューに表示された結合が<strong>すべて</strong>作られます（環を閉じられます。不要な結合は右クリックで削除）。環の原子に2本目の側鎖を付けると、1本目と対称（±30°）に自動で振り分けられます（オレンジの点線が移動先）。</li>
                         <li><strong>原子・結合の削除</strong>：
                             <ul style="padding-left: 15px; margin: 4px 0 0 0; list-style-type: circle;">
                                 <li>原子または結合線を<strong>「右クリック」</strong>します（最もすばやく消去できます）。</li>
@@ -236,8 +236,8 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=83"></script>
-    <script src="game.js?v=83"></script>
-    <script src="reaction.js?v=83"></script>
+    <script src="chemistry.js?v=84"></script>
+    <script src="game.js?v=84"></script>
+    <script src="reaction.js?v=84"></script>
 </body>
 </html>

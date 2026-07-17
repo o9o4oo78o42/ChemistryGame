@@ -573,29 +573,44 @@ class Game {
 
         const isInRing = checkIsInRing(atom.id);
 
-        // 5. 隣接重原子へのベクトル方向を取得
+        // 5. 隣接重原子を取得
         const neighbors = this.userMolecule.getNeighbors(atom.id)
             .filter(n => n.atom.element !== 'H');
-        const bondAngles = neighbors.map(n =>
-            Math.atan2(n.atom.y - atom.y, n.atom.x - atom.x)
-        );
 
         // 6. 結合数と環属性に応じて候補角度を決定
         let candidateAngles = [];
+        let ringSplit = null; // 側鎖2本目の振り分け情報（P6-3）
 
         if (isInRing) {
-            // 【環状原子の場合】: 幾何学的に外向きにスナップさせる
-            if (bondAngles.length === 2) {
-                // 通常の環内炭素（2結合）: 外向き二等分線の方向
-                let sumX = 0, sumY = 0;
-                bondAngles.forEach(ang => {
-                    sumX += Math.cos(ang);
-                    sumY += Math.sin(ang);
-                });
-                const outward = Math.atan2(-sumY, -sumX);
-                candidateAngles = [outward];
+            // 【環状原子の場合】: 環の結合（橋でない結合）と側鎖（橋の結合）を橋判定で区別する
+            const ringNeighbors = [];
+            const substituents = [];
+            neighbors.forEach(n => {
+                const b = this.userMolecule.getBond(atom.id, n.atom.id);
+                if (b && this.collectComponent(n.atom.id, b).has(atom.id)) {
+                    ringNeighbors.push(n); // この結合を切っても繋がっている = 環の結合
+                } else {
+                    substituents.push(n); // 橋 = 側鎖
+                }
+            });
+
+            if (ringNeighbors.length === 2 && substituents.length === 0) {
+                // 側鎖1本目: 外向き二等分線の方向
+                candidateAngles = [this.outwardBisector(atom, ringNeighbors)];
+            } else if (ringNeighbors.length === 2 && substituents.length === 1) {
+                // 側鎖2本目: 二等分線±30°に振り分ける（P6-3）
+                const outward = this.outwardBisector(atom, ringNeighbors);
+                const SPLIT = Math.PI / 6;
+                candidateAngles = [outward - SPLIT, outward + SPLIT];
+                // 既存の側鎖が二等分線上にあれば、配置確定時に反対側へ移す（計画はbestAngle決定後に確定）
+                const sub = substituents[0].atom;
+                let diff = Math.abs(Math.atan2(sub.y - atom.y, sub.x - atom.x) - outward);
+                while (diff > Math.PI) diff = Math.abs(diff - 2 * Math.PI);
+                if (diff < 0.12) { // 約7度以内なら二等分線上とみなす
+                    ringSplit = { outward, sub };
+                }
             } else {
-                // 環状だが結合が1本または3本以上: 直交(90度)候補
+                // 縮合環の頂点（環結合3本以上）など: 直交(90度)候補にフォールバック
                 candidateAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
             }
         } else {
@@ -645,8 +660,42 @@ class Game {
 
         const bestAngle = bestPoint.angle;
 
+        // 8.5 側鎖の振り分け計画（P6-3）: 既存の側鎖（とその先の枝全体）を
+        //     二等分線の反対側へ平行移動させる。移動先が塞がっている場合は移動しない。
+        let adjust = null;
+        if (ringSplit) {
+            const mirrorAngle = 2 * ringSplit.outward - bestAngle;
+            const sub = ringSplit.sub;
+            const subLen = Math.hypot(sub.x - atom.x, sub.y - atom.y);
+            const newSubX = atom.x + subLen * Math.cos(mirrorAngle);
+            const newSubY = atom.y + subLen * Math.sin(mirrorAngle);
+            const subBond = this.userMolecule.getBond(atom.id, sub.id);
+            const ids = [...this.collectComponent(sub.id, subBond)];
+            const dx = newSubX - sub.x;
+            const dy = newSubY - sub.y;
+
+            const movingSet = new Set(ids);
+            const staticHeavy = heavyAtoms.filter(a => !movingSet.has(a.id) && a.id !== atom.id);
+            const collides = ids.some(id => {
+                const a = this.userMolecule.atoms.find(at => at.id === id);
+                if (!a) return false;
+                const nx = a.x + dx;
+                const ny = a.y + dy;
+                return staticHeavy.some(sa => Math.hypot(sa.x - nx, sa.y - ny) < MIN_CLEARANCE);
+            });
+            if (!collides) {
+                adjust = {
+                    ids, dx, dy,
+                    // プレビュー用: 環原子→移動後の側鎖位置
+                    ghost: { fromX: atom.x, fromY: atom.y, toX: newSubX, toY: newSubY }
+                };
+            }
+        }
+        const adjustSet = adjust ? new Set(adjust.ids) : null;
+
         // 9. 最良角度で結合長を調整
         //    MIN_CLEARANCE を満たすまで段階的に延長（最大 MAX_EXTEND まで）
+        //    振り分けで移動する原子は移動後の位置で間隔を評価する
         let finalLength = null;
         for (let L = BOND_LENGTH; L <= MAX_EXTEND + 0.01; L += EXTEND_STEP) {
             const testPt = {
@@ -656,8 +705,14 @@ class Game {
             let minDist = Infinity;
             heavyAtoms.forEach(a => {
                 if (a.id === atom.id) return;
-                const dx = a.x - testPt.x;
-                const dy = a.y - testPt.y;
+                let ax = a.x;
+                let ay = a.y;
+                if (adjustSet && adjustSet.has(a.id)) {
+                    ax += adjust.dx;
+                    ay += adjust.dy;
+                }
+                const dx = ax - testPt.x;
+                const dy = ay - testPt.y;
                 const d = Math.sqrt(dx * dx + dy * dy);
                 if (d < minDist) minDist = d;
             });
@@ -683,7 +738,18 @@ class Game {
             return { x: finalX, y: finalY, rawX: x, rawY: y, isValid: false, snapAtom: null, tooLarge: true };
         }
 
-        return { x: finalX, y: finalY, rawX: x, rawY: y, isValid: true, snapAtom: atom };
+        return { x: finalX, y: finalY, rawX: x, rawY: y, isValid: true, snapAtom: atom, adjust };
+    }
+
+    // 環内原子の「外向き二等分線」角度（2本の環結合の平均方向の逆）を返す
+    outwardBisector(atom, ringNeighbors) {
+        let sumX = 0, sumY = 0;
+        ringNeighbors.forEach(n => {
+            const ang = Math.atan2(n.atom.y - atom.y, n.atom.x - atom.x);
+            sumX += Math.cos(ang);
+            sumY += Math.sin(ang);
+        });
+        return Math.atan2(-sumY, -sumX);
     }
 
     handleMouseMove(e) {
@@ -716,7 +782,7 @@ class Game {
             if (!clickedAtom && coords.isValid) {
                 // 配置時に実際に形成される結合と同一の判定でプレビューを描く（プレビュー＝実結果を保証）
                 const bondTargets = this.getPlacementBondTargets(coords);
-                this.drawAtomPreview(this.selectedAtomType, coords.x, coords.y, bondTargets);
+                this.drawAtomPreview(this.selectedAtomType, coords.x, coords.y, bondTargets, coords.adjust);
             } else {
                 // 有効な位置でない、または既存原子の上ならプレビューを消去
                 this.clearUIOverlay();
@@ -832,6 +898,16 @@ class Game {
                     bondTargets.forEach(t => {
                         this.userMolecule.addBond(t.id, newAtom.id, 1);
                     });
+                    // 側鎖の振り分け（P6-3）: 既存の側鎖を二等分線の反対側へ平行移動
+                    if (coords.adjust) {
+                        coords.adjust.ids.forEach(id => {
+                            const a = this.userMolecule.atoms.find(at => at.id === id);
+                            if (a) {
+                                a.x += coords.adjust.dx;
+                                a.y += coords.adjust.dy;
+                            }
+                        });
+                    }
                     this.updateDrawing();
                 }
             }
@@ -1332,9 +1408,40 @@ class Game {
         this.uiGroup.appendChild(line);
     }
 
-    // 原子配置プレビュー（半透明の丸と元素記号、および実際に形成される全結合線の表示）
-    drawAtomPreview(element, x, y, parentAtoms) {
+    // 原子配置プレビュー（半透明の丸と元素記号、実際に形成される全結合線、
+    // および側鎖振り分け（P6-3）で移動する既存側鎖の移動先ゴーストの表示）
+    drawAtomPreview(element, x, y, parentAtoms, adjust = null) {
         this.clearUIOverlay();
+
+        // 0. 側鎖振り分けのゴースト（オレンジの点線: 既存側鎖がこの位置へ移動する）
+        if (adjust && adjust.ghost) {
+            const g = adjust.ghost;
+            const gdx = g.toX - g.fromX;
+            const gdy = g.toY - g.fromY;
+            const glen = Math.sqrt(gdx * gdx + gdy * gdy);
+            if (glen > 0) {
+                const gux = gdx / glen;
+                const guy = gdy / glen;
+                const gline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                gline.setAttribute('x1', g.fromX + gux * 10);
+                gline.setAttribute('y1', g.fromY + guy * 10);
+                gline.setAttribute('x2', g.toX - gux * 10);
+                gline.setAttribute('y2', g.toY - guy * 10);
+                gline.setAttribute('stroke', 'rgba(255, 165, 2, 0.5)');
+                gline.setAttribute('stroke-width', '2');
+                gline.setAttribute('stroke-dasharray', '3,3');
+                this.uiGroup.appendChild(gline);
+            }
+            const gcircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            gcircle.setAttribute('cx', g.toX);
+            gcircle.setAttribute('cy', g.toY);
+            gcircle.setAttribute('r', '10');
+            gcircle.setAttribute('fill', 'none');
+            gcircle.setAttribute('stroke', 'rgba(255, 165, 2, 0.6)');
+            gcircle.setAttribute('stroke-width', '1.5');
+            gcircle.setAttribute('stroke-dasharray', '3,3');
+            this.uiGroup.appendChild(gcircle);
+        }
 
         // 1. 結合予定の全親原子から、プレビュー結合線を描画 (半透明)
         (parentAtoms || []).forEach(parentAtom => {
