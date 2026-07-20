@@ -311,6 +311,12 @@ class Game {
 
         // アクションボタン
         this.btnVerify.addEventListener('click', () => this.verifyCurrentStructure());
+        // 作図エクスポート（P7-3）
+        const btnExport = document.getElementById('btn-export-json');
+        if (btnExport) {
+            btnExport.addEventListener('click', () => this.exportMoleculeJson());
+        }
+
         this.btnClearAll.addEventListener('click', () => {
             if (this.userMolecule.atoms.length === 0) return; // 空のときはUndo履歴を消費しない（開発方針 3.5章）
             this.saveState();
@@ -1211,14 +1217,66 @@ class Game {
     }
 
     // 画面内トーストに一時メッセージを表示する
-    showToast(message, ms = 3000) {
+    showToast(message, ms = 3000, type = 'error') {
         const resultDiv = document.getElementById('verify-result');
         if (!resultDiv) return;
         resultDiv.textContent = message;
-        resultDiv.className = 'result-message error';
+        resultDiv.className = `result-message ${type}`;
         resultDiv.classList.remove('hidden');
         clearTimeout(this._toastTimer);
         this._toastTimer = setTimeout(() => resultDiv.classList.add('hidden'), ms);
+    }
+
+    // ===== 作図エクスポート（P7-3）: コンテンツ制作支援 =====
+
+    // 現在の分子を問題データ用JSON文字列として組み立てる。
+    // target: 重原子のみ（stages.json の target 形式）
+    // withHydrogens: 自動水素を明示原子化したもの（reactions.json の states 形式に使用）
+    buildExportJson() {
+        const heavy = this.userMolecule.atoms;
+        const round1 = v => Math.round(v * 10) / 10;
+        const idx = new Map(heavy.map((a, i) => [a.id, i]));
+
+        const target = {
+            atoms: heavy.map(a => ({ element: a.element, x: round1(a.x), y: round1(a.y) })),
+            bonds: this.userMolecule.bonds.map(b => ({
+                atom1Index: idx.get(b.atomId1),
+                atom2Index: idx.get(b.atomId2),
+                type: b.type
+            }))
+        };
+
+        const withHydrogens = {
+            atoms: target.atoms.map(a => ({ ...a })),
+            bonds: target.bonds.map(b => ({ ...b }))
+        };
+        this.userMolecule.calculateHydrogens().forEach(h => {
+            const hIndex = withHydrogens.atoms.length;
+            withHydrogens.atoms.push({ element: 'H', x: round1(h.x), y: round1(h.y) });
+            withHydrogens.bonds.push({ atom1Index: idx.get(h.parentId), atom2Index: hIndex, type: 1 });
+        });
+
+        return JSON.stringify({ target, withHydrogens }, null, 2);
+    }
+
+    // エクスポートJSONをクリップボードへコピー（失敗時はコンソール出力にフォールバック）
+    exportMoleculeJson() {
+        if (this.userMolecule.atoms.length === 0) {
+            this.showToast('エクスポートする分子がありません。');
+            return;
+        }
+        const json = this.buildExportJson();
+        const fallback = () => {
+            console.log(json);
+            this.showToast('クリップボードに書き込めないため、ブラウザのコンソールに出力しました。');
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(json)
+                .then(() => this.showToast('分子データJSONをクリップボードにコピーしました。', 2500, 'success'))
+                .catch(fallback);
+        } else {
+            fallback();
+        }
     }
 
     // 座標近くにある原子を取得（クリック判定半径は広めの28px）
@@ -2126,6 +2184,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         STAGES = await response.json();
+        window.STAGES = STAGES; // テスト（test.html）・コンソールデバッグ用に公開（letはwindowに載らないため）
         window.game = new Game();
         // 反応機構ビューアの初期化（reactions.json がなければビューアは自動で隠れる）
         window.reactionPlayer = new ReactionPlayer(window.game);

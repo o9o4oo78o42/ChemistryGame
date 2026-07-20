@@ -572,3 +572,12 @@ function verifyMolecule(userMol, targetMol) {
 
     return search(0);
 }
+
+// テスト（test.html）およびコンソールデバッグ用にグローバル公開する。
+// class宣言・const はトップレベルでも window のプロパティにならないため明示が必要。
+if (typeof window !== 'undefined') {
+    window.Molecule = Molecule;
+    window.Atom = Atom;
+    window.Bond = Bond;
+    window.VALENCIES = VALENCIES;
+}
