@@ -601,6 +601,50 @@
         assert(nameEl() === '2-ブテン', `直線描画の名称が「${nameEl()}」`);
     });
 
+    test('F4: 「同じ化合物？」クイズの生成と判定（P8-3）', async (c) => {
+        c.reset();
+        const quiz = c.W.quiz;
+        assert(quiz, 'quiz が初期化されていない');
+        quiz.buildLibrary();
+
+        // 「違う」問題のペア健全性: 同分子式・別トポロジーのみ
+        assert(quiz.differentPairs.length >= 5, `異性体ペアが ${quiz.differentPairs.length} 組（5組以上を期待）`);
+        quiz.differentPairs.forEach(([i, j]) => {
+            assert(quiz.library[i].formula === quiz.library[j].formula, '異分子式のペアが混入');
+            assert(!c.W.verifyMolecule(quiz.library[i].mol, quiz.library[j].mol), '同一トポロジーのペアが混入');
+        });
+
+        // 表記変換はトポロジーを保存する（全ライブラリ×2回）
+        quiz.library.forEach(e => {
+            for (let k = 0; k < 2; k++) {
+                const t = quiz.transformDepiction(e.target);
+                const m = c.game.createTargetFromData({ target: t });
+                assert(c.W.verifyMolecule(m, e.mol), `表記変換でトポロジーが壊れた: ${e.name}`);
+            }
+        });
+
+        // 出題20回: 判定はverifyMolecule由来で、名前の同一性と常に整合。両図が描画される
+        quiz.open();
+        for (let k = 0; k < 20; k++) {
+            quiz.nextQuestion();
+            assert(quiz.current.isSame === (quiz.current.nameA === quiz.current.nameB),
+                `出題${k}: 判定と名前の不整合 (${quiz.current.nameA} / ${quiz.current.nameB})`);
+            assert(c.D.querySelector('#quiz-svg-a .quiz-atoms').children.length > 0, '左の図が空');
+            assert(c.D.querySelector('#quiz-svg-b .quiz-atoms').children.length > 0, '右の図が空');
+        }
+
+        // 回答フロー: 正答で成績加算・結果表示・ボタン無効化
+        quiz.nextQuestion();
+        const before = quiz.score.correct;
+        quiz.answer(quiz.current.isSame);
+        assert(quiz.score.correct === before + 1, '正答が加算されない');
+        assert(c.D.getElementById('quiz-result').textContent.includes('正解'), '結果の解説が表示されない');
+        assert(c.D.getElementById('btn-quiz-same').disabled, '回答後に回答ボタンが無効化されない');
+
+        c.D.getElementById('btn-quiz-close').click();
+        assert(c.D.getElementById('quiz-modal').classList.contains('hidden'), 'モーダルが閉じない');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

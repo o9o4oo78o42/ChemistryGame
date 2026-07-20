@@ -1234,13 +1234,13 @@ class Game {
 
     // ===== 化合物名判定・分子式表示（P7-6） =====
 
-    // 現在の分子の分子式を計算する（自動水素を含む。表記はHill方式: C→H→他はアルファベット順）
-    computeMolecularFormula() {
+    // 分子式を計算する（自動水素を含む。表記はHill方式: C→H→他はアルファベット順）
+    computeMolecularFormula(mol = this.userMolecule) {
         const counts = {};
         let hCount = 0;
-        this.userMolecule.atoms.forEach(a => {
+        mol.atoms.forEach(a => {
             counts[a.element] = (counts[a.element] || 0) + 1;
-            hCount += this.userMolecule.getFreeValency(a.id);
+            hCount += mol.getFreeValency(a.id);
         });
         if (hCount > 0) counts['H'] = (counts['H'] || 0) + hCount;
 
@@ -1690,7 +1690,8 @@ class Game {
         });
     }
 
-    renderTargetAtom(element, x, y) {
+    // 原子1個をミニ描画する（出力先グループを指定可能。既定はお手本モーダル。クイズ等からも流用）
+    renderTargetAtom(element, x, y, targetGroup = this.targetAtoms) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1712,10 +1713,11 @@ class Game {
 
         group.appendChild(circle);
         group.appendChild(text);
-        this.targetAtoms.appendChild(group);
+        targetGroup.appendChild(group);
     }
 
-    renderTargetBond(x1, y1, x2, y2, type, isHConnection = false) {
+    // 結合1本をミニ描画する（出力先グループを指定可能。既定はお手本モーダル。クイズ等からも流用）
+    renderTargetBond(x1, y1, x2, y2, type, isHConnection = false, targetGroup = this.targetBonds) {
         const dx = x2 - x1;
         const dy = y2 - y1;
         const len = Math.sqrt(dx*dx + dy*dy);
@@ -1742,7 +1744,7 @@ class Game {
             line.setAttribute('y2', ey);
             line.setAttribute('stroke', strokeColor);
             line.setAttribute('stroke-width', isHConnection ? '1.5' : '3');
-            this.targetBonds.appendChild(line);
+            targetGroup.appendChild(line);
         } else if (type === 2) {
             const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1763,8 +1765,8 @@ class Game {
             line2.setAttribute('stroke', strokeColor);
             line2.setAttribute('stroke-width', '2.2');
 
-            this.targetBonds.appendChild(line1);
-            this.targetBonds.appendChild(line2);
+            targetGroup.appendChild(line1);
+            targetGroup.appendChild(line2);
         } else if (type === 3) {
             // 三重結合（中央＋左右の3本線。ユーザー側キャンバスのrenderBondと同じ見た目）
             const nx = -uy;
@@ -1778,7 +1780,7 @@ class Game {
                 line.setAttribute('y2', ey + ny * offset);
                 line.setAttribute('stroke', strokeColor);
                 line.setAttribute('stroke-width', offset === 0 ? '2.2' : '1.6');
-                this.targetBonds.appendChild(line);
+                targetGroup.appendChild(line);
             });
         }
     }
@@ -2276,6 +2278,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         // 反応機構ビューアの初期化（reactions.json がなければビューアは自動で隠れる）
         window.reactionPlayer = new ReactionPlayer(window.game);
         await window.reactionPlayer.load();
+
+        // 「同じ化合物？」クイズ（P8-3）
+        window.quiz = new SameCompoundQuiz(window.game);
     } catch (e) {
         console.error('Failed to load stages.json:', e);
         const resultDiv = document.getElementById('verify-result');
