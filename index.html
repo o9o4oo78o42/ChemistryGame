@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=90">
+    <link rel="stylesheet" href="style.css?v=91">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -25,7 +25,7 @@
         <!-- ヘッダー -->
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
-            <div class="version">v90</div>
+            <div class="version">v91</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -145,6 +145,7 @@
                     <button id="btn-verify" class="primary-btn">構造判定 (Submit)</button>
                     <button id="btn-show-target" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); text-shadow:0 0 5px var(--color-cyan); cursor:pointer;">お手本を見る</button>
                     <button id="btn-quiz" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">🎓 同じ化合物？クイズ</button>
+                    <button id="btn-naming" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">📝 命名クイズ</button>
                     <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
                         <span style="font-size:0.9rem; color:#fff;">不斉炭素マークモード</span>
                         <label class="switch" style="position:relative; display:inline-block; width:50px; height:24px;">
@@ -270,10 +271,28 @@
         </div>
     </div>
 
+    <!-- 命名クイズモーダル（P8-4） -->
+    <div id="naming-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 560px;">
+            <h2 class="neon-text" style="color:#e0b0ff; text-shadow:0 0 10px var(--neon-purple); font-size:24px;">📝 この化合物の名前は？</h2>
+            <p style="font-size:13px; color:var(--text-secondary);">わざと崩した描き方をしています。つながり方を読み取って名前を選んでください（水素は自動補完で描かれています）。</p>
+            <svg id="naming-svg" width="420" height="270" style="background:rgba(15,20,28,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:12px; max-width:100%;">
+                <g class="quiz-bonds"></g><g class="quiz-atoms"></g>
+            </svg>
+            <div id="naming-choices" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;"></div>
+            <div id="naming-result" style="min-height:3.2em; font-size:13px; line-height:1.5; text-align:left;"></div>
+            <div style="display:flex; gap:10px;">
+                <button id="btn-naming-next" class="view-btn" style="flex:1; padding:10px;">▶ 次の問題</button>
+                <button id="btn-naming-close" class="view-btn" style="flex:1; padding:10px;">閉じる</button>
+            </div>
+            <div id="naming-score" style="font-size:12px; color:var(--text-muted); font-family:var(--font-code);"></div>
+        </div>
+    </div>
+
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=90"></script>
-    <script src="game.js?v=90"></script>
-    <script src="reaction.js?v=90"></script>
-    <script src="quiz.js?v=90"></script>
+    <script src="chemistry.js?v=91"></script>
+    <script src="game.js?v=91"></script>
+    <script src="reaction.js?v=91"></script>
+    <script src="quiz.js?v=91"></script>
 </body>
 </html>

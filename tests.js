@@ -645,6 +645,53 @@
         assert(c.D.getElementById('quiz-modal').classList.contains('hidden'), 'モーダルが閉じない');
     });
 
+    test('F5: 命名クイズの生成と回答フロー（P8-4）', async (c) => {
+        c.reset();
+        const nq = c.W.namingQuiz;
+        assert(nq, 'namingQuiz が初期化されていない');
+        nq.build();
+
+        // 出題プール: トポロジー重複で正解が一意に決まらないエントリ（2-ブテン系）は除外される
+        const poolNames = nq.pool.map(i => nq.library[i].name);
+        assert(poolNames.length >= 70, `出題プールが ${poolNames.length} 件`);
+        ['2-ブテン', 'シス-2-ブテン', 'トランス-2-ブテン'].forEach(n => {
+            assert(!poolNames.includes(n), `曖昧なエントリ「${n}」が出題プールに残っている`);
+        });
+
+        // 出題20回: 選択肢は4件・重複なし・正解をちょうど1つ含む・図が描画される
+        nq.open();
+        let c7Checked = false;
+        for (let k = 0; k < 20; k++) {
+            nq.nextQuestion();
+            const choices = nq.current.choices;
+            assert(choices.length === 4, `選択肢が ${choices.length} 件`);
+            assert(new Set(choices).size === 4, '選択肢に重複がある');
+            assert(choices.filter(n => n === nq.current.entry.name).length === 1, '正解が選択肢にちょうど1つ含まれていない');
+            assert(c.D.querySelector('#naming-svg .quiz-atoms').children.length > 0, '問題の図が空');
+            // C7H16（異性体9種）の出題では、誤答3つがすべて同分子式（異性体名）になるはず
+            if (!c7Checked && nq.current.entry.formula === 'C₇H₁₆') {
+                const names = new Map(nq.library.map(e => [e.name, e.formula]));
+                choices.forEach(n => {
+                    assert(names.get(n) === 'C₇H₁₆', `C7H16の問題に他分子式の選択肢「${n}」`);
+                });
+                c7Checked = true;
+            }
+        }
+
+        // 回答フロー: 正答で加算・解説表示・ボタン無効化と正解のハイライト
+        nq.nextQuestion();
+        const before = nq.score.correct;
+        const correctBtn = [...c.D.getElementById('naming-choices').children]
+            .find(b => b.textContent === nq.current.entry.name);
+        correctBtn.click();
+        assert(nq.score.correct === before + 1, '正答が加算されない');
+        assert(c.D.getElementById('naming-result').textContent.includes('正解'), '解説が表示されない');
+        assert([...c.D.getElementById('naming-choices').children].every(b => b.disabled), '回答後に選択肢が無効化されない');
+
+        c.D.getElementById('btn-naming-close').click();
+        assert(c.D.getElementById('naming-modal').classList.contains('hidden'), 'モーダルが閉じない');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

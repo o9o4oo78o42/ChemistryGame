@@ -2279,8 +2279,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         window.reactionPlayer = new ReactionPlayer(window.game);
         await window.reactionPlayer.load();
 
-        // 「同じ化合物？」クイズ（P8-3）
+        // 学習クイズ（P8-3: 同じ化合物？ / P8-4: 命名）
         window.quiz = new SameCompoundQuiz(window.game);
+        window.namingQuiz = new NamingQuiz(window.game);
     } catch (e) {
         console.error('Failed to load stages.json:', e);
         const resultDiv = document.getElementById('verify-result');
