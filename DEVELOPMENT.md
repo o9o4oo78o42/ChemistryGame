@@ -112,11 +112,11 @@
 ## 7. バージョン管理・リリース手順
 
 - コミットは **1修正=1コミット**。メッセージは既存の Conventional Commits 形式（`fix:` / `feat:` / `chore:`）を踏襲し、末尾に `(vNN)` を付ける。
-- バージョン番号 `vNN` を上げる際は、以下 **4箇所を同一コミットで** 更新する（不一致はキャッシュ事故のもと）:
-  1. `index.html` の `style.css?v=NN`
-  2. `index.html` の `chemistry.js?v=NN`
-  3. `index.html` の `game.js?v=NN`
-  4. ヘッダー表示 `<div class="version">vNN</div>`
+- バージョン番号 `vNN` を上げる際は、**`index.html` と `test.html` の全キャッシュバスターを同一コミットで** 更新する（不一致はキャッシュ事故のもと。GitHub Pagesはmax-age=600で配信するため、バスターのないURLは最大10分間古い版が使われ続ける）:
+  1. `index.html` の `style.css` / `chemistry.js` / `game.js` / `reaction.js` / `quiz.js` の `?v=NN`
+  2. `index.html` ヘッダー表示 `<div class="version">vNN</div>`
+  3. `test.html` の `index.html?v=NN`（iframe）と `tests.js?v=NN`
+  - 一括更新例: `sed -i 's/?v=OLD/?v=NEW/g' index.html test.html` ＋ ヘッダー表示の置換
 - main ブランチ直コミット運用を維持する（単独開発のため）。ただし大きなリファクタ（Pointer Events 移行等）はブランチを切ってもよい。
 
 ## 8. ロードマップ（優先順位順）
