@@ -397,29 +397,30 @@
 
     test('D4: 環への側鎖1本目は外向き二等分線上', async (c) => {
         c.reset();
-        c.game.placeModule('cyclohexane', 400, 300, null);
-        c.clickAt(400, 216);
+        // v102: 自由配置の環中心はグリッドに丸められるため、グリッド整列点(420,294)を使う
+        c.game.placeModule('cyclohexane', 420, 294, null);
+        c.clickAt(420, 210);
         const s1 = c.game.userMolecule.atoms[6];
-        assert(s1 && near(s1.x, 400) && near(s1.y, 216), '1本目が二等分線上に配置されない');
+        assert(s1 && near(s1.x, 420) && near(s1.y, 210), '1本目が二等分線上に配置されない');
     });
 
     test('D5: 側鎖2本目は±30°振り分け・枝が平行移動で追随・Undo一括', async (c) => {
         c.reset();
-        c.game.placeModule('cyclohexane', 400, 300, null);
-        const v0 = c.game.userMolecule.atoms.find(a => near(a.x, 400, 1) && near(a.y, 258, 1));
-        c.clickAt(400, 216); // S1
+        c.game.placeModule('cyclohexane', 420, 294, null);
+        const v0 = c.game.userMolecule.atoms.find(a => near(a.x, 420, 1) && near(a.y, 252, 1));
+        c.clickAt(420, 210); // S1
         const s1 = c.game.userMolecule.atoms[6];
-        c.clickAt(400, 174); // S2（S1の枝）
+        c.clickAt(420, 168); // S2（S1の枝）
         const s2 = c.game.userMolecule.atoms[7];
-        c.clickAt(426, 246); // 2本目（-60°側）
+        c.clickAt(446, 240); // 2本目（-60°側）
         const newAtom = c.game.userMolecule.atoms[8];
-        assert(newAtom && near(newAtom.x, 421) && near(newAtom.y, 221.6), '新原子が-60°側に配置されない');
-        assert(near(s1.x, 379) && near(s1.y, 221.6), '既存側鎖が-120°側へ振り分けられない');
+        assert(newAtom && near(newAtom.x, 441) && near(newAtom.y, 215.6), '新原子が-60°側に配置されない');
+        assert(near(s1.x, 399) && near(s1.y, 215.6), '既存側鎖が-120°側へ振り分けられない');
         assert(near(s2.x - s1.x, 0, 1) && near(s2.y - s1.y, -42, 1), '枝の相対位置が崩れた');
         assert(c.game.userMolecule.getBond(v0.id, s1.id) && c.game.userMolecule.getBond(v0.id, newAtom.id),
             '振り分けで結合が壊れた');
         c.game.undo();
-        assert(near(c.game.userMolecule.atoms[6].x, 400, 1) && c.game.userMolecule.atoms.length === 8,
+        assert(near(c.game.userMolecule.atoms[6].x, 420, 1) && c.game.userMolecule.atoms.length === 8,
             'Undoで振り分け前に戻らない');
     });
 
@@ -1145,6 +1146,50 @@
         g.userMolecule = new c.W.Molecule();
         g.updateDrawing();
         g.fitCanvasToTarget();
+    });
+
+    // ===== J. 環モジュールの縮合スナップ（P7-8） =====
+
+    test('J1: 縮合スナップでナフタレン・デカリン、重なりは拒否', async (c) => {
+        c.reset();
+        const g = c.game;
+        const m = () => g.userMolecule;
+
+        // ベンゼンを置き、辺の外側にカーソル→吸着ゴースト→クリックでナフタレン
+        g.selectedModule = 'benzene';
+        c.clickAt(420, 294);
+        assert(m().atoms.length === 6, 'ベンゼンが置けない');
+        g.selectedModule = 'benzene';
+        c.hoverAt(473, 324); // 右下辺の縮合中心(472.5,324.4)付近
+        assert(c.D.querySelectorAll('#ui-group polygon').length === 1, '環ゴーストが表示されない');
+        c.clickAt(473, 324);
+        assert(m().atoms.length === 10 && m().bonds.length === 11,
+            `ナフタレンにならない（原子${m().atoms.length}・結合${m().bonds.length}）`);
+        assert(g.computeMolecularFormula() === 'C₁₀H₈', `分子式が${g.computeMolecularFormula()}`);
+        // ケクレ交互の維持: 全Cが二重結合をちょうど1本持つ
+        const dbl = m().atoms.filter(a =>
+            m().getNeighbors(a.id).filter(n => n.type === 2).length === 1).length;
+        assert(dbl === 10, `二重結合の割り当てが不正（1本持ちが${dbl}/10原子）`);
+
+        // シクロヘキサン×2 → デカリン
+        c.reset();
+        g.selectedModule = 'cyclohexane';
+        c.clickAt(420, 294);
+        g.selectedModule = 'cyclohexane';
+        c.clickAt(493, 294); // 右辺(x=456.4)の縮合中心(492.7,294)付近
+        assert(m().atoms.length === 10 && m().bonds.length === 11,
+            `デカリンにならない（原子${m().atoms.length}・結合${m().bonds.length}）`);
+        assert(g.computeMolecularFormula() === 'C₁₀H₁₈', `分子式が${g.computeMolecularFormula()}`);
+
+        // 既存の環と重なる位置は拒否され、Undo履歴も消費しない
+        const na = m().atoms.length, nh = g.history.length;
+        g.selectedModule = 'cyclohexane';
+        c.clickAt(450, 294); // 環の内部
+        assert(m().atoms.length === na, '重なり配置が拒否されない');
+        assert(g.history.length === nh, '拒否時にUndo履歴が消費された');
+        assert(c.D.getElementById('verify-result').textContent.includes('配置できません'),
+            '拒否トーストが出ない');
+        c.D.getElementById('verify-result').classList.add('hidden');
     });
 
     // ===== 実行ハーネス =====

@@ -874,6 +874,12 @@ class Game {
         if (this.selectedTool === 'bond' && this.isDragging && this.bondStartAtom) {
             this.drawBondPreview(this.bondStartAtom.x, this.bondStartAtom.y, coords.rawX, coords.rawY);
         }
+        // 1.5 環モジュール選択中: 配置予定の環のゴーストを表示（P7-8）。
+        //     n-ring は員数が未確定（モーダル選択後）のためゴーストは出さない
+        else if (this.selectedTool === 'select' && this.isRingModule(this.selectedModule) && this.selectedModule !== 'n-ring') {
+            this.clearUIOverlay();
+            this.drawRingGhost(this.getRingPlacementPlan(this.selectedModule, coords.rawX, coords.rawY));
+        }
         // 2. 原子配置モード（ツールが 'select' かつ モジュール未選択、かつ ドラッグ移動中でない、かつ マウスの下に既存原子がない）
         else if (this.selectedTool === 'select' && !this.selectedModule && !this.isDragging) {
             const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
@@ -951,8 +957,8 @@ class Game {
 
         if (this.selectedTool === 'select') {
             if (this.selectedModule) {
-                // モジュール（官能基/環）の配置処理
-                this.placeModule(this.selectedModule, coords.x, coords.y, clickedAtom);
+                // モジュール（官能基/環）の配置処理。環はカーソル生座標から配置計画を立てる（P7-8）
+                this.placeModule(this.selectedModule, coords.rawX, coords.rawY, clickedAtom);
                 this.selectedModule = null;
                 document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
             } else if (clickedAtom) {
@@ -1489,94 +1495,225 @@ class Game {
     }
 
     // 環・官能基モジュールの配置（n-ringは員数モーダルを経由して ringCount 付きで再入する）
-    placeModule(moduleType, x, y, clickedAtom, ringCount = null) {
-        // 環モジュールかどうかの判定と初期パラメータ決定
-        const isRing = (moduleType === 'benzene' || moduleType === 'cyclopentane' || moduleType === 'cyclohexane' || moduleType === 'n-ring');
+    isRingModule(moduleType) {
+        return moduleType === 'benzene' || moduleType === 'cyclopentane' ||
+               moduleType === 'cyclohexane' || moduleType === 'n-ring';
+    }
+
+    // 環モジュールの配置計画（P7-8）。ゴーストプレビューと実配置の両方がこの関数を使うことで
+    // 「見えた通りに置かれる」ことを保証する（getPlacementBondTargets と同じ原則）。
+    // カーソルが既存結合の縮合位置（その結合を1辺とする正N角形の中心）に近ければ縮合に吸着し、
+    // それ以外は絶対グリッドに丸めた自由配置。頂点は12px以内の既存原子にマージする。
+    getRingPlacementPlan(moduleType, rawX, rawY, ringCount = null) {
+        const MERGE_DIST = 12;
+        const MIN_CLEARANCE = GRID_SIZE * 0.65;
+        const FUSION_SNAP = 40; // この距離内に縮合候補の中心があれば縮合を優先
+
         let count = 6;
         let R = GRID_SIZE * 0.833;
-
-        if (isRing && moduleType === 'n-ring') {
-            if (ringCount === null) {
-                // 員数はモーダルで選ばせる（開発方針3.4: prompt/alertは使わない）
-                this.pendingRing = { x, y, clickedAtom };
-                this.nringModal.classList.remove('hidden');
-                return;
-            }
-            count = ringCount;
-            // 正N角形の一辺の長さを GRID_SIZE にするための外接円半径の計算公式
+        let angleOffset = 0; // benzene は頂点が左右（既存動作の維持）
+        if (moduleType === 'n-ring') {
+            count = ringCount || 6;
             R = GRID_SIZE / (2 * Math.sin(Math.PI / count));
+            angleOffset = -Math.PI / 2;
         } else if (moduleType === 'cyclopentane') {
-            R = GRID_SIZE * 0.85;
             count = 5;
+            R = GRID_SIZE * 0.85;
+            angleOffset = -Math.PI / 2;
         } else if (moduleType === 'cyclohexane') {
-            R = GRID_SIZE;
             count = 6;
+            R = GRID_SIZE;
+            angleOffset = -Math.PI / 2;
         }
 
-        // モジュール配置時の孤立制限チェック
-        if (this.userMolecule.atoms.length > 0) {
-            let canPlace = false;
-            if (isRing) {
-                for (let i = 0; i < count; i++) {
-                    let ang;
-                    if (moduleType === 'benzene') {
-                        ang = (i * Math.PI) / 3;
-                    } else {
-                        ang = i * (2 * Math.PI / count) - Math.PI / 2;
-                    }
-                    const bx = x + R * Math.cos(ang);
-                    const by = y + R * Math.sin(ang);
-                    if (this.isNearAnyExistingAtom(bx, by)) {
-                        canPlace = true;
-                        break;
-                    }
-                }
-            } else if (clickedAtom) {
-                canPlace = true;
+        const heavy = this.userMolecule.atoms.filter(a => a.element !== 'H');
+
+        // --- 縮合候補: 既存の重原子間結合を新しい環の1辺として使う（向き任意・辺長に環を合わせる） ---
+        let fusion = null;
+        this.userMolecule.bonds.forEach(b => {
+            const a1 = this.userMolecule.atoms.find(a => a.id === b.atomId1);
+            const a2 = this.userMolecule.atoms.find(a => a.id === b.atomId2);
+            if (!a1 || !a2 || a1.element === 'H' || a2.element === 'H') return;
+            const L = Math.hypot(a2.x - a1.x, a2.y - a1.y);
+            if (L < 20 || L > 95) return; // 極端な長さの辺は環の辺として使わない
+            const mx = (a1.x + a2.x) / 2, my = (a1.y + a2.y) / 2;
+            let nx = -(a2.y - a1.y) / L, ny = (a2.x - a1.x) / L;
+            if ((rawX - mx) * nx + (rawY - my) * ny < 0) { nx = -nx; ny = -ny; } // カーソル側へ
+            const Rf = L / (2 * Math.sin(Math.PI / count));
+            const cx = mx + Rf * Math.cos(Math.PI / count) * nx;
+            const cy = my + Rf * Math.cos(Math.PI / count) * ny;
+            const d = Math.hypot(rawX - cx, rawY - cy);
+            if (d < FUSION_SNAP && (!fusion || d < fusion.d)) {
+                fusion = { d, a1, a2, cx, cy, Rf };
             }
-            if (!canPlace) return; // 孤立した位置なら配置しない
+        });
+
+        let center, vertices = [];
+        if (fusion) {
+            // 縮合: 共有辺の両端を隣接頂点0・1として残りを回転で求める
+            center = { x: fusion.cx, y: fusion.cy };
+            const ang1 = Math.atan2(fusion.a1.y - center.y, fusion.a1.x - center.x);
+            const ang2 = Math.atan2(fusion.a2.y - center.y, fusion.a2.x - center.x);
+            let step = 2 * Math.PI / count;
+            const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+            if (Math.abs(norm(ang1 + step - ang2)) > 0.01) step = -step;
+            for (let k = 0; k < count; k++) {
+                const ang = ang1 + step * k;
+                vertices.push({ x: center.x + fusion.Rf * Math.cos(ang), y: center.y + fusion.Rf * Math.sin(ang) });
+            }
+        } else {
+            // 自由配置: カーソルを絶対グリッドに丸めた点が中心
+            center = {
+                x: Math.round(rawX / GRID_SIZE) * GRID_SIZE,
+                y: Math.round(rawY / GRID_SIZE) * GRID_SIZE
+            };
+            for (let k = 0; k < count; k++) {
+                const ang = (moduleType === 'benzene') ? k * Math.PI / 3 : k * 2 * Math.PI / count + angleOffset;
+                vertices.push({ x: center.x + R * Math.cos(ang), y: center.y + R * Math.sin(ang) });
+            }
+        }
+
+        // 頂点の解決: 12px以内の既存重原子にマージ。同一原子への二重マージは不正
+        vertices.forEach(v => {
+            v.existing = heavy.find(a => Math.hypot(a.x - v.x, a.y - v.y) <= MERGE_DIST) || null;
+        });
+        const mergedIds = vertices.filter(v => v.existing).map(v => v.existing.id);
+        if (new Set(mergedIds).size !== mergedIds.length) {
+            return { valid: false, reason: 'overlap', vertices, center };
+        }
+        // 新規頂点は既存原子（マージ対象を除く）と最小間隔を確保（環と既存分子の重なり防止）
+        const mergedSet = new Set(mergedIds);
+        const clash = vertices.some(v => !v.existing && heavy.some(a =>
+            !mergedSet.has(a.id) && Math.hypot(a.x - v.x, a.y - v.y) < MIN_CLEARANCE));
+        if (clash) {
+            return { valid: false, reason: 'overlap', vertices, center };
+        }
+        // 孤立配置の禁止（従来ルール踏襲）
+        if (heavy.length > 0 && !fusion &&
+            !vertices.some(v => this.isNearAnyExistingAtom(v.x, v.y))) {
+            return { valid: false, reason: 'isolated', vertices, center };
+        }
+
+        // 辺の計画: 既存結合は温存。ベンゼンは「二重結合を持たない頂点どうし」に貪欲に
+        // 二重結合を割り当てる（縮合してもケクレ交互が破綻しない）
+        const hasDouble = new Set();
+        const keyOf = (v, idx) => v.existing ? 'a:' + v.existing.id : 'n:' + idx;
+        vertices.forEach((v, i) => {
+            if (v.existing && this.userMolecule.getNeighbors(v.existing.id).some(n => n.type === 2)) {
+                hasDouble.add(keyOf(v, i));
+            }
+        });
+        const edges = [];
+        for (let i = 0; i < count; i++) {
+            const j = (i + 1) % count;
+            const vi = vertices[i], vj = vertices[j];
+            const exists = !!(vi.existing && vj.existing &&
+                this.userMolecule.getBond(vi.existing.id, vj.existing.id));
+            let type = 1;
+            if (!exists && moduleType === 'benzene') {
+                const ki = keyOf(vi, i), kj = keyOf(vj, j);
+                if (!hasDouble.has(ki) && !hasDouble.has(kj)) {
+                    type = 2;
+                    hasDouble.add(ki);
+                    hasDouble.add(kj);
+                }
+            }
+            edges.push({ i, j, type, exists });
+        }
+        // 何も追加されない配置（既存の環への重ね置き）は不正扱い
+        if (!vertices.some(v => !v.existing) && edges.every(e => e.exists)) {
+            return { valid: false, reason: 'overlap', vertices, center };
+        }
+        // 価標チェック: マージ原子へ追加される結合次数が空き価標を超えないか
+        const addedOrder = new Map();
+        edges.forEach(e => {
+            if (e.exists) return;
+            [e.i, e.j].forEach(idx => {
+                const v = vertices[idx];
+                if (v.existing) addedOrder.set(v.existing.id, (addedOrder.get(v.existing.id) || 0) + e.type);
+            });
+        });
+        for (const [id, add] of addedOrder) {
+            if (this.userMolecule.getFreeValency(id) < add) {
+                return { valid: false, reason: 'valency', vertices, center };
+            }
+        }
+
+        return { valid: true, vertices, edges, center };
+    }
+
+    // 環モジュールのゴーストプレビュー（P7-8）: 配置予定の環の輪郭を描く。
+    // マージされる頂点（吸着）は白抜きの丸で示し、置けない場合は赤で示す
+    drawRingGhost(plan) {
+        const NS = 'http://www.w3.org/2000/svg';
+        const color = plan.valid ? 'rgba(0, 242, 254, 0.75)' : 'rgba(255, 90, 90, 0.85)';
+        const poly = document.createElementNS(NS, 'polygon');
+        poly.setAttribute('points', plan.vertices.map(v => `${v.x},${v.y}`).join(' '));
+        poly.setAttribute('fill', 'none');
+        poly.setAttribute('stroke', color);
+        poly.setAttribute('stroke-width', '3');
+        poly.setAttribute('stroke-dasharray', '6,5');
+        this.uiGroup.appendChild(poly);
+        plan.vertices.forEach(v => {
+            const c = document.createElementNS(NS, 'circle');
+            c.setAttribute('cx', v.x);
+            c.setAttribute('cy', v.y);
+            c.setAttribute('r', v.existing ? 8 : 5);
+            c.setAttribute('fill', v.existing ? 'none' : color);
+            c.setAttribute('stroke', color);
+            c.setAttribute('stroke-width', '2');
+            this.uiGroup.appendChild(c);
+        });
+    }
+
+    placeModule(moduleType, x, y, clickedAtom, ringCount = null) {
+        const isRing = this.isRingModule(moduleType);
+
+        if (moduleType === 'n-ring' && ringCount === null) {
+            // 員数はモーダルで選ばせる（開発方針3.4: prompt/alertは使わない）
+            this.pendingRing = { x, y, clickedAtom };
+            this.nringModal.classList.remove('hidden');
+            return;
+        }
+
+        if (isRing) {
+            // 配置計画はゴーストプレビューと同一の判定（プレビュー＝実結果を保証）
+            const plan = this.getRingPlacementPlan(moduleType, x, y, ringCount);
+            if (!plan.valid) {
+                const msg = plan.reason === 'isolated'
+                    ? '既存の分子から離れた場所には配置できません。つなげたい場所の近くをクリックしてください。'
+                    : plan.reason === 'valency'
+                        ? '縮合先の原子に空き価標が足りないため、ここには環を作れません。'
+                        : '既存の原子と重なるため、ここには配置できません。位置を少しずらしてください。';
+                this.showToast(msg);
+                return; // 配置しない場合はUndo履歴を消費しない（開発方針 3.5章）
+            }
+            this.saveState();
+            const ringAtoms = plan.vertices.map(v =>
+                v.existing || this.userMolecule.addAtom('C', v.x, v.y));
+            if (moduleType === 'benzene') {
+                ringAtoms.forEach((c, i) => {
+                    c.benzeneCenter = { x: plan.center.x, y: plan.center.y };
+                    c.benzeneAngle = Math.atan2(plan.vertices[i].y - plan.center.y, plan.vertices[i].x - plan.center.x);
+                });
+            }
+            plan.edges.forEach(e => {
+                if (!e.exists) this.userMolecule.addBond(ringAtoms[e.i].id, ringAtoms[e.j].id, e.type);
+            });
+            this.autoConnectAdjacentAtoms();
+            this.updateDrawing();
+            return;
         }
 
         // 官能基モジュールは接続先原子が必須。配置できない場合はUndo履歴を消費せずに案内する（開発方針 3.5章）
-        if (!isRing && !clickedAtom) {
+        if (!clickedAtom) {
             this.showToast('官能基を結合するには、接続先の既存の原子（Cなど）をクリックしてください。');
             return;
         }
 
         this.saveState();
 
-        if (isRing) {
-            const newCAtoms = [];
-            for (let i = 0; i < count; i++) {
-                let ang;
-                if (moduleType === 'benzene') {
-                    ang = (i * Math.PI) / 3;
-                } else {
-                    ang = i * (2 * Math.PI / count) - Math.PI / 2;
-                }
-                // 重複原子マージ処理（縮合環・複数環の接続サポート）
-                const targetX = x + R * Math.cos(ang);
-                const targetY = y + R * Math.sin(ang);
-                let existing = this.userMolecule.atoms.find(a => {
-                    if (a.element === 'H') return false;
-                    const dx = a.x - targetX;
-                    const dy = a.y - targetY;
-                    return Math.sqrt(dx*dx + dy*dy) <= 12; // 12px以内なら同じ原子とみなす
-                });
-                const c = existing ? existing : this.userMolecule.addAtom('C', targetX, targetY);
-                if (moduleType === 'benzene') {
-                    c.benzeneCenter = { x, y };
-                    c.benzeneAngle = ang;
-                }
-                newCAtoms.push(c);
-            }
-            // 環状に結合を張る
-            for (let i = 0; i < count; i++) {
-                const next = (i + 1) % count;
-                const type = (moduleType === 'benzene' && i % 2 === 0) ? 2 : 1;
-                this.userMolecule.addBond(newCAtoms[i].id, newCAtoms[next].id, type);
-            }
-        } else if (clickedAtom) {
+        if (clickedAtom) {
             // 官能基の配置
             const baseAtom = clickedAtom;
             
