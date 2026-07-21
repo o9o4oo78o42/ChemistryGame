@@ -327,47 +327,16 @@ class Molecule {
         return hydrogens;
     }
 
-    // 炭素から特定の隣接原子方向へ伸びる部分木を再帰的にシリアライズ (グラフ同型判定の簡易版)
-    serializeSubtree(currentAtomId, parentAtomId, visitedAtomIds) {
-        visitedAtomIds.add(currentAtomId);
-        const atom = this.atoms.find(a => a.id === currentAtomId);
-        if (!atom) return '';
-
-        // 隣接する結合と原子をリストアップ（親方向は除く）
-        const neighbors = this.getNeighbors(currentAtomId)
-            .filter(n => n.atom.id !== parentAtomId);
-            
-        // この原子から生える水素(H)の数も置換基に含める
-        const hCount = this.getFreeValency(currentAtomId);
-        
-        const childrenStrings = [];
-        for (let i = 0; i < hCount; i++) {
-            childrenStrings.push("H");
-        }
-        
-        neighbors.forEach(n => {
-            if (visitedAtomIds.has(n.atom.id)) {
-                // ループ・環状構造の検出：環としての識別子を返す
-                childrenStrings.push(`Cycle_${n.atom.element}`);
-            } else {
-                const subStr = this.serializeSubtree(n.atom.id, currentAtomId, new Set(visitedAtomIds));
-                childrenStrings.push(`(${n.type})${subStr}`);
-            }
-        });
-        
-        // 順序に依存しないようにソートして結合
-        childrenStrings.sort();
-        return `${atom.element}[${childrenStrings.join(',')}]`;
-    }
-
-    // 特定の炭素が「不斉炭素（Asymmetric Carbon）」であるか判定
+    // 特定の炭素が「不斉炭素（Asymmetric Carbon）」であるか判定。
+    // 置換基の比較には根付き正準コード（rootedFragmentCode）を使い、
+    // 環を含む置換基でも厳密に同一性を判定する（P8-2で旧serializeSubtreeを置換）。
     isAsymmetricCarbon(atomId) {
         const atom = this.atoms.find(a => a.id === atomId);
         if (!atom || atom.element !== 'C') return false;
 
         // sp3 炭素である必要がある (結合数の合計が 4 かつ、すべて単結合であること)
         const neighbors = this.getNeighbors(atomId);
-        
+
         // 二重結合や三重結合がある場合は不斉炭素にならない
         const hasMultipleBond = neighbors.some(n => n.type > 1);
         if (hasMultipleBond) return false;
@@ -377,24 +346,15 @@ class Molecule {
         const hCount = this.getFreeValency(atomId);
         if (heavyNeighbors.length + hCount !== 4) return false;
 
-        // 4つの置換基のシリアライズ文字列を取得
+        // 4つの置換基（水素＋重原子側の断片コード）がすべて互いに異なるか
         const substituentStrings = [];
-        
-        // 水素置換基
         for (let i = 0; i < hCount; i++) {
-            substituentStrings.push("H");
+            substituentStrings.push('H');
         }
-
-        // 重原子置換基
         heavyNeighbors.forEach(n => {
-            const visited = new Set([atomId]);
-            const serialized = this.serializeSubtree(n.atom.id, atomId, visited);
-            substituentStrings.push(serialized);
+            substituentStrings.push(rootedFragmentCode(this, n.atom.id, atomId));
         });
-
-        // 4つの置換基がすべて互いに異なっているか判定
-        const uniqueSet = new Set(substituentStrings);
-        return uniqueSet.size === 4;
+        return new Set(substituentStrings).size === 4;
     }
 }
 
@@ -646,6 +606,171 @@ function getDoubleBondGeometry(mol) {
 }
 
 /**
+ * 正準コード探索の共通コア（P8-2）。
+ * 頂点0..n-1、adj[i]=[{j, t}]（tは結合タイプ文字）、labels[i]=原子ラベル。
+ * Weisfeiler-Leman型の反復精緻化で同型不変なクラスを割り当てたのち、
+ * 「各位置で行文字列が最小になる候補だけに分岐する」バックトラックで
+ * 行配列（辞書順最小）を求める。同型なグラフは必ず同じ行配列になる。
+ * forcedFirst を指定するとその頂点を先頭位置に固定する（根付きコード用）。
+ */
+function canonicalRowsCore(n, adj, labels, forcedFirst = null) {
+    if (n === 0) return [];
+
+    // 1. WL精緻化（同型不変なクラス番号。n回で必ず安定する）
+    let cls = labels.map(l => l);
+    for (let iter = 0; iter < n; iter++) {
+        const sigs = cls.map((cv, i) =>
+            cv + '|' + adj[i].map(e => e.t + ':' + cls[e.j]).sort().join(','));
+        const uniq = [...new Set(sigs)].sort();
+        const renum = new Map(uniq.map((s, k) => [s, 'c' + k]));
+        cls = sigs.map(s => renum.get(s));
+    }
+
+    // 2. 最小コード探索
+    const placedPos = new Array(n).fill(-1);
+    const rows = [];
+    let bestRows = null;
+
+    const rowStringFor = (i) => {
+        const edges = adj[i]
+            .filter(e => placedPos[e.j] >= 0)
+            .map(e => placedPos[e.j] + e.t)
+            .sort()
+            .join('.');
+        return `${labels[i]}[${cls[i]}](${edges})`;
+    };
+    const cmpRows = (a, b) => {
+        const len = Math.min(a.length, b.length);
+        for (let i = 0; i < len; i++) {
+            if (a[i] < b[i]) return -1;
+            if (a[i] > b[i]) return 1;
+        }
+        return a.length - b.length;
+    };
+    const search = () => {
+        const k = rows.length;
+        if (k === n) {
+            if (bestRows === null || cmpRows(rows, bestRows) < 0) bestRows = [...rows];
+            return;
+        }
+        // 行文字列が最小の候補だけに分岐（同値候補＝ほぼ自己同型なので分岐数は小さい）
+        let minRow = null;
+        let cands = [];
+        for (let i = 0; i < n; i++) {
+            if (placedPos[i] >= 0) continue;
+            if (k === 0 && forcedFirst !== null && i !== forcedFirst) continue;
+            const r = rowStringFor(i);
+            if (minRow === null || r < minRow) {
+                minRow = r;
+                cands = [i];
+            } else if (r === minRow) {
+                cands.push(i);
+            }
+        }
+        cands.forEach(i => {
+            placedPos[i] = k;
+            rows.push(minRow);
+            search();
+            rows.pop();
+            placedPos[i] = -1;
+        });
+    };
+    search();
+    return bestRows || [];
+}
+
+/**
+ * 分子グラフの正準コードを返す（P8-2）。
+ * 同値関係は verifyMolecule と同一: 重原子グラフ＋各原子の自動H数＋結合次数
+ * （ベンゼン環の結合は 'a' に正規化してケクレ位相を同一視）。立体は区別しない。
+ * 同値な分子は必ず同じ文字列になり、コード一致⇔グラフ同型として使える。
+ */
+function canonicalCode(mol) {
+    const heavy = mol.atoms.filter(a => a.element !== 'H');
+    if (heavy.length === 0) return '';
+    const arKeys = findAromaticBondKeys(mol);
+    const index = new Map(heavy.map((a, i) => [a.id, i]));
+    const labels = heavy.map(a => `${a.element}${mol.getFreeValency(a.id)}`);
+    const adj = heavy.map(() => []);
+    mol.bonds.forEach(b => {
+        if (!index.has(b.atomId1) || !index.has(b.atomId2)) return;
+        const key = b.atomId1 < b.atomId2 ? `${b.atomId1}_${b.atomId2}` : `${b.atomId2}_${b.atomId1}`;
+        const t = arKeys.has(key) ? 'a' : String(b.type);
+        adj[index.get(b.atomId1)].push({ j: index.get(b.atomId2), t });
+        adj[index.get(b.atomId2)].push({ j: index.get(b.atomId1), t });
+    });
+
+    // 連結成分ごとに正準化し、成分コードをソートして結合する。
+    // （同一の成分が複数ある非連結分子で、成分間のタイ分岐が組合せ爆発するのを防ぐ。
+    //   成分正準コードの多重集合は非連結グラフの完全な同型不変量なので正しさも保たれる）
+    const compOf = new Array(heavy.length).fill(-1);
+    let compCount = 0;
+    for (let s = 0; s < heavy.length; s++) {
+        if (compOf[s] >= 0) continue;
+        const stack = [s];
+        compOf[s] = compCount;
+        while (stack.length) {
+            const i = stack.pop();
+            adj[i].forEach(e => {
+                if (compOf[e.j] < 0) {
+                    compOf[e.j] = compCount;
+                    stack.push(e.j);
+                }
+            });
+        }
+        compCount++;
+    }
+    const compCodes = [];
+    for (let cidx = 0; cidx < compCount; cidx++) {
+        const nodes = [];
+        for (let i = 0; i < heavy.length; i++) {
+            if (compOf[i] === cidx) nodes.push(i);
+        }
+        const local = new Map(nodes.map((gi, li) => [gi, li]));
+        const subLabels = nodes.map(gi => labels[gi]);
+        const subAdj = nodes.map(gi => adj[gi].map(e => ({ j: local.get(e.j), t: e.t })));
+        compCodes.push(canonicalRowsCore(nodes.length, subAdj, subLabels, null).join(';'));
+    }
+    compCodes.sort();
+    return compCodes.join('/');
+}
+
+/**
+ * 中心原子(excludeId)を通らずに root から到達できる断片の、rootを先頭に固定した
+ * 正準コードを返す（不斉炭素の置換基比較用）。H数は元の分子での値を使い、
+ * 中心との結合が存在する文脈を保つ。
+ */
+function rootedFragmentCode(mol, rootId, excludeId) {
+    const arKeys = findAromaticBondKeys(mol);
+    const fragIds = [rootId];
+    const seen = new Set([excludeId, rootId]);
+    const stack = [rootId];
+    while (stack.length) {
+        const id = stack.pop();
+        mol.getNeighbors(id).forEach(n => {
+            if (n.atom.element === 'H' || seen.has(n.atom.id)) return;
+            seen.add(n.atom.id);
+            fragIds.push(n.atom.id);
+            stack.push(n.atom.id);
+        });
+    }
+    const index = new Map(fragIds.map((id, i) => [id, i]));
+    const labels = fragIds.map(id => {
+        const a = mol.atoms.find(at => at.id === id);
+        return `${a.element}${mol.getFreeValency(id)}`;
+    });
+    const adj = fragIds.map(() => []);
+    mol.bonds.forEach(b => {
+        if (!index.has(b.atomId1) || !index.has(b.atomId2)) return;
+        const key = b.atomId1 < b.atomId2 ? `${b.atomId1}_${b.atomId2}` : `${b.atomId2}_${b.atomId1}`;
+        const t = arKeys.has(key) ? 'a' : String(b.type);
+        adj[index.get(b.atomId1)].push({ j: index.get(b.atomId2), t });
+        adj[index.get(b.atomId2)].push({ j: index.get(b.atomId1), t });
+    });
+    return canonicalRowsCore(fragIds.length, adj, labels, 0).join(';');
+}
+
+/**
  * C原子とC-C結合だけの部分グラフでの最長鎖の長さを返す（無環分子向け。全点BFS）
  */
 function longestCarbonChain(mol) {
@@ -791,4 +916,6 @@ if (typeof window !== 'undefined') {
     window.getDoubleBondGeometry = getDoubleBondGeometry;
     window.describeStructure = describeStructure;
     window.longestCarbonChain = longestCarbonChain;
+    window.canonicalCode = canonicalCode;
+    window.rootedFragmentCode = rootedFragmentCode;
 }

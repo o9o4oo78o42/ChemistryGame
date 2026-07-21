@@ -1254,7 +1254,8 @@ class Game {
     }
 
     // 名称判定ライブラリ（ステージ＋compounds.json）を検証用Molecule付きで遅延構築する。
-    // 幾何指定（シス/トランス）付きエントリを先頭に置き、優先的に照合する（P8-1）
+    // 幾何指定（シス/トランス）付きエントリを先頭に置き、優先的に照合する（P8-1）。
+    // あわせて正準コード→エントリのMapを作り、照合をO(1)にする（P8-2）
     getCompoundLibrary() {
         if (!this._compoundLibrary) {
             const entries = [
@@ -1262,11 +1263,20 @@ class Game {
                 ...COMPOUNDS.map(c => ({ name: c.name, target: c.target, geometry: c.geometry }))
             ];
             entries.sort((a, b) => (b.geometry ? 1 : 0) - (a.geometry ? 1 : 0));
-            this._compoundLibrary = entries.map(e => ({
-                name: e.name,
-                geometry: e.geometry || null,
-                mol: this.createTargetFromData({ target: e.target })
-            }));
+            this._compoundLibrary = entries.map(e => {
+                const mol = this.createTargetFromData({ target: e.target });
+                return {
+                    name: e.name,
+                    geometry: e.geometry || null,
+                    mol,
+                    code: canonicalCode(mol)
+                };
+            });
+            this._compoundCodeMap = new Map();
+            this._compoundLibrary.forEach(e => {
+                if (!this._compoundCodeMap.has(e.code)) this._compoundCodeMap.set(e.code, []);
+                this._compoundCodeMap.get(e.code).push(e);
+            });
         }
         return this._compoundLibrary;
     }
@@ -1290,10 +1300,12 @@ class Game {
             return;
         }
 
-        // ライブラリとグラフ同型照合（重原子数・元素数の不一致は verifyMolecule 側で即座に弾かれる）。
-        // 幾何指定付きエントリは、描かれた二重結合の幾何（シス/トランス）も一致した場合のみヒット
+        // 正準コードでO(1)照合（P8-2）。ヒット候補には念のためverifyMoleculeで最終確認を行い、
+        // 幾何指定付きエントリは描かれた二重結合の幾何（シス/トランス）も一致した場合のみ採用
+        this.getCompoundLibrary(); // コードMapの構築を保証
+        const candidates = this._compoundCodeMap.get(canonicalCode(this.userMolecule)) || [];
         const userGeometry = getDoubleBondGeometry(this.userMolecule);
-        const hit = this.getCompoundLibrary().find(e => {
+        const hit = candidates.find(e => {
             if (e.geometry && e.geometry !== userGeometry) return false;
             return verifyMolecule(this.userMolecule, e.mol);
         });

@@ -758,6 +758,98 @@
                c.D.getElementById('naming-modal').classList.contains('hidden'), 'モーダルが閉じない');
     });
 
+    test('F7: 正準コード — 同値⇔コード一致の性質と不斉判定の厳密化（P8-2）', async (c) => {
+        c.reset();
+        const CC = c.W.canonicalCode;
+        c.W.quiz.buildLibrary();
+        const lib = c.W.quiz.library;
+        const codes = lib.map(e => CC(e.mol));
+
+        // 1. 原子順を逆順・シャッフルで組み替えても同一コード（全ライブラリ）
+        const rebuildPermuted = (target, perm) => {
+            const m = new c.W.Molecule();
+            const added = new Array(target.atoms.length);
+            perm.forEach(origIdx => {
+                added[origIdx] = m.addAtom(target.atoms[origIdx].element, target.atoms[origIdx].x, target.atoms[origIdx].y);
+            });
+            target.bonds.forEach(b => m.addBond(added[b.atom1Index].id, added[b.atom2Index].id, b.type));
+            return m;
+        };
+        lib.forEach((e, ei) => {
+            const n = e.target.atoms.length;
+            const reversed = Array.from({ length: n }, (_, i) => n - 1 - i);
+            const shuffled = Array.from({ length: n }, (_, i) => i);
+            for (let i = n - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            assert(CC(rebuildPermuted(e.target, reversed)) === codes[ei], `逆順で不一致: ${e.name}`);
+            assert(CC(rebuildPermuted(e.target, shuffled)) === codes[ei], `シャッフルで不一致: ${e.name}`);
+        });
+
+        // 2. 同分子式グループ内の全ペアで（コード一致 ⇔ グラフ同型）
+        for (let i = 0; i < lib.length; i++) {
+            for (let j = i + 1; j < lib.length; j++) {
+                if (lib[i].formula !== lib[j].formula) continue;
+                const same = c.W.verifyMolecule(lib[i].mol, lib[j].mol);
+                assert((codes[i] === codes[j]) === same,
+                    `コードと同型判定の不一致: ${lib[i].name} vs ${lib[j].name}`);
+            }
+        }
+
+        // 3. ケクレ位相不変（o-キシレンの両位相が同一コード）
+        const buildOXylene = (attachBase) => {
+            const u = new c.W.Molecule();
+            const ring = [];
+            for (let i = 0; i < 6; i++) ring.push(u.addAtom('C', 400 + 42 * Math.cos(i * Math.PI / 3), 300 + 42 * Math.sin(i * Math.PI / 3)));
+            for (let i = 0; i < 6; i++) u.addBond(ring[i].id, ring[(i + 1) % 6].id, i % 2 === 0 ? 2 : 1);
+            u.addBond(ring[attachBase].id, u.addAtom('C', 500, 300).id, 1);
+            u.addBond(ring[attachBase + 1].id, u.addAtom('C', 500, 350).id, 1);
+            return u;
+        };
+        assert(CC(buildOXylene(0)) === CC(buildOXylene(1)), 'ケクレ位相でコードが変わった');
+
+        // 4. 非連結・同一成分の繰り返しでも爆発せず順序不変（正準化ハング退行の再発防止）
+        const buildDisc = (reverse) => {
+            const m = new c.W.Molecule();
+            if (!reverse) m.addAtom('C', 336, 294);
+            const xs = [];
+            for (let x = 372; x <= 428; x += 6) xs.push(x);
+            if (reverse) xs.reverse();
+            xs.forEach(x => {
+                const n1 = m.addAtom('N', x, 273);
+                const n2 = m.addAtom('N', x, 231);
+                m.addBond(n1.id, n2.id, 3);
+            });
+            if (reverse) m.addAtom('C', 336, 294);
+            return m;
+        };
+        const tDisc = performance.now();
+        const discCode = CC(buildDisc(false));
+        assert(performance.now() - tDisc < 500, `非連結分子の正準コードが遅すぎる (${Math.round(performance.now() - tDisc)}ms)`);
+        assert(CC(buildDisc(true)) === discCode, '非連結分子の順序不変性が壊れている');
+
+        // 5. 不斉判定の厳密化後の回帰
+        const molOf = (n) => lib.find(e => e.name === n).mol;
+        const ala = molOf('アラニン');
+        assert(ala.isAsymmetricCarbon(ala.atoms[1].id), 'アラニンα炭素が不斉でない');
+        assert(!ala.isAsymmetricCarbon(ala.atoms[0].id), 'アラニンのメチル炭素が不斉と誤判定');
+        const lactic = molOf('乳酸');
+        assert(lactic.isAsymmetricCarbon(lactic.atoms[1].id), '乳酸の中心炭素が不斉でない');
+        const mhx = molOf('3-メチルヘキサン');
+        assert(mhx.isAsymmetricCarbon(mhx.atoms[2].id), '3-メチルヘキサンのC3が不斉でない');
+        // 環を含む置換基: メチルシクロヘキサンの環結合炭素は左右対称なので不斉ではない
+        const mch = new c.W.Molecule();
+        const ring = [];
+        for (let i = 0; i < 6; i++) {
+            const ang = i * Math.PI / 3 - Math.PI / 2;
+            ring.push(mch.addAtom('C', 400 + 42 * Math.cos(ang), 300 + 42 * Math.sin(ang)));
+        }
+        for (let i = 0; i < 6; i++) mch.addBond(ring[i].id, ring[(i + 1) % 6].id, 1);
+        mch.addBond(ring[0].id, mch.addAtom('C', 400, 216).id, 1);
+        assert(!mch.isAsymmetricCarbon(ring[0].id), 'メチルシクロヘキサンの環炭素が不斉と誤判定');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {
