@@ -532,17 +532,28 @@
         c.game.updateDrawing();
         assert(nameEl() === 'ベンゼン', `ベンゼンが「${nameEl()}」と判定`);
 
-        // 未収録構造（オキシラン: C-C-O 三員環）→ 該当なし＋分子式は表示
+        // 三員環エーテル（オキシラン）はライブラリ入り済み → 酸化エチレンと命名される
+        c.game.userMolecule = new c.W.Molecule();
+        const o1 = c.game.userMolecule.addAtom('C', 380, 300);
+        const o2 = c.game.userMolecule.addAtom('C', 422, 300);
+        const o3 = c.game.userMolecule.addAtom('O', 400, 264);
+        c.game.userMolecule.addBond(o1.id, o2.id, 1);
+        c.game.userMolecule.addBond(o2.id, o3.id, 1);
+        c.game.userMolecule.addBond(o3.id, o1.id, 1);
+        c.game.updateDrawing();
+        assert(nameEl() === '酸化エチレン（エチレンオキシド）', `オキシランが「${nameEl()}」と判定`);
+
+        // 未収録構造（アジリジン: C-C-N 三員環）→ 該当なし＋分子式は表示
         c.game.userMolecule = new c.W.Molecule();
         const a1 = c.game.userMolecule.addAtom('C', 380, 300);
         const a2 = c.game.userMolecule.addAtom('C', 422, 300);
-        const a3 = c.game.userMolecule.addAtom('O', 400, 264);
+        const a3 = c.game.userMolecule.addAtom('N', 400, 264);
         c.game.userMolecule.addBond(a1.id, a2.id, 1);
         c.game.userMolecule.addBond(a2.id, a3.id, 1);
         c.game.userMolecule.addBond(a3.id, a1.id, 1);
         c.game.updateDrawing();
         assert(nameEl() === '（ライブラリに該当なし）', `未収録構造が「${nameEl()}」と判定`);
-        assert(formulaEl() === 'C₂H₄O', `オキシランの分子式が「${formulaEl()}」`);
+        assert(formulaEl() === 'C₂H₅N', `アジリジンの分子式が「${formulaEl()}」`);
     });
 
     test('F3: シス/トランスの判定と命名区別（P8-1）', async (c) => {
@@ -599,6 +610,33 @@
         c.game.userMolecule = linear;
         c.game.updateDrawing();
         assert(nameEl() === '2-ブテン', `直線描画の名称が「${nameEl()}」`);
+
+        // マレイン酸／フマル酸も描き分けで命名が変わる（P8-6追加分の幾何エントリ）
+        const buildButenedioic = (y2, y5) => {
+            const m = new c.W.Molecule();
+            const c2 = m.addAtom('C', 379, 300);
+            const c3 = m.addAtom('C', 421, 300);
+            const c1 = m.addAtom('C', 379, y2);
+            const od1 = m.addAtom('O', 337, y2);
+            const oh1 = m.addAtom('O', y2 < 300 ? 379 : 379, y2 < 300 ? y2 - 42 : y2 + 42);
+            const c4 = m.addAtom('C', 421, y5);
+            const od2 = m.addAtom('O', 463, y5);
+            const oh2 = m.addAtom('O', 421, y5 < 300 ? y5 - 42 : y5 + 42);
+            m.addBond(c2.id, c3.id, 2);
+            m.addBond(c2.id, c1.id, 1);
+            m.addBond(c1.id, od1.id, 2);
+            m.addBond(c1.id, oh1.id, 1);
+            m.addBond(c3.id, c4.id, 1);
+            m.addBond(c4.id, od2.id, 2);
+            m.addBond(c4.id, oh2.id, 1);
+            return m;
+        };
+        c.game.userMolecule = buildButenedioic(258, 258); // 同じ側 = シス
+        c.game.updateDrawing();
+        assert(nameEl() === 'マレイン酸', `シス描画が「${nameEl()}」`);
+        c.game.userMolecule = buildButenedioic(258, 342); // 反対側 = トランス
+        c.game.updateDrawing();
+        assert(nameEl() === 'フマル酸', `トランス描画が「${nameEl()}」`);
     });
 
     test('F4: 「同じ化合物？」クイズの生成と判定（P8-3）', async (c) => {
