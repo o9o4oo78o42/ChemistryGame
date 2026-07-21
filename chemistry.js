@@ -139,6 +139,17 @@ class Molecule {
         if (!atom) return 0;
         const maxVal = VALENCIES[atom.element] || 0;
         const usedVal = this.getUsedValency(atomId);
+        // ニトロ基 N(=O)(-O) の単結合O: 電荷分離形の O⁻ に相当し、実際にはHが付かない。
+        // 自動水素・分子式・配置スナップの対象から除くため空き価標0として扱う（開発方針 4章-2。
+        // ニトロベンゼンの分子式が C₆H₆NO₂ と誤表示されていた不具合の修正）
+        if (atom.element === 'O' && usedVal === 1) {
+            const nb = this.getNeighbors(atomId);
+            if (nb.length === 1 && nb[0].type === 1 && nb[0].atom.element === 'N' &&
+                this.getUsedValency(nb[0].atom.id) >= 4 &&
+                this.getNeighbors(nb[0].atom.id).some(n => n.type === 2 && n.atom.element === 'O')) {
+                return 0;
+            }
+        }
         return Math.max(0, maxVal - usedVal);
     }
 

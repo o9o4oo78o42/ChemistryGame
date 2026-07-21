@@ -1258,6 +1258,36 @@
         c.D.getElementById('verify-result').classList.add('hidden');
     });
 
+    // ===== K. 価標・分子式の化学的正しさ =====
+
+    test('K1: ニトロ基の単結合Oに自動水素を付けない（C₆H₅NO₂）', async (c) => {
+        c.reset();
+        const g = c.game;
+        g.placeModule('benzene', 420, 294, null);
+        const ring = g.userMolecule.atoms.filter(a => a.element === 'C');
+        g.placeModule('no2', ring[0].x, ring[0].y, ring[0]);
+        assert(g.computeMolecularFormula() === 'C₆H₅NO₂',
+            `ニトロベンゼンの分子式が${g.computeMolecularFormula()}（C₆H₅NO₂を期待）`);
+        const oSingle = g.userMolecule.atoms.find(a => a.element === 'O' &&
+            g.userMolecule.getNeighbors(a.id).length === 1 &&
+            g.userMolecule.getNeighbors(a.id)[0].type === 1);
+        assert(g.userMolecule.getFreeValency(oSingle.id) === 0, 'ニトロOの空き価標が0でない');
+        assert(g.userMolecule.calculateHydrogens().every(h => h.parentId !== oSingle.id),
+            'ニトロOに自動水素が描かれている');
+        // 正解判定（ステージ照合）は維持される
+        assert(c.W.verifyMolecule(g.userMolecule,
+            g.createTargetFromData(c.W.STAGES.find(s => s.name === 'ニトロベンゼン'))),
+            'ニトロベンゼンの正解判定が壊れた');
+        // 反応ビューアの生成物予測ターゲットも正しい分子式になる
+        const rp = c.W.reactionPlayer;
+        rp.checkMode.checked = true;
+        rp.enter(rp.reactions.findIndex(r => r.name.includes('ニトロ化')));
+        const t = rp.buildMainProductTarget();
+        assert(g.computeMolecularFormula(t) === 'C₆H₅NO₂',
+            `予測ターゲットの分子式が${g.computeMolecularFormula(t)}`);
+        rp.exit();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {
