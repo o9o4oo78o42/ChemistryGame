@@ -911,8 +911,12 @@ class Game {
         const coords = this.getSnappedCoords(e);
         const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
 
+        // 立体対照ビューの炭素選択モード中はクリックを立体表示に使う（P7-5-M1）
+        if (window.stereoView && window.stereoView.picking) {
+            window.stereoView.handlePick(clickedAtom);
+            return;
+        }
 
-        
         // --- 不斉炭素マークモード (ON) 時の特別処理 ---
         if (this.asymmetricMode) {
             if (clickedAtom && clickedAtom.element === 'C') {
@@ -2375,6 +2379,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         // 学習クイズ（P8-3: 同じ化合物？ / P8-4: 命名）
         window.quiz = new SameCompoundQuiz(window.game);
         window.namingQuiz = new NamingQuiz(window.game);
+
+        // 立体対照ビュー（P7-5-M1）
+        window.stereoView = new StereoView(window.game);
 
         // 全データのロードと初期化が完了したことを示すフラグ（test.htmlの起動待ちに使用）
         window.appReady = true;

@@ -967,6 +967,63 @@
         c.game.loadStage(0);
     });
 
+    // ===== H. 立体対照ビュー（P7-5-M1） =====
+
+    test('H1: sp3炭素のくさび図モーダルと不斉連携', async (c) => {
+        c.reset();
+        const sv = c.W.stereoView;
+        assert(sv, 'stereoView が初期化されていない');
+
+        // 2-ブタノールを構築（C2が不斉炭素）
+        const m = c.game.userMolecule;
+        const c1 = m.addAtom('C', 295, 300);
+        const c2 = m.addAtom('C', 337, 300);
+        const c3 = m.addAtom('C', 379, 300);
+        const c4 = m.addAtom('C', 421, 300);
+        const o = m.addAtom('O', 337, 258);
+        m.addBond(c1.id, c2.id, 1);
+        m.addBond(c2.id, c3.id, 1);
+        m.addBond(c3.id, c4.id, 1);
+        m.addBond(c2.id, o.id, 1);
+        c.game.updateDrawing();
+
+        // 選択モード → 不斉炭素C2をクリック → モーダルにくさび図と説明
+        c.D.getElementById('btn-stereo').click();
+        assert(sv.picking, '選択モードにならない');
+        c.clickAt(337, 300);
+        assert(!sv.picking, '選択モードが解除されない');
+        assert(!c.D.getElementById('stereo-modal').classList.contains('hidden'), 'モーダルが開かない');
+        const cap = c.D.getElementById('stereo-caption').textContent;
+        assert(cap.includes('109.5'), '結合角109.5°の説明がない');
+        assert(cap.includes('不斉炭素です'), '不斉炭素の説明がない');
+        assert(c.D.querySelectorAll('#stereo-svg text').length >= 5, 'くさび図のラベルが不足'); // 中心C+置換基4
+        assert(c.D.querySelectorAll('#stereo-svg polygon').length === 1, '手前くさびが描かれない');
+        c.D.getElementById('btn-stereo-close').click();
+        assert(c.D.getElementById('stereo-modal').classList.contains('hidden'), 'モーダルが閉じない');
+
+        // 非sp3（ベンゼン環の炭素）は拒否してトースト表示、モーダルは開かない
+        c.game.userMolecule = new c.W.Molecule();
+        c.game.placeModule('benzene', 400, 300, null);
+        c.game.updateDrawing();
+        c.D.getElementById('btn-stereo').click();
+        const ring0 = c.game.userMolecule.atoms[0];
+        c.clickAt(ring0.x, ring0.y);
+        assert(c.D.getElementById('stereo-modal').classList.contains('hidden'), '非sp3でモーダルが開いた');
+        assert(c.D.getElementById('verify-result').textContent.includes('sp3'), '拒否トーストが出ない');
+        assert(!sv.picking, '拒否後に選択モードが解除されない');
+
+        // メタン（不斉でない）: 同一置換基の説明
+        c.game.userMolecule = new c.W.Molecule();
+        c.game.userMolecule.addAtom('C', 400, 300);
+        c.game.updateDrawing();
+        c.D.getElementById('btn-stereo').click();
+        c.clickAt(400, 300);
+        const cap2 = c.D.getElementById('stereo-caption').textContent;
+        assert(cap2.includes('不斉炭素ではありません'), 'メタンで不斉否定の説明がない');
+        c.D.getElementById('btn-stereo-close').click();
+        c.D.getElementById('verify-result').classList.add('hidden');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

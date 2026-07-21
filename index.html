@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=97">
+    <link rel="stylesheet" href="style.css?v=98">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -25,7 +25,7 @@
         <!-- ヘッダー -->
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
-            <div class="version">v97</div>
+            <div class="version">v98</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -146,6 +146,7 @@
                     <button id="btn-show-target" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); text-shadow:0 0 5px var(--color-cyan); cursor:pointer;">お手本を見る</button>
                     <button id="btn-quiz" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">🎓 同じ化合物？クイズ</button>
                     <button id="btn-naming" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">📝 命名クイズ</button>
+                    <button id="btn-stereo" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); cursor:pointer;">🧊 立体で見る</button>
                     <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
                         <span style="font-size:0.9rem; color:#fff;">不斉炭素マークモード</span>
                         <label class="switch" style="position:relative; display:inline-block; width:50px; height:24px;">
@@ -280,6 +281,16 @@
         </div>
     </div>
 
+    <!-- 立体対照ビューモーダル（P7-5-M1: sp3炭素の局所くさび図） -->
+    <div id="stereo-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 430px;">
+            <h2 class="neon-text" style="font-size:21px; color:var(--color-cyan); text-shadow:0 0 10px var(--color-cyan);">🧊 実際の立体構造（くさび形表記）</h2>
+            <svg id="stereo-svg" width="330" height="300" viewBox="-165 -150 330 300" style="background:rgba(15,20,28,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:12px; max-width:100%;"></svg>
+            <p id="stereo-caption" style="font-size:12.5px; color:var(--text-secondary); line-height:1.6; text-align:left; white-space:pre-line; margin:0;"></p>
+            <button id="btn-stereo-close" class="primary-btn">閉じる</button>
+        </div>
+    </div>
+
     <!-- 任意員環の員数選択モーダル（P7-4: prompt撲滅） -->
     <div id="nring-modal" class="modal-overlay hidden">
         <div class="modal-content" style="max-width: 360px;">
@@ -318,9 +329,10 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=97"></script>
-    <script src="game.js?v=97"></script>
-    <script src="reaction.js?v=97"></script>
-    <script src="quiz.js?v=97"></script>
+    <script src="chemistry.js?v=98"></script>
+    <script src="game.js?v=98"></script>
+    <script src="reaction.js?v=98"></script>
+    <script src="quiz.js?v=98"></script>
+    <script src="stereo.js?v=98"></script>
 </body>
 </html>

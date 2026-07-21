@@ -327,24 +327,24 @@ class Molecule {
         return hydrogens;
     }
 
+    // sp3炭素（C・すべて単結合・結合手4本）か判定する
+    isSp3Carbon(atomId) {
+        const atom = this.atoms.find(a => a.id === atomId);
+        if (!atom || atom.element !== 'C') return false;
+        const neighbors = this.getNeighbors(atomId);
+        if (neighbors.some(n => n.type > 1)) return false;
+        const heavyCount = neighbors.filter(n => n.atom.element !== 'H').length;
+        return heavyCount + this.getFreeValency(atomId) === 4;
+    }
+
     // 特定の炭素が「不斉炭素（Asymmetric Carbon）」であるか判定。
     // 置換基の比較には根付き正準コード（rootedFragmentCode）を使い、
     // 環を含む置換基でも厳密に同一性を判定する（P8-2で旧serializeSubtreeを置換）。
     isAsymmetricCarbon(atomId) {
-        const atom = this.atoms.find(a => a.id === atomId);
-        if (!atom || atom.element !== 'C') return false;
-
-        // sp3 炭素である必要がある (結合数の合計が 4 かつ、すべて単結合であること)
+        if (!this.isSp3Carbon(atomId)) return false;
         const neighbors = this.getNeighbors(atomId);
-
-        // 二重結合や三重結合がある場合は不斉炭素にならない
-        const hasMultipleBond = neighbors.some(n => n.type > 1);
-        if (hasMultipleBond) return false;
-
-        // 結合手が4つに伸びているか (隣接重原子と補完水素の合計が4)
         const heavyNeighbors = neighbors.filter(n => n.atom.element !== 'H');
         const hCount = this.getFreeValency(atomId);
-        if (heavyNeighbors.length + hCount !== 4) return false;
 
         // 4つの置換基（水素＋重原子側の断片コード）がすべて互いに異なるか
         const substituentStrings = [];
@@ -771,6 +771,39 @@ function rootedFragmentCode(mol, rootId, excludeId) {
 }
 
 /**
+ * 中心(excludeId)を除いて root から到達できる断片の組成式（自動H込み・Hill表記）を返す。
+ * 立体対照ビューの置換基ラベルなどの表示用。
+ */
+function fragmentFormula(mol, rootId, excludeId) {
+    const ids = [rootId];
+    const seen = new Set([excludeId, rootId]);
+    const stack = [rootId];
+    while (stack.length) {
+        const id = stack.pop();
+        mol.getNeighbors(id).forEach(n => {
+            if (n.atom.element === 'H' || seen.has(n.atom.id)) return;
+            seen.add(n.atom.id);
+            ids.push(n.atom.id);
+            stack.push(n.atom.id);
+        });
+    }
+    const counts = {};
+    let h = 0;
+    ids.forEach(id => {
+        const a = mol.atoms.find(at => at.id === id);
+        counts[a.element] = (counts[a.element] || 0) + 1;
+        h += mol.getFreeValency(id);
+    });
+    if (h > 0) counts['H'] = (counts['H'] || 0) + h;
+    const order = [];
+    if (counts['C']) order.push('C');
+    if (counts['H']) order.push('H');
+    Object.keys(counts).filter(e => e !== 'C' && e !== 'H').sort().forEach(e => order.push(e));
+    const sub = (n) => String(n).split('').map(d => '₀₁₂₃₄₅₆₇₈₉'[+d]).join('');
+    return order.map(e => counts[e] === 1 ? e : e + sub(counts[e])).join('');
+}
+
+/**
  * C原子とC-C結合だけの部分グラフでの最長鎖の長さを返す（無環分子向け。全点BFS）
  */
 function longestCarbonChain(mol) {
@@ -918,4 +951,5 @@ if (typeof window !== 'undefined') {
     window.longestCarbonChain = longestCarbonChain;
     window.canonicalCode = canonicalCode;
     window.rootedFragmentCode = rootedFragmentCode;
+    window.fragmentFormula = fragmentFormula;
 }
