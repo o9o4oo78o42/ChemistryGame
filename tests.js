@@ -1389,6 +1389,77 @@
         g.updateDrawing();
     });
 
+    test('L2: 反応実行M2（酸化の連鎖・3級の解説・分子内脱水とザイツェフ則）', async (c) => {
+        c.reset();
+        const g = c.game;
+        const summon = (name) => {
+            const input = c.D.getElementById('summon-input');
+            input.value = name;
+            input.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        };
+        const clickRule = (kw) => {
+            const btn = [...c.D.querySelectorAll('#reaction-actions button')]
+                .find(b => b.textContent.includes(kw));
+            assert(btn, `「${kw}」の反応ボタンがない`);
+            btn.click();
+        };
+        const nameShown = () => c.D.getElementById('compound-name').textContent;
+
+        // エタノール → 酸化 → アセトアルデヒド → 酸化 → 酢酸（連鎖実行）
+        summon('エタノール');
+        clickRule('アルデヒド');
+        assert(nameShown().includes('アセトアルデヒド'), `酸化後の名称が「${nameShown()}」`);
+        clickRule('カルボン酸');
+        assert(nameShown().includes('酢酸'), `再酸化後の名称が「${nameShown()}」`);
+        // Undo×2 でエタノールに戻る
+        g.undo();
+        g.undo();
+        assert(nameShown().includes('エタノール'), 'Undoでエタノールに戻らない');
+
+        // 分子内脱水 → エテン + 水（2分子・C=Cができる・Oは孤立して水になる）
+        clickRule('脱水');
+        assert(g.countMolecules() === 2, '脱水で2分子（アルケン＋水）にならない');
+        const dbl = g.userMolecule.bonds.find(b => b.type === 2);
+        assert(dbl, '脱水でC=Cができない');
+        const oAtom = g.userMolecule.atoms.find(a => a.element === 'O');
+        assert(g.userMolecule.getNeighbors(oAtom.id).length === 0 &&
+               g.userMolecule.getFreeValency(oAtom.id) === 2, '脱離したOが水(H₂O)になっていない');
+
+        // 2級アルコール: 2-ブタノール → ケトン（ブタノン）
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+        summon('2-ブタノール');
+        clickRule('ケトン');
+        assert(nameShown().includes('ブタノン'), `2級酸化後の名称が「${nameShown()}」`);
+
+        // 3級アルコール: 解説のみ（分子は変化せずUndo履歴も積まない）
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+        summon('2-メチル-2-プロパノール');
+        const atoms0 = g.userMolecule.atoms.length;
+        const hist0 = g.history.length;
+        clickRule('3級アルコール');
+        assert(g.userMolecule.atoms.length === atoms0, '3級の解説ボタンで分子が変化した');
+        assert(g.history.length === hist0, '3級の解説ボタンでUndo履歴が積まれた');
+        assert(c.D.getElementById('verify-result').textContent.includes('酸化されにくい'),
+            '3級の解説トーストが出ない');
+
+        // ザイツェフ則: 2-ブタノールの脱水 → 2-ブテン（1-ブテンではなく）
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+        summon('2-ブタノール');
+        clickRule('脱水');
+        const db2 = g.userMolecule.bonds.find(b => b.type === 2);
+        assert(db2, '2-ブタノールの脱水でC=Cができない');
+        const ends = [db2.atomId1, db2.atomId2].map(id =>
+            g.userMolecule.getNeighbors(id).filter(n => n.atom.element === 'C').length);
+        assert(ends.every(n => n === 2), `末端C=C（1-ブテン）になった（隣接C数 ${ends}）`);
+
+        c.D.getElementById('verify-result').classList.add('hidden');
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

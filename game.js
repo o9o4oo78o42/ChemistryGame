@@ -965,6 +965,11 @@ class Game {
             return;
         }
 
+        // 反応実行の適用箇所選択モード中はクリックを箇所選択に使う（P9-1 M2）
+        if (window.reactor && window.reactor.picking) {
+            if (window.reactor.handlePick(clickedAtom)) return;
+        }
+
         // --- 不斉炭素マークモード (ON) 時の特別処理 ---
         if (this.asymmetricMode) {
             if (clickedAtom && clickedAtom.element === 'C') {
@@ -2192,6 +2197,8 @@ class Game {
 
     // 「⚗ この分子の反応」カード: 官能基・特徴構造の分類を表示する（P9-1 M1）
     updateReactionCard() {
+        // 実行可能な反応のボタン列も同時に再構築する（P9-1 M2）
+        if (window.reactor) window.reactor.refresh();
         const el = document.getElementById('molecule-props');
         if (!el) return;
         const heavy = this.userMolecule.atoms.filter(a => a.element !== 'H');
@@ -2752,6 +2759,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
         // 名称呼び出しUI（P9-1 M1）: ライブラリ確定後に候補を構築
         window.game.setupSummonUI();
+
+        // 反応実行エンジン（P9-1 M2）
+        window.reactor = new Reactor(window.game);
+        window.game.updateReactionCard();
 
         // 全データのロードと初期化が完了したことを示すフラグ（test.htmlの起動待ちに使用）
         window.appReady = true;
