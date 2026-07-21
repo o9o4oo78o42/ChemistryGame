@@ -892,6 +892,14 @@ class Game {
             this.clearUIOverlay();
             this.drawRingGhost(this.getRingPlacementPlan(this.selectedModule, coords.rawX, coords.rawY));
         }
+        // 1.6 官能基モジュール選択中: 接続先原子にホバーで配置予定のゴーストを表示（P7-9）
+        else if (this.selectedTool === 'select' && this.selectedModule && !this.isRingModule(this.selectedModule)) {
+            this.clearUIOverlay();
+            const baseAtom = this.findAtomAt(coords.rawX, coords.rawY);
+            if (baseAtom && baseAtom.element !== 'H') {
+                this.drawFunctionalGroupGhost(this.getFunctionalGroupPlan(this.selectedModule, baseAtom), baseAtom);
+            }
+        }
         // 2. 原子配置モード（ツールが 'select' かつ モジュール未選択、かつ ドラッグ移動中でない、かつ マウスの下に既存原子がない）
         else if (this.selectedTool === 'select' && !this.selectedModule && !this.isDragging) {
             const clickedAtom = this.findAtomAt(coords.rawX, coords.rawY);
@@ -1723,62 +1731,125 @@ class Game {
             return;
         }
 
-        this.saveState();
-
-        if (clickedAtom) {
-            // 官能基の配置
-            const baseAtom = clickedAtom;
-            
-            // 空いている方向を特定
-            const neighbors = this.userMolecule.getNeighbors(baseAtom.id);
-            const angles = neighbors.map(n => Math.atan2(n.atom.y - baseAtom.y, n.atom.x - baseAtom.x));
-            
-            // デフォルトは右方向（0ラジアン）
-            let targetAng = 0;
-            if (angles.length > 0) {
-                let sumX = 0, sumY = 0;
-                angles.forEach(ang => {
-                    sumX += Math.cos(ang);
-                    sumY += Math.sin(ang);
-                });
-                targetAng = Math.atan2(-sumY, -sumX);
-                targetAng = Math.round(targetAng / (Math.PI / 2)) * (Math.PI / 2);
-            }
-
-            const dx = GRID_SIZE * Math.cos(targetAng);
-            const dy = GRID_SIZE * Math.sin(targetAng);
-
-            if (moduleType === 'oh') {
-                const o = this.userMolecule.addAtom('O', baseAtom.x + dx, baseAtom.y + dy);
-                this.userMolecule.addBond(baseAtom.id, o.id, 1);
-            } else if (moduleType === 'cooh') {
-                const c = this.userMolecule.addAtom('C', baseAtom.x + dx, baseAtom.y + dy);
-                this.userMolecule.addBond(baseAtom.id, c.id, 1);
-                
-                const angO1 = targetAng + Math.PI / 2;
-                const o1 = this.userMolecule.addAtom('O', c.x + GRID_SIZE * Math.cos(angO1), c.y + GRID_SIZE * Math.sin(angO1));
-                this.userMolecule.addBond(c.id, o1.id, 2);
-
-                const o2 = this.userMolecule.addAtom('O', c.x + GRID_SIZE * Math.cos(targetAng), c.y + GRID_SIZE * Math.sin(targetAng));
-                this.userMolecule.addBond(c.id, o2.id, 1);
-            } else if (moduleType === 'nh2') {
-                const n = this.userMolecule.addAtom('N', baseAtom.x + dx, baseAtom.y + dy);
-                this.userMolecule.addBond(baseAtom.id, n.id, 1);
-            } else if (moduleType === 'no2') {
-                const nAtom = this.userMolecule.addAtom('N', baseAtom.x + dx, baseAtom.y + dy);
-                this.userMolecule.addBond(baseAtom.id, nAtom.id, 1);
-                const angO1 = targetAng + Math.PI / 2;
-                const angO2 = targetAng - Math.PI / 2;
-                const oA = this.userMolecule.addAtom('O', nAtom.x + GRID_SIZE * Math.cos(angO1), nAtom.y + GRID_SIZE * Math.sin(angO1));
-                const oB = this.userMolecule.addAtom('O', nAtom.x + GRID_SIZE * Math.cos(angO2), nAtom.y + GRID_SIZE * Math.sin(angO2));
-                // ニトロ基は N(=O)(-O) で構築する。N(=O)(=O) は価標超過であり、
-                // 正解データ(stages.json)の結合次数とも一致しなくなる（開発方針 4章-2）。
-                this.userMolecule.addBond(nAtom.id, oA.id, 2);
-                this.userMolecule.addBond(nAtom.id, oB.id, 1);
-            }
+        // 配置計画はゴーストプレビューと同一の判定（プレビュー＝実結果を保証）
+        const plan = this.getFunctionalGroupPlan(moduleType, clickedAtom);
+        if (!plan.valid) {
+            const msg = plan.reason === 'valency'
+                ? 'この原子には空き価標がないため、官能基を結合できません。'
+                : '既存の原子と重なるため、ここには官能基を配置できません。';
+            this.showToast(msg);
+            return; // 配置しない場合はUndo履歴を消費しない（開発方針 3.5章）
         }
+
+        this.saveState();
+        const placed = plan.atoms.map(a => this.userMolecule.addAtom(a.element, a.x, a.y));
+        plan.bonds.forEach(b => {
+            const from = b.from === -1 ? clickedAtom : placed[b.from];
+            const to = b.to === -1 ? clickedAtom : placed[b.to];
+            this.userMolecule.addBond(from.id, to.id, b.type);
+        });
         this.autoConnectAdjacentAtoms();
         this.updateDrawing();
+    }
+
+    // 官能基モジュールの配置計画（P7-9）。ゴーストプレビューと実配置の両方がこの関数を使う。
+    // atoms: 追加する原子（座標・元素）、bonds: from/to は atoms の添字（-1 は接続先の既存原子）
+    getFunctionalGroupPlan(moduleType, baseAtom) {
+        // 空いている方向を特定（既存結合の合成ベクトルの逆を90°単位に丸める。結合なしなら右）
+        const neighbors = this.userMolecule.getNeighbors(baseAtom.id);
+        const angles = neighbors.map(n => Math.atan2(n.atom.y - baseAtom.y, n.atom.x - baseAtom.x));
+        let targetAng = 0;
+        if (angles.length > 0) {
+            let sumX = 0, sumY = 0;
+            angles.forEach(ang => {
+                sumX += Math.cos(ang);
+                sumY += Math.sin(ang);
+            });
+            targetAng = Math.atan2(-sumY, -sumX);
+            targetAng = Math.round(targetAng / (Math.PI / 2)) * (Math.PI / 2);
+        }
+        const dx = GRID_SIZE * Math.cos(targetAng);
+        const dy = GRID_SIZE * Math.sin(targetAng);
+
+        const atoms = [];
+        const bonds = [];
+        if (moduleType === 'oh') {
+            atoms.push({ element: 'O', x: baseAtom.x + dx, y: baseAtom.y + dy });
+            bonds.push({ from: -1, to: 0, type: 1 });
+        } else if (moduleType === 'cooh') {
+            const cx = baseAtom.x + dx, cy = baseAtom.y + dy;
+            atoms.push({ element: 'C', x: cx, y: cy });
+            bonds.push({ from: -1, to: 0, type: 1 });
+            const angO1 = targetAng + Math.PI / 2;
+            atoms.push({ element: 'O', x: cx + GRID_SIZE * Math.cos(angO1), y: cy + GRID_SIZE * Math.sin(angO1) });
+            bonds.push({ from: 0, to: 1, type: 2 });
+            atoms.push({ element: 'O', x: cx + GRID_SIZE * Math.cos(targetAng), y: cy + GRID_SIZE * Math.sin(targetAng) });
+            bonds.push({ from: 0, to: 2, type: 1 });
+        } else if (moduleType === 'nh2') {
+            atoms.push({ element: 'N', x: baseAtom.x + dx, y: baseAtom.y + dy });
+            bonds.push({ from: -1, to: 0, type: 1 });
+        } else if (moduleType === 'no2') {
+            const nx = baseAtom.x + dx, ny = baseAtom.y + dy;
+            atoms.push({ element: 'N', x: nx, y: ny });
+            bonds.push({ from: -1, to: 0, type: 1 });
+            const angO1 = targetAng + Math.PI / 2;
+            const angO2 = targetAng - Math.PI / 2;
+            // ニトロ基は N(=O)(-O) で構築する。N(=O)(=O) は価標超過であり、
+            // 正解データ(stages.json)の結合次数とも一致しなくなる（開発方針 4章-2）。
+            atoms.push({ element: 'O', x: nx + GRID_SIZE * Math.cos(angO1), y: ny + GRID_SIZE * Math.sin(angO1) });
+            bonds.push({ from: 0, to: 1, type: 2 });
+            atoms.push({ element: 'O', x: nx + GRID_SIZE * Math.cos(angO2), y: ny + GRID_SIZE * Math.sin(angO2) });
+            bonds.push({ from: 0, to: 2, type: 1 });
+        }
+
+        // 妥当性: 接続先の空き価標（結合1本分）と、新規原子が既存原子と重ならないこと
+        if (this.userMolecule.getFreeValency(baseAtom.id) < 1) {
+            return { atoms, bonds, targetAng, valid: false, reason: 'valency' };
+        }
+        const MIN_CLEARANCE = GRID_SIZE * 0.65;
+        const clash = atoms.some(p => this.userMolecule.atoms.some(a =>
+            a.element !== 'H' && Math.hypot(a.x - p.x, a.y - p.y) < MIN_CLEARANCE));
+        if (clash) {
+            return { atoms, bonds, targetAng, valid: false, reason: 'overlap' };
+        }
+        return { atoms, bonds, targetAng, valid: true };
+    }
+
+    // 官能基モジュールのゴーストプレビュー（P7-9）
+    drawFunctionalGroupGhost(plan, baseAtom) {
+        const NS = 'http://www.w3.org/2000/svg';
+        const color = plan.valid ? 'rgba(0, 242, 254, 0.75)' : 'rgba(255, 90, 90, 0.85)';
+        const pos = (i) => (i === -1 ? baseAtom : plan.atoms[i]);
+        plan.bonds.forEach(b => {
+            const p = pos(b.from), q = pos(b.to);
+            const line = document.createElementNS(NS, 'line');
+            line.setAttribute('x1', p.x);
+            line.setAttribute('y1', p.y);
+            line.setAttribute('x2', q.x);
+            line.setAttribute('y2', q.y);
+            line.setAttribute('stroke', color);
+            line.setAttribute('stroke-width', b.type === 2 ? '4' : '2.5');
+            line.setAttribute('stroke-dasharray', '5,4');
+            this.uiGroup.appendChild(line);
+        });
+        plan.atoms.forEach(a => {
+            const c = document.createElementNS(NS, 'circle');
+            c.setAttribute('cx', a.x);
+            c.setAttribute('cy', a.y);
+            c.setAttribute('r', 9);
+            c.setAttribute('fill', 'rgba(10, 14, 30, 0.7)');
+            c.setAttribute('stroke', color);
+            c.setAttribute('stroke-width', '2');
+            this.uiGroup.appendChild(c);
+            const t = document.createElementNS(NS, 'text');
+            t.setAttribute('x', a.x);
+            t.setAttribute('y', a.y + 4);
+            t.setAttribute('text-anchor', 'middle');
+            t.setAttribute('fill', color);
+            t.style.fontSize = '12px';
+            t.textContent = a.element;
+            this.uiGroup.appendChild(t);
+        });
     }
 
     // 結合描画中のプレビュー（一時的な破線表示など）

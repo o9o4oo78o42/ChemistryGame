@@ -1223,6 +1223,41 @@
         await c.tick();
     });
 
+    test('J3: 官能基モジュールのゴースト＝実配置・価標/重なり拒否', async (c) => {
+        c.reset();
+        const g = c.game;
+
+        // 単独炭素に -COOH: ホバーでゴースト（C,O,O）を表示
+        const base = g.userMolecule.addAtom('C', 336, 294);
+        g.updateDrawing();
+        g.selectedModule = 'cooh';
+        c.hoverAt(336, 294);
+        const ghostTexts = [...c.D.querySelectorAll('#ui-group text')].map(t => t.textContent).sort().join(',');
+        assert(ghostTexts === 'C,O,O', `ゴーストの元素表示が「${ghostTexts}」（C,O,Oを期待）`);
+
+        // クリック配置がゴースト（計画）と完全一致 → 酢酸
+        const plan = g.getFunctionalGroupPlan('cooh', base);
+        c.clickAt(336, 294);
+        assert(g.userMolecule.atoms.length === 4, 'COOHが配置されない');
+        plan.atoms.forEach(pa => {
+            assert(g.userMolecule.atoms.some(a =>
+                a.element === pa.element && near(a.x, pa.x, 1) && near(a.y, pa.y, 1)),
+                'ゴーストと実配置の位置がずれた');
+        });
+        assert(g.computeMolecularFormula() === 'C₂H₄O₂', `分子式が${g.computeMolecularFormula()}`);
+
+        // 空き価標のない原子（カルボニルC）への配置は拒否・Undo履歴も消費しない
+        const cc = g.userMolecule.atoms.find(a =>
+            a.element === 'C' && g.userMolecule.getFreeValency(a.id) === 0);
+        const n0 = g.userMolecule.atoms.length, h0 = g.history.length;
+        g.selectedModule = 'oh';
+        c.clickAt(cc.x, cc.y);
+        assert(g.userMolecule.atoms.length === n0, '空き価標なしへの配置が拒否されない');
+        assert(g.history.length === h0, '拒否時にUndo履歴が消費された');
+        assert(c.D.getElementById('verify-result').textContent.includes('価標'), '拒否トーストが出ない');
+        c.D.getElementById('verify-result').classList.add('hidden');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {
