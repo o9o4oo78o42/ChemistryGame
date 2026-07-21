@@ -1192,6 +1192,37 @@
         c.D.getElementById('verify-result').classList.add('hidden');
     });
 
+    test('J2: 手描き直交環では格子方向を優先（±30°抑制）・縮合環の手描き構築', async (c) => {
+        c.reset();
+        const g = c.game;
+        const m = g.userMolecule;
+        g.selectedTool = 'select';
+        g.selectedAtomType = 'C';
+        g.selectedModule = null;
+
+        // 長方形（2×1グリッド）の六員環をクリックだけで描く
+        [[294,294],[336,294],[378,294],[378,336],[336,336],[294,336]].forEach(p => c.clickAt(p[0], p[1]));
+        assert(m.atoms.length === 6, `6原子にならない（${m.atoms.length}）`);
+        assert(m.bonds.length === 7, `外周6＋中央の縦1の7結合にならない（${m.bonds.length}）`);
+        // 中央の縦結合を切断 → 長方形の六員環
+        const a1 = m.atoms.find(a => near(a.x, 336, 1) && near(a.y, 294, 1));
+        const a2 = m.atoms.find(a => near(a.x, 336, 1) && near(a.y, 336, 1));
+        g.handleBondInteraction(m.getBond(a1.id, a2.id), true);
+        assert(m.bonds.length === 6 && g.computeMolecularFormula() === 'C₆H₁₂', '長方形六員環にならない');
+
+        // 環の右へ格子方向に伸ばして2つ目の環を手描き（v101以前は±30°の斜め配置になり構築不能だった）
+        [[420,294],[462,294],[462,336],[420,336]].forEach(p => c.clickAt(p[0], p[1]));
+        const b1 = m.atoms.find(a => near(a.x, 420, 1) && near(a.y, 294, 1));
+        assert(b1, '環の隣が格子位置に置かれない（±30°抑制が効いていない）');
+        const b2 = m.atoms.find(a => near(a.x, 420, 1) && near(a.y, 336, 1));
+        assert(b2, '2つ目の環が閉じる位置に置かれない');
+        g.handleBondInteraction(m.getBond(b1.id, b2.id), true);
+        assert(m.atoms.length === 10 && m.bonds.length === 11,
+            `デカリン骨格にならない（原子${m.atoms.length}・結合${m.bonds.length}）`);
+        assert(g.computeMolecularFormula() === 'C₁₀H₁₈', `分子式が${g.computeMolecularFormula()}`);
+        await c.tick();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

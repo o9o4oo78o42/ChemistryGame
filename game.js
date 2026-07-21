@@ -653,7 +653,19 @@ class Game {
                 }
             });
 
-            if (ringNeighbors.length === 2 && substituents.length === 0) {
+            // 直交作図の環（長方形の六員環・家型の五員環など）の判定:
+            // 環の隣接2方向がどちらも水平/垂直なら、二等分線±30°ではなく格子方向へ置く（P7-8）。
+            // モジュールの正多角形環（隣接方向が60°系）は従来の二等分線ロジックを維持する
+            const isAxisAligned = (ang) => {
+                const m = ((ang % (Math.PI / 2)) + Math.PI / 2) % (Math.PI / 2);
+                return Math.min(m, Math.PI / 2 - m) < 0.09; // 約5度以内
+            };
+            const ringDirs = ringNeighbors.map(n => Math.atan2(n.atom.y - atom.y, n.atom.x - atom.x));
+
+            if (ringNeighbors.length === 2 && ringDirs.every(isAxisAligned)) {
+                // 格子上の環: 空いている直交方向を候補にする（手描きの縮合環・側鎖の継続を自然に）
+                candidateAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+            } else if (ringNeighbors.length === 2 && substituents.length === 0) {
                 // 側鎖1本目: 外向き二等分線の方向
                 candidateAngles = [this.outwardBisector(atom, ringNeighbors)];
             } else if (ringNeighbors.length === 2 && substituents.length === 1) {
