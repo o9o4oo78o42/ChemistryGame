@@ -1525,6 +1525,74 @@
         g.updateDrawing();
     });
 
+    test('L4: 反応実行M4（付加反応4種・マルコフニコフ則・エステルの加水分解）', async (c) => {
+        c.reset();
+        const g = c.game;
+        const summon = (name) => {
+            g.userMolecule = new c.W.Molecule();
+            g.updateDrawing();
+            const input = c.D.getElementById('summon-input');
+            input.value = name;
+            input.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        };
+        const clickRule = (kw) => {
+            const btn = [...c.D.querySelectorAll('#reaction-actions button')]
+                .find(b => b.textContent.includes(kw));
+            assert(btn, `「${kw}」の反応ボタンがない`);
+            btn.click();
+        };
+        const nameShown = () => c.D.getElementById('compound-name').textContent;
+
+        // エテンへの付加3種（生成物はいずれもライブラリ収録名で確認）
+        summon('エチレン（エテン）');
+        clickRule('Br₂');
+        assert(nameShown().includes('1,2-ジブロモエタン'), `Br₂付加後が「${nameShown()}」`);
+
+        summon('エチレン（エテン）');
+        clickRule('H₂O');
+        assert(nameShown().includes('エタノール'), `水付加後が「${nameShown()}」`);
+
+        summon('エチレン（エテン）');
+        clickRule('H₂（水素化');
+        assert(nameShown().includes('エタン'), `水素化後が「${nameShown()}」`);
+
+        // マルコフニコフ則: プロペン + HBr → Brは置換基の多い炭素（中央）に付く
+        summon('プロペン（プロピレン）');
+        clickRule('HBr');
+        const br = g.userMolecule.atoms.find(a => a.element === 'Br');
+        assert(br, 'Brが付加されない');
+        const brC = g.userMolecule.getNeighbors(br.id)[0].atom;
+        const brCarbons = g.userMolecule.getNeighbors(brC.id).filter(n => n.atom.element === 'C').length;
+        assert(brCarbons === 2, `Brが末端炭素に付いた（Br結合Cの隣接C数 ${brCarbons}、中央なら2）`);
+        assert(!g.userMolecule.bonds.some(b => b.type > 1), '付加後も多重結合が残っている');
+
+        // アセチレンへのBr₂付加は1段階だけ進む（三重→二重）
+        summon('アセチレン（エチン）');
+        clickRule('Br₂');
+        assert(g.userMolecule.bonds.some(b => b.type === 2), '三重結合が二重結合にならない');
+        assert(g.userMolecule.atoms.filter(a => a.element === 'Br').length === 2, 'Brが2個付加しない');
+
+        // 酢酸エチルの加水分解 → 酢酸 ＋ エタノール（2分子）
+        summon('酢酸エチル');
+        clickRule('けん化');
+        assert(g.countMolecules() === 2, `加水分解後が${g.countMolecules()}分子（2を期待）`);
+        assert(nameShown().includes('酢酸') && nameShown().includes('エタノール'),
+            `加水分解後が「${nameShown()}」`);
+        const atoms = g.userMolecule.atoms;
+        for (let i = 0; i < atoms.length; i++) {
+            for (let j = i + 1; j < atoms.length; j++) {
+                assert(Math.hypot(atoms[i].x - atoms[j].x, atoms[i].y - atoms[j].y) >= 24,
+                    '加水分解で原子が重なった');
+            }
+        }
+        g.undo();
+        assert(nameShown().includes('酢酸エチル'), 'Undoでエステルに戻らない');
+
+        c.D.getElementById('verify-result').classList.add('hidden');
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

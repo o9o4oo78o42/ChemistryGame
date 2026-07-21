@@ -78,6 +78,82 @@ function translateAtoms(mol, ids, dx, dy) {
 
 const ALCOHOL_TYPES = ['alcohol0', 'alcohol1', 'alcohol2', 'alcohol3'];
 
+// 新しい原子を atomId の隣（1グリッドの直交方向）に置ける空き位置を返す。なければ null
+function freeSpotAround(mol, atomId, reserved = []) {
+    const a = mol.atoms.find(x => x.id === atomId);
+    if (!a) return null;
+    const MIN_CLEARANCE = GRID_SIZE * 0.65;
+    const dirs = [0, -Math.PI / 2, Math.PI / 2, Math.PI];
+    for (const ang of dirs) {
+        const x = a.x + GRID_SIZE * Math.cos(ang);
+        const y = a.y + GRID_SIZE * Math.sin(ang);
+        if (mol.atoms.some(o => o.id !== atomId && o.element !== 'H' &&
+            Math.hypot(o.x - x, o.y - y) < MIN_CLEARANCE)) continue;
+        if (reserved.some(p => Math.hypot(p.x - x, p.y - y) < MIN_CLEARANCE)) continue;
+        return { x, y };
+    }
+    return null;
+}
+
+// 切り離された分子（movingIds）を他の原子と重ならない位置まで引き離す移動量を返す
+function separateComponent(mol, movingIds) {
+    const moving = new Set(movingIds);
+    const statics = mol.atoms.filter(a => !moving.has(a.id) && a.element !== 'H');
+    if (statics.length === 0) return { dx: 0, dy: 0 };
+    const G = GRID_SIZE;
+    const offsets = [[0, 2 * G], [2 * G, 0], [0, -2 * G], [-2 * G, 0],
+                     [0, 3 * G], [3 * G, 0], [2 * G, 2 * G], [-2 * G, 2 * G]];
+    for (const [dx, dy] of offsets) {
+        const ok = movingIds.every(id => {
+            const a = mol.atoms.find(x => x.id === id);
+            if (!a) return true;
+            return statics.every(s => Math.hypot(s.x - (a.x + dx), s.y - (a.y + dy)) >= G * 0.65);
+        });
+        if (ok) return { dx, dy };
+    }
+    return null;
+}
+
+// 多重結合（非芳香族の C=C / C≡C）の一覧を [id1, id2] の配列で返す
+function multipleBondSites(mol) {
+    return findFunctionalGroups(mol)
+        .filter(g => g.type === 'cc_double' || g.type === 'cc_triple')
+        .map(g => g.atomIds);
+}
+
+// 多重結合への付加の共通処理。elemA/elemB は付加する元素（null は水素＝自動水素に任せる）。
+// 片側だけに置換基が付く場合（HX・H₂O）はマルコフニコフ則で置換基の多い炭素側に付ける
+function addAcrossMultipleBond(game, site, elemA, elemB, caption) {
+    const mol = game.userMolecule;
+    const [id1, id2] = site;
+    const bond = mol.getBond(id1, id2);
+    if (!bond || bond.type < 2) throw new Error('多重結合が見つかりません');
+
+    let cX = id1, cY = id2;
+    if (elemA && !elemB) {
+        const subs = (id, other) => mol.getNeighbors(id)
+            .filter(n => n.atom.element === 'C' && n.atom.id !== other).length;
+        if (subs(id2, id1) > subs(id1, id2)) {
+            cX = id2;
+            cY = id1;
+        }
+    }
+
+    bond.type -= 1;
+    const added = [];
+    const reserved = [];
+    [[cX, elemA], [cY, elemB]].forEach(([cid, el]) => {
+        if (!el) return; // 水素は明示原子にせず自動水素に任せる
+        const spot = freeSpotAround(mol, cid, reserved);
+        if (!spot) throw new Error('付加する原子を置く空間がありません。結合を伸ばして空間を作ってから実行してください');
+        reserved.push(spot);
+        const atom = mol.addAtom(el, spot.x, spot.y);
+        mol.addBond(cid, atom.id, 1);
+        added.push(atom.id);
+    });
+    return { caption, changed: [id1, id2, ...added] };
+}
+
 // ---- 反応ルール（detect は適用箇所の配列を返す。apply は分子を書き換える） ----
 const REACTION_RULES = [
     {
@@ -267,6 +343,71 @@ const REACTION_RULES = [
                 changed: [oAId, cBId]
             };
         }
+    },
+    {
+        id: 'add_br2',
+        label: '付加: Br₂（臭素水の脱色）',
+        detect: multipleBondSites,
+        apply(game, site) {
+            return addAcrossMultipleBond(game, site, 'Br', 'Br',
+                '臭素 Br₂ が付加しました。赤褐色の臭素水が脱色されるこの反応は、C=C や C≡C（不飽和結合）の検出に使われます。');
+        }
+    },
+    {
+        id: 'add_h2',
+        label: '付加: H₂（水素化・Ni触媒）',
+        detect: multipleBondSites,
+        apply(game, site) {
+            return addAcrossMultipleBond(game, site, null, null,
+                '水素 H₂ が付加しました（ニッケルや白金を触媒に加熱）。不飽和結合が減って飽和に近づきます。植物油に水素を付加して固める硬化油（マーガリンの原料）はこの反応の応用です。');
+        }
+    },
+    {
+        id: 'add_hbr',
+        label: '付加: HBr（マルコフニコフ則）',
+        detect: multipleBondSites,
+        apply(game, site) {
+            return addAcrossMultipleBond(game, site, 'Br', null,
+                '臭化水素 HBr が付加しました。左右非対称なアルケンでは「H はすでに H の多い炭素へ、X は置換基の多い炭素へ」付く主生成物を示しています（マルコフニコフ則）。');
+        }
+    },
+    {
+        id: 'add_water',
+        label: '付加: H₂O（酸触媒・水和）',
+        detect: multipleBondSites,
+        apply(game, site) {
+            return addAcrossMultipleBond(game, site, 'O', null,
+                '水 H₂O が付加してアルコールになりました（リン酸などの酸触媒）。エテンからエタノールを作る工業的製法がこの反応です。非対称アルケンではマルコフニコフ則に従う主生成物を示しています。');
+        }
+    },
+    {
+        id: 'hydrolysis_ester',
+        label: 'けん化・加水分解（エステル + H₂O）',
+        detect(mol) {
+            return findFunctionalGroups(mol)
+                .filter(g => g.type === 'ester')
+                .map(g => g.atomIds); // [カルボニルC, =O, -O-]
+        },
+        apply(game, site) {
+            const [cId, , oId] = site;
+            const mol = game.userMolecule;
+            // エステルの C-O 結合を切る（アシル-酸素開裂）。O はアルコール側に残る
+            mol.removeBond(cId, oId);
+            const alcIds = [...componentOf(mol, oId)];
+            if (!alcIds.includes(cId)) {
+                // 環状エステル（ラクトン）でなければアルコール分子として引き離す
+                const sep = separateComponent(mol, alcIds);
+                if (sep) translateAtoms(mol, alcIds, sep.dx, sep.dy);
+            }
+            const spot = freeSpotAround(mol, cId);
+            if (!spot) throw new Error('生成物を配置する空間がありません。結合を伸ばして空間を作ってから実行してください');
+            const o = mol.addAtom('O', spot.x, spot.y);
+            mol.addBond(cId, o.id, 1);
+            return {
+                caption: 'エステルが加水分解されて、カルボン酸とアルコールに分かれました。水酸化ナトリウムを使う場合は「けん化」と呼ばれ、生成物はカルボン酸の塩になります（油脂のけん化＝セッケンの製法）。塩になると逆のエステル化が起こらないため、反応は完全に進みます。',
+                changed: [cId, o.id]
+            };
+        }
     }
 ];
 
@@ -361,7 +502,10 @@ class Reactor {
             result = rule.apply(g, site);
         } catch (e) {
             console.error('反応実行エラー:', rule.id, e);
-            g.history.pop(); // 失敗した実行はUndo履歴を残さない
+            // 途中まで書き換えている可能性があるため、開始時の状態へ確実に戻す
+            // （履歴を捨てるだけでは中途半端な分子が残ってしまう）
+            const saved = g.history.pop();
+            if (saved) g.restoreState(JSON.parse(saved));
             g.showToast('この反応は実行できませんでした: ' + e.message);
             return;
         }
