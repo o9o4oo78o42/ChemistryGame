@@ -981,12 +981,15 @@ class Game {
                 this.placeModule(this.selectedModule, coords.rawX, coords.rawY, clickedAtom);
                 this.selectedModule = null;
                 document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
+                // 結合の判定領域上をクリックして配置した場合、直後の合成clickによる次数トグルを抑止
+                this.suppressBondClick = true;
+                setTimeout(() => { this.suppressBondClick = false; }, 0);
             } else if (clickedAtom) {
                 if (!clickedAtom.isLocked && !clickedAtom.benzeneCenter) {
                     if (clickedAtom.element === this.selectedAtomType) {
                         // 同じ元素なら削除（消しゴム代わり）。削除の影響は対象原子のみ（開発方針 5章）
                         this.saveState();
-                        this.userMolecule.removeAtom(clickedAtom.id);
+                        this.removeAtomWithSplitNotice(clickedAtom.id);
                         this.updateDrawing();
                     } else {
                         // 異なる元素なら上書き置換（価標チェック付き）
@@ -1054,11 +1057,45 @@ class Game {
 
             this.saveState();
             if (clickedAtom) {
-                this.userMolecule.removeAtom(clickedAtom.id);
+                this.removeAtomWithSplitNotice(clickedAtom.id);
             } else {
                 this.userMolecule.removeBond(clickedBond.atomId1, clickedBond.atomId2);
             }
             this.updateDrawing();
+        }
+    }
+
+    // 分子（連結成分）の個数を数える
+    countMolecules() {
+        const seen = new Set();
+        let count = 0;
+        this.userMolecule.atoms.forEach(a => {
+            if (seen.has(a.id)) return;
+            count++;
+            const stack = [a.id];
+            seen.add(a.id);
+            while (stack.length) {
+                const id = stack.pop();
+                this.userMolecule.getNeighbors(id).forEach(n => {
+                    if (!seen.has(n.atom.id)) {
+                        seen.add(n.atom.id);
+                        stack.push(n.atom.id);
+                    }
+                });
+            }
+        });
+        return count;
+    }
+
+    // 原子を削除し、分子が複数に分かれた場合は案内トーストを出す（P7-10）。
+    // 分割自体は仕様（複数分子の作図は許可。将来の反応実行モードでも必要）だが、
+    // 意図しない切断に気づけるよう通知し、Ctrl+Z での復帰を案内する
+    removeAtomWithSplitNotice(atomId) {
+        const before = this.countMolecules();
+        this.userMolecule.removeAtom(atomId);
+        const after = this.countMolecules();
+        if (after > before) {
+            this.showToast(`原子の削除で分子が${after}個に分かれました。意図しない場合は Ctrl+Z で戻せます。`, 3500, 'success');
         }
     }
 
@@ -2280,6 +2317,10 @@ class Game {
             
             // ネイティブのclickとdblclickイベントを使用し、タイマー遅延を完全に排除
             hitLine.addEventListener('pointerdown', (e) => {
+                // モジュール配置中は結合操作を奪わず、キャンバス側の配置処理へ流す。
+                // （結合の判定領域上のクリックが握りつぶされ、モジュールが「効かない」ように
+                //   見えるバグの修正。P7-10）
+                if (this.selectedModule) return;
                 e.stopPropagation(); // キャンバス側のpointerdown（原子の配置・削除）が走るのを阻止
                 // タッチ指をピンチ判定に参加させる（結合上から始まる2本指ズームを可能にする）
                 if (this.trackPointerDown(e, false) !== 'proceed') return;

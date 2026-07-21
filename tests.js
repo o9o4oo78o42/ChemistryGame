@@ -1288,6 +1288,54 @@
         rp.exit();
     });
 
+    test('K2: 結合の判定領域上でもモジュール配置が効く（クリック握りつぶし修正）', async (c) => {
+        c.reset();
+        const g = c.game;
+        const a1 = g.userMolecule.addAtom('C', 336, 294);
+        const a2 = g.userMolecule.addAtom('C', 378, 294);
+        g.userMolecule.addBond(a1.id, a2.id, 1);
+        g.updateDrawing();
+        g.selectedModule = 'benzene';
+        // 結合線の8px下（幅20pxのヒットライン内）をヒットラインに向けてクリック
+        const ev = c.toClient(357, 302);
+        c.hitbox(0).dispatchEvent(c.pe('pointerdown', ev));
+        c.W.dispatchEvent(c.pe('pointerup', ev));
+        assert(g.userMolecule.atoms.length === 6,
+            `既存結合を1辺にベンゼンが縮合しない（原子${g.userMolecule.atoms.length}）`);
+        assert(g.computeMolecularFormula() === 'C₆H₆', `分子式が${g.computeMolecularFormula()}`);
+        assert(g.selectedModule === null, '配置後にモジュール選択が解除されない');
+        // 合成clickで結合次数がトグルされない（抑止フラグの確認）
+        const t0 = g.userMolecule.getBond(a1.id, a2.id).type;
+        const hit = c.D.querySelector('.svg-bond-hitbox');
+        if (hit) hit.dispatchEvent(new c.W.MouseEvent('click', { bubbles: true }));
+        assert(g.userMolecule.getBond(a1.id, a2.id).type === t0, '配置直後のclickで次数が変わった');
+        await c.tick();
+    });
+
+    test('K3: 削除で分子が分かれたら案内トーストを出す', async (c) => {
+        c.reset();
+        const g = c.game;
+        const ids = [[294, 294], [336, 294], [378, 294]].map(p => g.userMolecule.addAtom('C', p[0], p[1]));
+        g.userMolecule.addBond(ids[0].id, ids[1].id, 1);
+        g.userMolecule.addBond(ids[1].id, ids[2].id, 1);
+        g.updateDrawing();
+        // 中央の原子を選択ツールの同元素クリックで削除 → 2分子に分裂
+        g.selectedTool = 'select';
+        g.selectedAtomType = 'C';
+        c.clickAt(336, 294);
+        assert(g.userMolecule.atoms.length === 2, '中央原子が削除されない');
+        assert(g.countMolecules() === 2, '2分子に分かれていない');
+        assert(c.D.getElementById('verify-result').textContent.includes('分かれました'),
+            '分裂の案内トーストが出ない');
+        // 末端原子の削除では分裂しないのでトーストを出さない
+        c.D.getElementById('verify-result').classList.add('hidden');
+        c.D.getElementById('verify-result').textContent = '';
+        c.clickAt(294, 294);
+        assert(g.userMolecule.atoms.length === 1, '末端原子が削除されない');
+        assert(!c.D.getElementById('verify-result').textContent.includes('分かれました'),
+            '分裂していないのにトーストが出た');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {
