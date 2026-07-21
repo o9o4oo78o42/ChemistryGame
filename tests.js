@@ -1460,6 +1460,71 @@
         g.updateDrawing();
     });
 
+    test('L3: 反応実行M3（エステル化・分子間脱水の二分子反応）', async (c) => {
+        c.reset();
+        const g = c.game;
+        const summon = (name) => {
+            const input = c.D.getElementById('summon-input');
+            input.value = name;
+            input.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        };
+        const clickRule = (kw) => {
+            const btn = [...c.D.querySelectorAll('#reaction-actions button')]
+                .find(b => b.textContent.includes(kw));
+            assert(btn, `「${kw}」の反応ボタンがない`);
+            btn.click();
+        };
+        const nameShown = () => c.D.getElementById('compound-name').textContent;
+        const waterOk = () => {
+            const water = g.userMolecule.atoms.filter(a =>
+                a.element === 'O' && g.userMolecule.getNeighbors(a.id).length === 0);
+            return water.length === 1 && g.userMolecule.getFreeValency(water[0].id) === 2;
+        };
+
+        // 酢酸 + エタノール → エステル化 → 酢酸エチル + 水
+        summon('酢酸');
+        summon('エタノール');
+        assert(g.countMolecules() === 2, '2分子にならない');
+        clickRule('エステル化');
+        assert(g.countMolecules() === 2, `エステル化後が${g.countMolecules()}分子（エステル＋水を期待）`);
+        assert(waterOk(), '脱離した水 H₂O が生成していない');
+        assert(nameShown().includes('酢酸エチル'), `エステル化後の名称が「${nameShown()}」`);
+        // エステル結合が検出される
+        assert(c.D.getElementById('molecule-props').textContent.includes('エステル結合'),
+            'プロパティにエステル結合が出ない');
+        // 原子の重なりがない
+        const atoms = g.userMolecule.atoms;
+        for (let i = 0; i < atoms.length; i++) {
+            for (let j = i + 1; j < atoms.length; j++) {
+                assert(Math.hypot(atoms[i].x - atoms[j].x, atoms[i].y - atoms[j].y) >= 24,
+                    'エステル化で原子が重なった');
+            }
+        }
+        g.undo();
+        assert(g.countMolecules() === 2 && nameShown().includes('酢酸'), 'Undoで反応前に戻らない');
+
+        // エタノール×2 → 分子間脱水 → ジエチルエーテル + 水
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+        summon('エタノール');
+        summon('エタノール');
+        clickRule('分子間脱水');
+        assert(waterOk(), '分子間脱水で水が生成していない');
+        assert(nameShown().includes('ジエチルエーテル'), `分子間脱水後の名称が「${nameShown()}」`);
+
+        // 単分子のときは二分子反応のボタンが出ない
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+        summon('エタノール');
+        const labels = [...c.D.querySelectorAll('#reaction-actions button')].map(b => b.textContent);
+        assert(!labels.some(t => t.includes('エステル化') || t.includes('分子間脱水')),
+            `単分子で二分子反応が提示された（${labels.join(' / ')}）`);
+
+        c.D.getElementById('verify-result').classList.add('hidden');
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

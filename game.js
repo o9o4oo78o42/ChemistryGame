@@ -1464,16 +1464,59 @@ class Game {
             return;
         }
 
-        // 正準コードでO(1)照合（P8-2）。ヒット候補には念のためverifyMoleculeで最終確認を行い、
-        // 幾何指定付きエントリは描かれた二重結合の幾何（シス/トランス）も一致した場合のみ採用
+        // 複数の分子があるときは分子ごとに名前を出す（反応の副生成物や、名称呼び出しで
+        // 複数分子を並べた場合に「該当なし」にならないようにする。P9-1 M3）
+        const parts = this.splitMolecules();
+        const names = parts.map(m => this.lookupCompoundName(m));
+        nameEl.textContent = names.length === 1
+            ? (names[0] || '（ライブラリに該当なし）')
+            : names.map(n => n || '（該当なし）').join(' ＋ ');
+    }
+
+    // 連結成分ごとに独立した Molecule を作って返す（描画・判定には影響しない一時オブジェクト）
+    splitMolecules() {
+        const remaining = new Set(this.userMolecule.atoms.map(a => a.id));
+        const parts = [];
+        while (remaining.size > 0) {
+            const startId = remaining.values().next().value;
+            const ids = new Set([startId]);
+            const stack = [startId];
+            while (stack.length) {
+                const id = stack.pop();
+                this.userMolecule.getNeighbors(id).forEach(n => {
+                    if (!ids.has(n.atom.id)) {
+                        ids.add(n.atom.id);
+                        stack.push(n.atom.id);
+                    }
+                });
+            }
+            ids.forEach(id => remaining.delete(id));
+            const part = new Molecule();
+            this.userMolecule.atoms.filter(a => ids.has(a.id)).forEach(a => {
+                const na = new Atom(a.id, a.element, a.x, a.y, a.isLocked);
+                Object.assign(na, a);
+                part.atoms.push(na);
+            });
+            this.userMolecule.bonds
+                .filter(b => ids.has(b.atomId1) && ids.has(b.atomId2))
+                .forEach(b => part.bonds.push(new Bond(b.atomId1, b.atomId2, b.type)));
+            parts.push(part);
+        }
+        return parts;
+    }
+
+    // 1分子の名称をライブラリから引く。見つからなければ null
+    // 正準コードでO(1)照合（P8-2）。ヒット候補には念のためverifyMoleculeで最終確認を行い、
+    // 幾何指定付きエントリは描かれた二重結合の幾何（シス/トランス）も一致した場合のみ採用
+    lookupCompoundName(mol) {
         this.getCompoundLibrary(); // コードMapの構築を保証
-        const candidates = this._compoundCodeMap.get(canonicalCode(this.userMolecule)) || [];
-        const userGeometry = getDoubleBondGeometry(this.userMolecule);
+        const candidates = this._compoundCodeMap.get(canonicalCode(mol)) || [];
+        const geometry = getDoubleBondGeometry(mol);
         const hit = candidates.find(e => {
-            if (e.geometry && e.geometry !== userGeometry) return false;
-            return verifyMolecule(this.userMolecule, e.mol);
+            if (e.geometry && e.geometry !== geometry) return false;
+            return verifyMolecule(mol, e.mol);
         });
-        nameEl.textContent = hit ? hit.name : '（ライブラリに該当なし）';
+        return hit ? hit.name : null;
     }
 
     // ===== 作図エクスポート（P7-3）: コンテンツ制作支援 =====
