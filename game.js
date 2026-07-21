@@ -2146,7 +2146,7 @@ class Game {
 
         // 1. 見た目の線（ビジュアル）を描画する
         if (type === 1) {
-            // 蜊倡ｵ仙粋
+            // 単結合
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             line.setAttribute('x1', sx);
             line.setAttribute('y1', sy);
@@ -2174,7 +2174,7 @@ class Game {
                 this.bondsGroup.appendChild(line);
             }
         } else if (type === 3) {
-            // 荳蛾㍾邨仙粋
+            // 三重結合
             const nx = -uy;
             const ny = ux;
             const gap = 6.5;
