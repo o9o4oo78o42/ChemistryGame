@@ -1,0 +1,296 @@
+"use strict";
+/* tests.js — 回帰テスト。
+   前半: model.js の純ロジックテスト（node でも実行可）。
+   後半: iframe で実アプリを駆動する UI テスト（ブラウザのみ）。
+   アニメ時間は IonEq.advance(ms) で決定論的に進めるため、待ち時間やタイマーに依存しない。 */
+
+function sortObjKeys(o) {
+  return Object.fromEntries(Object.entries(o).sort());
+}
+
+function runModelTests() {
+  const results = [];
+  const t = (name, fn) => {
+    try { fn(); results.push({ name, ok: true }); }
+    catch (e) { results.push({ name, ok: false, err: String(e) }); }
+  };
+  const assert = (cond, msg) => { if (!cond) throw new Error(msg || "assertion failed"); };
+
+  t("SPECIES: 全種に disp・atoms・charge が定義されている", () => {
+    for (const [k, s] of Object.entries(SPECIES)) {
+      assert(s.disp && s.atoms && typeof s.charge === "number", k);
+      assert(Object.keys(s.atoms).length > 0, k + " atoms empty");
+    }
+  });
+
+  t("電離表: 電離の前後で原子と電荷が保存される", () => {
+    for (const [mol, ions] of Object.entries(DISSOCIATION)) {
+      const L = tallyTerms([{ sp: mol, n: 1 }]);
+      const R = tallyTerms(ions.map((i) => ({ sp: i, n: 1 })));
+      assert(JSON.stringify(sortObjKeys(L.atoms)) === JSON.stringify(sortObjKeys(R.atoms)), mol + ": 原子が保存されない");
+      assert(L.charge === R.charge, mol + ": 電荷が保存されない");
+    }
+  });
+
+  t("各ステージの模範係数が正解判定される", () => {
+    for (const st of STAGES) {
+      assert(checkStageCoeffs(st, st.answer).ok, st.id);
+    }
+  });
+
+  t("係数に0（未入力）があれば不正解", () => {
+    assert(!checkStageCoeffs(STAGES[0], [0, 1, 1, 1]).ok);
+  });
+
+  t("つり合っていない係数は不正解", () => {
+    assert(!checkStageCoeffs(STAGES[1], [1, 1, 1, 1]).ok, "H2SO4+NaOH を全部1で通してしまう");
+  });
+
+  t("最簡整数比でない係数は不正解", () => {
+    const res = checkStageCoeffs(STAGES[0], [2, 2, 2, 2]);
+    assert(!res.ok, "2,2,2,2 を通してしまう");
+    assert(res.reason.includes("簡単な整数比"), "理由が最簡比になっていない: " + res.reason);
+  });
+
+  t("ステージ参照種がすべて定義済み・反応物は電離表にある", () => {
+    for (const st of STAGES) {
+      for (const sp of [...st.reactants, ...st.products]) assert(SPECIES[sp], st.id + ": " + sp);
+      for (const sp of st.reactants) assert(DISSOCIATION[sp], st.id + " 電離表なし: " + sp);
+      assert(st.answer.length === st.reactants.length + st.products.length, st.id + ": answer の長さ");
+      assert(st.netIon && st.intro && st.title, st.id + ": 表示文の欠落");
+    }
+  });
+
+  t("PARTS: 全ステージの全項が粒に分解でき、原子と電荷が保存される", () => {
+    for (const st of STAGES) {
+      for (const sp of [...st.reactants, ...st.products]) {
+        const parts = PARTS[sp];
+        assert(parts, sp + " の分解表なし");
+        const L = tallyTerms([{ sp, n: 1 }]);
+        const R = tallyTerms(parts.map((p) => ({ sp: p, n: 1 })));
+        assert(JSON.stringify(sortObjKeys(L.atoms)) === JSON.stringify(sortObjKeys(R.atoms)), sp + ": 原子が保存されない");
+        assert(L.charge === R.charge, sp + ": 電荷が保存されない");
+      }
+    }
+  });
+
+  t("simulateFormation: 模範の左辺係数なら余りゼロで右辺係数どおりの個数ができる", () => {
+    for (const st of STAGES) {
+      const nL = st.reactants.length;
+      const sim = simulateFormation(st, st.answer.slice(0, nL));
+      assert(Object.keys(sim.leftovers).length === 0, st.id + ": 余り " + JSON.stringify(sim.leftovers));
+      st.products.forEach((sp, j) => {
+        assert(sim.formed[sp] === st.answer[nL + j], st.id + ": " + sp + " が " + sim.formed[sp] + " 個");
+      });
+    }
+  });
+
+  t("simulateFormation: 左辺が不つり合いなら余りが出る", () => {
+    const sim = simulateFormation(STAGES[1], [1, 1]); // H₂SO₄ 1 : NaOH 1
+    assert(sim.leftovers["H+"] >= 1, "H+ が余らない: " + JSON.stringify(sim.leftovers));
+    assert(sim.formed["H2O"] === 1, "H2O は1個できるはず");
+    assert(sim.formed["Na2SO4"] === 0, "Na2SO4 は作れないはず");
+  });
+
+  t("反応ルール: 参照種が定義済みで、原子と電荷が保存される（中間体含む）", () => {
+    for (const st of STAGES) {
+      assert(st.rules && st.rules.length > 0, st.id + ": rules なし");
+      for (const rule of st.rules) {
+        assert(rule.find.length >= 2, st.id + ": find が2種未満");
+        for (const sp of rule.find) assert(SPECIES[sp], st.id + ": " + sp);
+        const makes = Array.isArray(rule.make) ? rule.make : [rule.make];
+        for (const sp of makes) assert(SPECIES[sp], st.id + ": " + sp);
+        assert(["combine", "precipitate", "gas"].includes(rule.kind), st.id + ": kind 不正 " + rule.kind);
+        const L = tallyTerms(rule.find.map((sp) => ({ sp, n: 1 })));
+        const R = tallyTerms(makes.map((sp) => ({ sp, n: 1 })));
+        assert(JSON.stringify(sortObjKeys(L.atoms)) === JSON.stringify(sortObjKeys(R.atoms)), st.id + ": ルールで原子が保存されない");
+        assert(L.charge === R.charge, st.id + ": ルールで電荷が保存されない");
+        if (rule.via) {
+          const V = tallyTerms([{ sp: rule.via, n: 1 }]);
+          assert(JSON.stringify(sortObjKeys(L.atoms)) === JSON.stringify(sortObjKeys(V.atoms)) && L.charge === V.charge,
+            st.id + ": 中間体 " + rule.via + " で保存されない");
+        }
+      }
+    }
+  });
+
+  t("compareSides: 電荷の不一致を検出する", () => {
+    const cmp = compareSides([{ sp: "H+", n: 1 }], [{ sp: "H+", n: 1 }, { sp: "H+", n: 1 }]);
+    assert(!cmp.balanced);
+    const ionEq = compareSides(
+      [{ sp: "H+", n: 1 }, { sp: "OH-", n: 1 }],
+      [{ sp: "H2O", n: 1 }]
+    );
+    assert(ionEq.balanced, "イオン反応式 H+ + OH- → H2O がつり合い判定されない");
+  });
+
+  return results;
+}
+
+/* ---- UI テスト（iframe 内の実アプリを駆動） ---- */
+
+async function runUITests(iframe) {
+  const results = [];
+  const t = async (name, fn) => {
+    try { await fn(); results.push({ name, ok: true }); }
+    catch (e) { results.push({ name, ok: false, err: String(e) }); }
+  };
+  const assert = (cond, msg) => { if (!cond) throw new Error(msg || "assertion failed"); };
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument;
+  const $$ = (sel) => [...doc.querySelectorAll(sel)];
+  const ups = () => $$("#equation .stepper button").filter((b) => b.textContent === "＋");
+  const stageBtn = (i) => $$("#stageNav button")[i];
+  const addBtn = (i) => $$("#toolbar .add")[i];
+  const reactBtn = () => doc.querySelector("#toolbar .react");
+  const recombineBtn = () => doc.getElementById("recombineBtn");
+  const adv = (ms) => win.IonEq.advance(ms);
+  const state = () => win.IonEq.state();
+
+  await t("UI: 投入→電離→中和→傍観イオンと H₂O が残る", async () => {
+    stageBtn(0).click();
+    addBtn(0).click(); addBtn(1).click();
+    adv(3000);
+    let s = state();
+    assert(s.counts["H+"] === 1 && s.counts["OH-"] === 1 && s.counts["Na+"] === 1 && s.counts["Cl-"] === 1,
+      "電離していない: " + JSON.stringify(s.counts));
+    reactBtn().click();
+    adv(8000);
+    s = state();
+    assert(!s.counts["H+"] && !s.counts["OH-"] && s.counts["H2O"] === 1, "中和していない: " + JSON.stringify(s.counts));
+    assert(s.reactionDone, "反応完了フラグが立たない");
+  });
+
+  await t("UI: 正しい係数でクリアになる", async () => {
+    ups().forEach((b) => b.click()); // ステージ1は全部1が正解
+    const s = state();
+    assert(s.coeffOk, "coeffOk にならない");
+    assert(s.cleared, "cleared にならない");
+    assert(!doc.getElementById("clearBanner").hidden, "クリアバナーが出ない");
+  });
+
+  await t("UI: 数合わせ - 左辺のみで試すと「できた数」を教える", async () => {
+    stageBtn(1).click(); // ステージ2にリセット
+    ups()[0].click(); ups()[1].click(); ups()[1].click(); // 左辺 1,2
+    recombineBtn().click();
+    adv(10000);
+    const r = state().recombine;
+    assert(r && r.unclaimed && !r.mismatch && r.leftovers.length === 0, JSON.stringify(r));
+    assert(r.formed["H2O"] === 2 && r.formed["Na2SO4"] === 1, "できた数が違う: " + JSON.stringify(r.formed));
+    assert(doc.getElementById("recombineMsg").textContent.includes("右辺の係数に入れよう"), "誘導メッセージがない");
+  });
+
+  await t("UI: 数合わせ - 左辺が不つり合いだとイオンが余る", async () => {
+    stageBtn(1).click();
+    ups()[0].click(); ups()[1].click(); // 左辺 1,1
+    recombineBtn().click();
+    adv(10000);
+    const r = state().recombine;
+    assert(r && r.leftovers.includes("H+"), "H+ が余らない: " + JSON.stringify(r));
+    assert(doc.querySelectorAll("#recombine .rpart.leftover").length >= 1, "赤リングが出ない");
+  });
+
+  await t("UI: 数合わせ - 右辺の係数ができた数と違うと指摘される", async () => {
+    stageBtn(1).click();
+    ups()[0].click(); ups()[1].click(); ups()[1].click(); // 左辺 1,2
+    ups()[2].click(); ups()[3].click();                   // 右辺 1,1（H₂O は2が正しい）
+    recombineBtn().click();
+    adv(10000);
+    const r = state().recombine;
+    assert(r && r.mismatch, "mismatch にならない: " + JSON.stringify(r));
+    assert(doc.getElementById("recombineMsg").textContent.includes("2 個できた"), "個数指摘メッセージがない");
+  });
+
+  await t("UI: ビーカーと数合わせの両方がそろうとステージ2もクリア", async () => {
+    stageBtn(1).click();
+    addBtn(0).click(); addBtn(1).click(); addBtn(1).click(); // H₂SO₄×1, NaOH×2
+    adv(3000);
+    reactBtn().click();
+    adv(10000);
+    assert(state().reactionDone, "完全中和にならない");
+    ups()[0].click(); ups()[1].click(); ups()[1].click();
+    ups()[2].click(); ups()[3].click(); ups()[3].click(); // 1,2,1,2
+    const s = state();
+    assert(s.coeffOk && s.cleared, "クリアにならない: coeffOk=" + s.coeffOk + " cleared=" + s.cleared);
+  });
+
+  await t("UI: ステージ4で AgCl が沈殿し、傍観イオンが残る", async () => {
+    stageBtn(3).click();
+    addBtn(0).click(); addBtn(1).click(); // AgNO₃×1, NaCl×1
+    adv(3000);
+    reactBtn().click();
+    adv(10000);
+    const s = state();
+    assert(s.counts["AgCl"] === 1, "AgCl ができない: " + JSON.stringify(s.counts));
+    assert(s.counts["Na+"] === 1 && s.counts["NO3-"] === 1, "傍観イオンが残らない: " + JSON.stringify(s.counts));
+    assert(s.settled === 1, "沈殿が底に積もらない: settled=" + s.settled);
+    assert(s.reactionDone, "反応完了にならない");
+  });
+
+  await t("UI: ステージ5の数合わせ - BaCl₂ 1 : Na₂SO₄ 1 で BaSO₄×1 と NaCl×2 ができる", async () => {
+    stageBtn(4).click();
+    ups()[0].click(); ups()[1].click(); // 左辺 1,1
+    recombineBtn().click();
+    adv(10000);
+    const r = state().recombine;
+    assert(r && r.leftovers.length === 0, "余りが出た: " + JSON.stringify(r));
+    assert(r.formed["BaSO4"] === 1 && r.formed["NaCl"] === 2, "できた数が違う: " + JSON.stringify(r.formed));
+  });
+
+  await t("UI: ステージ6で H₂CO₃ を経て CO₂ の泡が逃げ、H₂O が残る", async () => {
+    stageBtn(5).click();
+    addBtn(0).click(); addBtn(1).click(); addBtn(1).click(); // Na₂CO₃×1, HCl×2
+    adv(3000);
+    reactBtn().click();
+    adv(15000);
+    const s = state();
+    assert(s.counts["H2O"] === 1, "H2O ができない: " + JSON.stringify(s.counts));
+    assert(!s.counts["CO2"] && s.escaped["CO2"] === 1, "CO2 が泡として逃げない: " + JSON.stringify({ counts: s.counts, escaped: s.escaped }));
+    assert(s.counts["Na+"] === 2 && s.counts["Cl-"] === 2, "傍観イオンが残らない: " + JSON.stringify(s.counts));
+    assert(s.reactionDone, "反応完了にならない");
+  });
+
+  await t("UI: ステージ6の数合わせ - H₂O と CO₂ は H₂CO₃ 経由で同数できる", async () => {
+    stageBtn(5).click();
+    ups()[0].click(); ups()[1].click(); ups()[1].click(); // 左辺 1,2
+    recombineBtn().click();
+    adv(10000);
+    const r = state().recombine;
+    assert(r && r.leftovers.length === 0, "余りが出た: " + JSON.stringify(r));
+    assert(r.formed["NaCl"] === 2 && r.formed["H2O"] === 1 && r.formed["CO2"] === 1, "できた数が違う: " + JSON.stringify(r.formed));
+  });
+
+  return results;
+}
+
+/* ---- ブラウザでの実行と描画 ---- */
+
+if (typeof document !== "undefined" && document.getElementById("results")) {
+  const render = (el, results, title) => {
+    const okCount = results.filter((r) => r.ok).length;
+    const head = document.createElement("h2");
+    head.textContent = title + ": " + (okCount === results.length ? "ALL PASS " : "FAIL ") + okCount + "/" + results.length;
+    head.className = okCount === results.length ? "pass" : "fail";
+    el.appendChild(head);
+    for (const r of results) {
+      const li = document.createElement("div");
+      li.className = "case " + (r.ok ? "pass" : "fail");
+      li.textContent = (r.ok ? "〇 " : "× ") + r.name + (r.err ? " — " + r.err : "");
+      el.appendChild(li);
+    }
+    return okCount === results.length;
+  };
+  const modelOk = render(document.getElementById("results"), runModelTests(), "モデル");
+  const iframe = document.getElementById("app");
+  const startUI = () => {
+    if (!iframe.contentWindow || !iframe.contentWindow.IonEq) { setTimeout(startUI, 100); return; }
+    runUITests(iframe).then((rs) => {
+      const uiOk = render(document.getElementById("uiresults"), rs, "UI");
+      const total = document.getElementById("total");
+      total.textContent = modelOk && uiOk ? "TOTAL: ALL PASS" : "TOTAL: FAIL";
+      total.className = modelOk && uiOk ? "pass" : "fail";
+    });
+  };
+  if (iframe.contentDocument && iframe.contentDocument.readyState === "complete") startUI();
+  else iframe.addEventListener("load", startUI);
+}

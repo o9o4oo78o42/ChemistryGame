@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>イオンでみる化学反応式</title>
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<header>
+  <h1>イオンでみる化学反応式</h1>
+  <div class="version">v6</div>
+  <nav id="stageNav"></nav>
+</header>
+<main>
+  <section id="labPane">
+    <div id="stageTitle"></div>
+    <div id="toolbar"></div>
+    <svg id="beaker" viewBox="0 0 480 430" role="img" aria-label="ビーカーの中のイオン"></svg>
+    <div id="ionCounts"></div>
+    <div id="msg"></div>
+  </section>
+  <section id="eqPane">
+    <h2>化学反応式を完成させよう</h2>
+    <div id="equation"></div>
+    <div id="eqMsg"></div>
+    <div id="recombineWrap">
+      <div class="recombineHead">粒で見る数合わせ<button id="recombineBtn">⇄ 組み変える</button></div>
+      <svg id="recombine" viewBox="0 0 300 30"></svg>
+      <div id="recombineMsg"></div>
+    </div>
+    <table id="tally"></table>
+    <div id="netion" hidden></div>
+    <div id="clearBanner" hidden></div>
+  </section>
+</main>
+<script src="model.js?v=6"></script>
+<script src="app.js?v=6"></script>
+</body>
+</html>

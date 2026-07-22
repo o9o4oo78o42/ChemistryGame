@@ -1,0 +1,873 @@
+"use strict";
+/* app.js — UI・SVG描画・粒子アニメーション。
+   粒子の座標や動きは見た目専用。正否判定は model.js の個数・原子数集計のみで行う。 */
+(() => {
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const beakerSvg   = document.getElementById("beaker");
+const toolbarEl   = document.getElementById("toolbar");
+const ionCountsEl = document.getElementById("ionCounts");
+const msgEl       = document.getElementById("msg");
+const equationEl  = document.getElementById("equation");
+const eqMsgEl     = document.getElementById("eqMsg");
+const tallyEl     = document.getElementById("tally");
+const netionEl    = document.getElementById("netion");
+const clearEl     = document.getElementById("clearBanner");
+const stageNavEl  = document.getElementById("stageNav");
+const stageTitleEl = document.getElementById("stageTitle");
+
+/* ビーカー内の水の領域（SVG座標） */
+const WATER = { x: 55, y: 145, w: 370, h: 245 };
+
+const STYLE = {
+  "H+":     { color: "#d95757", r: 15 },
+  "Na+":    { color: "#e08a3c", r: 17 },
+  "Ca^2+":  { color: "#b8792e", r: 18 },
+  "Ag+":    { color: "#8f9aa8", r: 17 },
+  "Ba^2+":  { color: "#4f9d6b", r: 18 },
+  "OH-":    { color: "#4d78d8", r: 18 },
+  "Cl-":    { color: "#3f9fc9", r: 17 },
+  "SO4^2-": { color: "#7a68d8", r: 21 },
+  "NO3-":   { color: "#4f9fae", r: 20 },
+  "CO3^2-": { color: "#9268c8", r: 21 },
+  "H2O":    { color: "#c2e2f4", r: 15, darkText: true },
+  "H2CO3":  { color: "#c9d6a3", r: 22, darkText: true },
+  "CO2":    { color: "#e4f2f7", r: 16, darkText: true },
+  "AgCl":   { color: "#f0f0f0", r: 18, darkText: true },
+  "BaSO4":  { color: "#f5f2ea", r: 20, darkText: true },
+};
+const MOLECULE_STYLE = { color: "#8a8f98", r: 20 };
+const CHIP_ORDER = ["H+", "OH-", "Ag+", "Ba^2+", "Na+", "Ca^2+", "Cl-", "NO3-", "SO4^2-", "CO3^2-", "H2O", "H2CO3", "CO2", "AgCl", "BaSO4"];
+/* 生成後に泡となって水面へ逃げる気体 */
+const BUBBLE_SPECIES = new Set(["CO2"]);
+
+let stageIdx = 0;
+let particles = [];
+let groups = [];
+let escaped = {};
+let nextId = 1;
+let addedCount = {};
+let madeCount = 0;
+let coeffs = [];
+let coeffEls = [];
+let coeffOk = false;
+let reactionDone = false;
+let cleared = false;
+let particleLayer = null;
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function mk(tag, attrs, parent) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const k of Object.keys(attrs)) el.setAttribute(k, attrs[k]);
+  (parent || beakerSvg).appendChild(el);
+  return el;
+}
+
+/* ---- ビーカー静的描画 ---- */
+
+function drawBeakerStatic() {
+  beakerSvg.innerHTML = "";
+  // 水
+  mk("rect", { x: 49, y: WATER.y, width: 382, height: 250, rx: 8, fill: "#eaf5fc" });
+  mk("line", { x1: 49, y1: WATER.y, x2: 431, y2: WATER.y, stroke: "#a9cfe4", "stroke-width": 2 });
+  // ガラス（上が開いた輪郭）
+  mk("path", {
+    d: "M 45 75 L 45 385 Q 45 410 70 410 L 410 410 Q 435 410 435 385 L 435 75",
+    fill: "none", stroke: "#7c8792", "stroke-width": 4, "stroke-linecap": "round",
+  });
+}
+
+/* ---- 粒子 ---- */
+
+function makeParticleEl(p) {
+  const st = STYLE[p.sp] || MOLECULE_STYLE;
+  const g = mk("g", { class: "particle" }, particleLayer);
+  mk("circle", { r: p.r, fill: st.color, stroke: "rgba(0,0,0,.25)", "stroke-width": 1.5 }, g);
+  const disp = SPECIES[p.sp].disp;
+  const label = mk("text", {
+    y: 4.5, "text-anchor": "middle",
+    "font-size": disp.length > 4 ? 11 : 12,
+    fill: st.darkText ? "#23506b" : "#fff",
+    "font-weight": "bold",
+  }, g);
+  label.textContent = disp;
+  const c = SPECIES[p.sp].charge;
+  if (c !== 0) {
+    const btxt = (Math.abs(c) > 1 ? String(Math.abs(c)) : "") + (c > 0 ? "+" : "−");
+    const bx = p.r * 0.85, by = -p.r * 0.85;
+    mk("circle", { cx: bx, cy: by, r: 8, fill: "#fff", stroke: st.color, "stroke-width": 1.5 }, g);
+    const bt = mk("text", { x: bx, y: by + 3.5, "text-anchor": "middle", "font-size": 10, fill: "#333", "font-weight": "bold" }, g);
+    bt.textContent = btxt;
+  }
+  return g;
+}
+
+function spawnParticle(sp, x, y, mode) {
+  const st = STYLE[sp] || MOLECULE_STYLE;
+  const p = {
+    id: nextId++, sp, x, y,
+    vx: rnd(-40, 40), vy: rnd(-30, 30),
+    r: st.r, mode, partner: null, dead: false,
+    born: performance.now(),
+  };
+  p.el = makeParticleEl(p);
+  particles.push(p);
+  return p;
+}
+
+function removeParticle(p) {
+  p.dead = true;
+  particles = particles.filter((o) => o !== p);
+  if (p.el) p.el.remove();
+}
+
+function splash(x, y) {
+  const c = mk("circle", { cx: x, cy: y, r: 14, fill: "none", stroke: "#79b8d8", "stroke-width": 2.5, class: "splash" }, particleLayer);
+  setTimeout(() => c.remove(), 500);
+}
+
+function countOf(sp) {
+  return particles.filter((p) => !p.dead && p.sp === sp).length;
+}
+
+/* ---- 物理（見た目専用） ---- */
+
+function floatMove(p, dt) {
+  p.vx += rnd(-1, 1) * 130 * dt;
+  p.vy += rnd(-1, 1) * 130 * dt;
+  const sp = Math.hypot(p.vx, p.vy), max = 55;
+  if (sp > max) { p.vx *= max / sp; p.vy *= max / sp; }
+  p.x += p.vx * dt; p.y += p.vy * dt;
+  const minX = WATER.x + p.r, maxX = WATER.x + WATER.w - p.r;
+  const minY = WATER.y + p.r + 6, maxY = WATER.y + WATER.h - p.r;
+  if (p.x < minX) { p.x = minX; p.vx = Math.abs(p.vx); }
+  if (p.x > maxX) { p.x = maxX; p.vx = -Math.abs(p.vx); }
+  if (p.y < minY) { p.y = minY; p.vy = Math.abs(p.vy); }
+  if (p.y > maxY) { p.y = maxY; p.vy = -Math.abs(p.vy); }
+}
+
+function dissociateMolecule(p) {
+  const { x, y, sp } = p;
+  removeParticle(p);
+  splash(x, y);
+  const ions = DISSOCIATION[sp];
+  ions.forEach((ion, i) => {
+    const q = spawnParticle(ion, x + (i - (ions.length - 1) / 2) * 30, y, "pop");
+    q.vx = rnd(-70, 70); q.vy = rnd(-50, 20);
+  });
+  refreshHUD();
+}
+
+/* グループ（rule.find の全員）が集合地点にそろったら生成物になる */
+function mergeGroup(g, now) {
+  groups = groups.filter((o) => o !== g);
+  const members = particles.filter((p) => g.memberIds.includes(p.id));
+  for (const m of members) removeParticle(m);
+  splash(g.tx, g.ty);
+  if (g.rule.via) {
+    // 不安定な中間体（H₂CO₃ など）を一瞬見せてから分解する
+    const mid = spawnParticle(g.rule.via, g.tx, g.ty, "intermediate");
+    mid.rule = g.rule;
+    mid.decomposeAt = now + 700;
+  } else {
+    spawnProducts(g.rule, g.tx, g.ty);
+  }
+  refreshHUD();
+  maybeEvaluate();
+}
+
+function spawnProducts(rule, x, y) {
+  const makes = Array.isArray(rule.make) ? rule.make : [rule.make];
+  makes.forEach((sp, i) => {
+    const mode = rule.kind === "precipitate" ? "sink" : BUBBLE_SPECIES.has(sp) ? "bubble" : "pop";
+    const prod = spawnParticle(sp, x + (i - (makes.length - 1) / 2) * 26, y, mode);
+    if (mode === "sink") { prod.vx = 0; prod.vy = 20; }
+    if (mode === "bubble") { prod.vx = 0; prod.vy = -30; }
+  });
+  madeCount++;
+}
+
+function decomposeIntermediate(p, now) {
+  const { x, y, rule } = p;
+  removeParticle(p);
+  splash(x, y);
+  spawnProducts(rule, x, y);
+  refreshHUD();
+  maybeEvaluate();
+}
+
+function maybeEvaluate() {
+  if (!particles.some((o) => o.mode === "seek" || o.mode === "arrivedWait" || o.mode === "intermediate")) {
+    evaluateReaction();
+  }
+}
+
+function step(dt, now) {
+  for (const p of [...particles]) {
+    if (p.dead) continue;
+    if (p.mode === "fall") {
+      p.vy += 800 * dt;
+      p.y += p.vy * dt;
+      if (p.y >= WATER.y + 40) dissociateMolecule(p);
+    } else if (p.mode === "seek") {
+      const g = p.group;
+      const dx = g.tx - p.x, dy = g.ty - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 6) {
+        p.mode = "arrivedWait";
+        g.arrived++;
+        if (g.arrived === g.size) mergeGroup(g, now);
+        continue;
+      }
+      const s = 150 * dt;
+      p.x += (dx / d) * s;
+      p.y += (dy / d) * s;
+    } else if (p.mode === "arrivedWait") {
+      // 集合地点で組の完成を待つ
+    } else if (p.mode === "intermediate") {
+      if (now >= p.decomposeAt) decomposeIntermediate(p, now);
+    } else if (p.mode === "bubble") {
+      p.vy = Math.max(p.vy - 300 * dt, -110);
+      p.y += p.vy * dt;
+      p.x += Math.sin((p.y + p.id * 37) / 14) * 30 * dt;
+      if (p.y <= WATER.y + p.r) {
+        splash(p.x, WATER.y + 4);
+        escaped[p.sp] = (escaped[p.sp] || 0) + 1;
+        removeParticle(p);
+        refreshHUD();
+      }
+    } else if (p.mode === "sink") {
+      p.vy = Math.min(p.vy + 400 * dt, 90);
+      p.y += p.vy * dt;
+      const floorY = WATER.y + WATER.h - p.r - 4;
+      if (p.y >= floorY) {
+        p.y = floorY;
+        p.vy = 0;
+        p.mode = "settled";
+      }
+    } else if (p.mode === "settled") {
+      // 沈殿は底に積もったまま動かない
+    } else {
+      floatMove(p, dt);
+      if (p.mode === "pop" && now - p.born > 300) p.mode = "float";
+    }
+  }
+  updateTransforms(now);
+  stepStripTweens(dt);
+}
+
+function updateTransforms(now) {
+  for (const p of particles) {
+    let s = 1;
+    if (p.mode === "pop") s = Math.min(1, 0.3 + (0.7 * (now - p.born)) / 300);
+    p.el.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) scale(${s.toFixed(2)})`);
+  }
+}
+
+let lastT = performance.now();
+function tick(now) {
+  // advance() 使用後は lastT が実時計より先に進むことがある。逆行 dt は無視する
+  if (now <= lastT) return;
+  let dt = Math.min(1, (now - lastT) / 1000);
+  lastT = now;
+  // 実経過時間ぶんを 33ms 以下のサブステップで進める（非表示タブのタイマー間引き対策）
+  while (dt > 0) {
+    const h = Math.min(dt, 0.033);
+    step(h, now);
+    dt -= h;
+  }
+}
+function frame(now) {
+  tick(now);
+  requestAnimationFrame(frame);
+}
+/* 非表示タブでは rAF が発火しないため、自動テスト・監査でも進むようフォールバックで駆動する */
+setInterval(() => {
+  const now = performance.now();
+  if (now - lastT > 80) tick(now);
+}, 66);
+
+/* ---- 操作 ---- */
+
+function addMolecule(sp) {
+  if (particles.length > 60) {
+    setMsg("ビーカーがいっぱい！「やり直す」で整理しよう。");
+    return;
+  }
+  addedCount[sp] = (addedCount[sp] || 0) + 1;
+  if (!cleared) reactionDone = false;
+  const p = spawnParticle(sp, rnd(WATER.x + 50, WATER.x + WATER.w - 50), 95, "fall");
+  p.vx = 0; p.vy = 0;
+  refreshHUD();
+}
+
+function doReact() {
+  const stage = STAGES[stageIdx];
+  let launched = 0;
+  for (const rule of stage.rules) {
+    // find は多重集合（例: ["H+","H+","CO3^2-"]）。そろう限りグループを作る
+    while (true) {
+      const used = new Set();
+      const members = [];
+      let ok = true;
+      for (const sp of rule.find) {
+        const p = particles.find((o) =>
+          o.sp === sp && (o.mode === "float" || o.mode === "pop") && !used.has(o.id));
+        if (!p) { ok = false; break; }
+        used.add(p.id);
+        members.push(p);
+      }
+      if (!ok) break;
+      const g = {
+        rule,
+        tx: members.reduce((s, p) => s + p.x, 0) / members.length,
+        ty: members.reduce((s, p) => s + p.y, 0) / members.length,
+        size: members.length,
+        arrived: 0,
+        memberIds: members.map((m) => m.id),
+      };
+      groups.push(g);
+      for (const m of members) { m.mode = "seek"; m.group = g; }
+      launched++;
+    }
+  }
+  if (launched === 0) {
+    setMsg("反応できるイオンの組がない。反応物を入れてみよう。");
+    return;
+  }
+  setMsg("イオンが引き合って結びつく…");
+}
+
+function evaluateReaction() {
+  const stage = STAGES[stageIdx];
+  const leftover = [];
+  for (const rule of stage.rules) {
+    for (const sp of rule.find) {
+      const n = countOf(sp);
+      if (n > 0) leftover.push({ sp, n });
+    }
+  }
+  if (leftover.length === 0 && madeCount > 0) {
+    reactionDone = true;
+    const names = stage.reactants.map((sp) => SPECIES[sp].disp).join(" : ");
+    const ratio = stage.reactants.map((sp) => addedCount[sp] || 0).join(" : ");
+    setMsg(`ちょうど反応しきった！ 投入した数は ${names} ＝ ${ratio}。この比が係数のヒント。${stage.doneNote}`);
+    maybeClear();
+  } else if (leftover.length > 0) {
+    const parts = leftover.map((l) => `${SPECIES[l.sp].disp} が ${l.n} 個`).join("、");
+    const acidNote = leftover.some((l) => l.sp === "H+") ? "（まだ酸性）"
+      : leftover.some((l) => l.sp === "OH-") ? "（まだ塩基性）" : "";
+    setMsg(`${parts} 残っている${acidNote}。相手のイオンが足りない。反応物を追加してもう一度「反応させる」を押そう。`);
+  }
+}
+
+function setMsg(t) {
+  msgEl.textContent = t;
+}
+
+function refreshHUD() {
+  const counts = {};
+  for (const p of particles) {
+    if (p.mode === "fall") continue;
+    counts[p.sp] = (counts[p.sp] || 0) + 1;
+  }
+  ionCountsEl.innerHTML = "";
+  for (const sp of CHIP_ORDER) {
+    if (!counts[sp]) continue;
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    const st = STYLE[sp];
+    chip.style.borderColor = st.color;
+    chip.textContent = `${SPECIES[sp].disp} ×${counts[sp]}`;
+    ionCountsEl.appendChild(chip);
+  }
+  for (const sp of Object.keys(escaped)) {
+    const chip = document.createElement("span");
+    chip.className = "chip escaped";
+    chip.textContent = `${SPECIES[sp].disp}↑ ×${escaped[sp]}（空気中へ）`;
+    ionCountsEl.appendChild(chip);
+  }
+}
+
+/* ---- 反応式パネル ---- */
+
+function buildEquationUI() {
+  const stage = STAGES[stageIdx];
+  const terms = [...stage.reactants, ...stage.products];
+  coeffs = terms.map(() => 0);
+  coeffEls = [];
+  coeffOk = false;
+  equationEl.classList.remove("balanced");
+  equationEl.innerHTML = "";
+  terms.forEach((sp, i) => {
+    if (i === stage.reactants.length) {
+      const a = document.createElement("span");
+      a.className = "arrow"; a.textContent = "→";
+      equationEl.appendChild(a);
+    } else if (i > 0) {
+      const pl = document.createElement("span");
+      pl.className = "plus"; pl.textContent = "＋";
+      equationEl.appendChild(pl);
+    }
+    const term = document.createElement("span");
+    term.className = "term";
+    const down = document.createElement("button");
+    down.textContent = "−";
+    const num = document.createElement("span");
+    num.className = "coeff"; num.textContent = "？";
+    const up = document.createElement("button");
+    up.textContent = "＋";
+    down.onclick = () => { if (coeffs[i] > 0) { coeffs[i]--; onCoeffChange(); } };
+    up.onclick = () => { if (coeffs[i] < 9) { coeffs[i]++; onCoeffChange(); } };
+    const stepper = document.createElement("span");
+    stepper.className = "stepper";
+    stepper.append(down, num, up);
+    const f = document.createElement("span");
+    f.className = "formula"; f.textContent = SPECIES[sp].disp;
+    term.append(stepper, f);
+    equationEl.appendChild(term);
+    coeffEls.push(num);
+  });
+  eqMsgEl.textContent = "＋/− を押して係数を入れよう";
+}
+
+function onCoeffChange() {
+  coeffs.forEach((c, i) => { coeffEls[i].textContent = c === 0 ? "？" : String(c); });
+  renderTally();
+  buildRecombine();
+  const stage = STAGES[stageIdx];
+  const res = checkStageCoeffs(stage, coeffs);
+  coeffOk = res.ok;
+  equationEl.classList.toggle("balanced", coeffOk);
+  netionEl.hidden = !coeffOk;
+  if (coeffOk) {
+    netionEl.innerHTML = `この反応の本質（イオン反応式）: <strong>${stage.netIon}</strong> — ほかのイオンは傍観イオン`;
+    eqMsgEl.textContent = "つり合った！最も簡単な整数比になっている。";
+  } else if (coeffs.some((c) => c === 0)) {
+    eqMsgEl.textContent = "すべての係数を入れよう（？の場所）";
+  } else {
+    eqMsgEl.textContent = res.reason;
+  }
+  maybeClear();
+}
+
+function renderTally() {
+  const stage = STAGES[stageIdx];
+  tallyEl.innerHTML = "";
+  if (coeffs.every((c) => c === 0)) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.textContent = "係数を入れると左右の原子の数がここに出る";
+    tr.appendChild(td);
+    tallyEl.appendChild(tr);
+    return;
+  }
+  const left = stage.reactants.map((sp, i) => ({ sp, n: coeffs[i] }));
+  const right = stage.products.map((sp, i) => ({ sp, n: coeffs[stage.reactants.length + i] }));
+  const cmp = compareSides(left, right);
+  const hr = document.createElement("tr");
+  hr.innerHTML = "<th>原子</th><th>左辺</th><th>右辺</th><th></th>";
+  tallyEl.appendChild(hr);
+  for (const r of cmp.rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.el}</td><td>${r.left}</td><td>${r.right}</td>` +
+      `<td class="${r.ok ? "okcell" : "ngcell"}">${r.ok ? "〇" : "×"}</td>`;
+    tallyEl.appendChild(tr);
+  }
+}
+
+/* ---- 数合わせビュー（反応式の直下に係数ぶんの粒を並べ、組み変える） ---- */
+
+const recombineSvg = document.getElementById("recombine");
+const recombineBtn = document.getElementById("recombineBtn");
+const recombineMsgEl = document.getElementById("recombineMsg");
+
+/* 組み変えフェーズの順序: 反応の本質（H⁺+OH⁻→H₂O）を先に見せ、
+   残ったイオンが塩の枠に集まるのを後にする（イオン反応式の強調と一致）。
+   false にすると塩が先・水が後になる。 */
+const MECH_FIRST = true;
+
+let recombineState = null;
+let lastRecombine = null;
+let stripTweens = [];
+
+function summarizeSpecies(list) {
+  const m = {};
+  for (const sp of list) m[sp] = (m[sp] || 0) + 1;
+  return Object.entries(m).map(([sp, n]) => `${SPECIES[sp].disp}×${n}`).join("・");
+}
+
+function buildRecombine() {
+  const stage = STAGES[stageIdx];
+  const nL = stage.reactants.length;
+  recombineSvg.innerHTML = "";
+  recombineState = null;
+  lastRecombine = null;
+  stripTweens = [];
+  recombineMsgEl.textContent = "";
+  recombineBtn.textContent = "⇄ 組み変える";
+  if (coeffs.slice(0, nL).some((c) => c === 0)) {
+    recombineBtn.disabled = true;
+    recombineSvg.setAttribute("viewBox", "0 0 360 30");
+    const t = mk("text", { x: 180, y: 19, "text-anchor": "middle", "font-size": 12, fill: "#8a94a0" }, recombineSvg);
+    t.textContent = "左辺の係数を入れると組み変えを試せる（右辺はあとからでもよい）";
+    return;
+  }
+  recombineBtn.disabled = false;
+  const sim = simulateFormation(stage, coeffs.slice(0, nL));
+
+  const R = 13, GAP = 4, PAD = 5, ROWGAP = 8, LABELH = 26, SEP = 30, MARGIN = 8;
+  const unitH = 2 * R + PAD * 2;
+  // 列の定義。gasGroup の2項（H₂O と CO₂ など）は中間体1列にまとめる
+  const colDefs = [];
+  stage.reactants.forEach((sp, i) => colDefs.push({ sp, isLeft: true, entered: coeffs[i] }));
+  const gg = stage.gasGroup;
+  stage.products.forEach((sp, j) => {
+    const entered = coeffs[nL + j];
+    if (gg && gg.terms.includes(sp)) {
+      let g = colDefs.find((c) => c.group);
+      if (!g) {
+        g = { group: true, sp: gg.via, terms: [], entereds: [], isLeft: false };
+        colDefs.push(g);
+      }
+      g.terms.push(sp);
+      g.entereds.push(entered);
+    } else {
+      colDefs.push({ sp, isLeft: false, entered });
+    }
+  });
+  for (const c of colDefs) {
+    if (!c.group) continue;
+    // 両項が同数で入力されているときだけ「主張」とみなす（違う数は仕上げで指摘）
+    c.entered = (c.entereds.every((e) => e > 0) && new Set(c.entereds).size === 1) ? c.entereds[0] : 0;
+  }
+  const cols = colDefs.map((c) => {
+    const parts = PARTS[c.sp];
+    const unitW = parts.length * (2 * R + GAP) - GAP + PAD * 2;
+    const formed = c.isLeft ? 0 : sim.formed[c.group ? c.terms[0] : c.sp];
+    return Object.assign(c, {
+      parts, unitW, formed,
+      rows: c.isLeft ? c.entered : Math.max(c.entered, formed),
+      w: Math.max(unitW, 50), claimedBoxes: [],
+    });
+  });
+  let x = MARGIN;
+  cols.forEach((col, i) => {
+    if (i > 0) { col.sepX = x + SEP / 2; x += SEP; }
+    col.x = x;
+    x += col.w;
+  });
+  const totalW = x + MARGIN;
+  const maxRows = Math.max(1, ...cols.map((c) => c.rows));
+  recombineSvg.setAttribute("viewBox", `0 0 ${totalW} ${LABELH + maxRows * (unitH + ROWGAP)}`);
+
+  const unitRect = (col, u) => ({
+    x: col.x + col.w / 2 - col.unitW / 2,
+    y: LABELH + u * (unitH + ROWGAP),
+    w: col.unitW, h: unitH,
+  });
+  const slotPos = (col, u, k) => ({
+    x: col.x + col.w / 2 - col.unitW / 2 + PAD + R + k * (2 * R + GAP),
+    y: LABELH + u * (unitH + ROWGAP) + PAD + R,
+  });
+
+  const leftParticles = [];
+  const formPlan = [];
+  const rightCols = [];
+  cols.forEach((col, i) => {
+    if (i > 0) {
+      const s = mk("text", { x: col.sepX, y: LABELH + unitH / 2 + 5, "text-anchor": "middle", "font-size": 15, fill: "#5a6570" }, recombineSvg);
+      s.textContent = (cols[i - 1].isLeft && !col.isLeft) ? "→" : "＋";
+    }
+    const cx = col.x + col.w / 2;
+    col.labelEl = mk("text", { x: cx, y: 16, "text-anchor": "middle", "font-size": 13, "font-weight": "bold", fill: "#2a3540" }, recombineSvg);
+    col.labelEl.textContent = col.group
+      ? `${col.entered === 0 ? "？" : col.entered} ${col.terms.map((t) => SPECIES[t].disp).join("＋")}`
+      : `${col.entered === 0 ? "？" : col.entered} ${SPECIES[col.sp].disp}`;
+    if (col.isLeft) {
+      for (let u = 0; u < col.entered; u++) {
+        const rc = unitRect(col, u);
+        mk("rect", { x: rc.x, y: rc.y, width: rc.w, height: rc.h, rx: rc.h / 2, fill: "#f4f8fb", stroke: "#c4cdd6" }, recombineSvg);
+      }
+    } else {
+      rightCols.push(col);
+      // 入力済みの係数ぶんの「主張枠」（点線ゴースト）
+      for (let u = 0; u < col.entered; u++) {
+        const rc = unitRect(col, u);
+        const box = mk("rect", { x: rc.x, y: rc.y, width: rc.w, height: rc.h, rx: rc.h / 2, fill: "none", stroke: "#c4cdd6", "stroke-dasharray": "4 3" }, recombineSvg);
+        col.claimedBoxes.push(box);
+        col.parts.forEach((psp, k) => {
+          const pos = slotPos(col, u, k);
+          const fontSize = SPECIES[psp].disp.length > 3 ? 8 : 10;
+          const ghost = mk("g", { class: "rslot" }, recombineSvg);
+          mk("circle", { cx: pos.x, cy: pos.y, r: R, fill: "none", stroke: "#b7c3cd", "stroke-dasharray": "3 3" }, ghost);
+          const t = mk("text", { x: pos.x, y: pos.y + 3.5, "text-anchor": "middle", "font-size": fontSize, fill: "#b7c3cd" }, ghost);
+          t.textContent = SPECIES[psp].disp;
+        });
+      }
+      // 実際にできる数（シミュレーション結果）ぶんの組み立て予定
+      for (let u = 0; u < col.formed; u++) {
+        formPlan.push({
+          sp: col.sp,
+          isWater: col.sp === "H2O",
+          col, row: u,
+          overflow: u >= col.entered,
+          rect: unitRect(col, u),
+          boxEl: u < col.entered ? col.claimedBoxes[u] : null,
+          slots: col.parts.map((psp, k) => Object.assign({ psp }, slotPos(col, u, k))),
+        });
+      }
+    }
+  });
+  // 左辺の粒は飛行中に他の要素の下に隠れないよう、最後に追加して最前面にする
+  cols.forEach((col) => {
+    if (!col.isLeft) return;
+    for (let u = 0; u < col.entered; u++) {
+      col.parts.forEach((psp, k) => {
+        const pos = slotPos(col, u, k);
+        const st = STYLE[psp];
+        const fontSize = SPECIES[psp].disp.length > 3 ? 8 : 10;
+        const g = mk("g", { class: "rpart" }, recombineSvg);
+        mk("circle", { r: R, fill: st.color, stroke: "rgba(0,0,0,.25)", "stroke-width": 1 }, g);
+        const t = mk("text", { y: 3.5, "text-anchor": "middle", "font-size": fontSize, fill: "#fff", "font-weight": "bold" }, g);
+        t.textContent = SPECIES[psp].disp;
+        g.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+        leftParticles.push({ sp: psp, el: g, x: pos.x, y: pos.y, assigned: false });
+      });
+    }
+  });
+  recombineState = { leftParticles, formPlan, rightCols, sim, done: false };
+}
+
+/* 弧を描いて飛ぶ（2次ベジェ。制御点を中点の上に持ち上げる） */
+function flyTo(p, tx, ty, delay, onDone) {
+  const dist = Math.hypot(tx - p.x, ty - p.y);
+  const lift = Math.max(24, Math.min(60, dist * 0.3));
+  stripTweens.push({
+    el: p.el, x0: p.x, y0: p.y,
+    cx: (p.x + tx) / 2, cy: (p.y + ty) / 2 - lift,
+    x1: tx, y1: ty, t: 0, dur: 0.7, delay, onDone,
+  });
+  p.x = tx; p.y = ty;
+}
+
+function stepStripTweens(dt) {
+  for (const tw of [...stripTweens]) {
+    if (tw.delay > 0) { tw.delay -= dt; continue; }
+    tw.t = Math.min(1, tw.t + dt / tw.dur);
+    const e = tw.t * tw.t * (3 - 2 * tw.t);
+    const a = 1 - e;
+    const px = a * a * tw.x0 + 2 * a * e * tw.cx + e * e * tw.x1;
+    const py = a * a * tw.y0 + 2 * a * e * tw.cy + e * e * tw.y1;
+    tw.el.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px)`;
+    if (tw.t >= 1) {
+      stripTweens = stripTweens.filter((o) => o !== tw);
+      if (tw.onDone) tw.onDone();
+    }
+  }
+}
+
+function animateRecombine() {
+  if (!recombineState || recombineState.done) return;
+  recombineState.done = true;
+  recombineBtn.textContent = "↺ 並べ直す";
+  const plan = recombineState.formPlan;
+  const phase1 = plan.filter((f) => f.isWater === MECH_FIRST);
+  const phase2 = plan.filter((f) => f.isWater !== MECH_FIRST);
+  runRecombinePhase(phase1, () => runRecombinePhase(phase2, finalizeRecombine));
+}
+
+function runRecombinePhase(jobs, onAllDone) {
+  if (!jobs.length) { onAllDone(); return; }
+  const st = recombineState;
+  let pending = 0;
+  jobs.forEach((job, ji) => {
+    if (!job.boxEl) {
+      // 主張枠が足りない/未入力ぶんの受け皿。仕上げで色分けする
+      job.boxEl = mk("rect", { x: job.rect.x, y: job.rect.y, width: job.rect.w, height: job.rect.h, rx: job.rect.h / 2, fill: "none", stroke: "#c4cdd6", "stroke-dasharray": "4 3" }, recombineSvg);
+    }
+    job.slots.forEach((slot) => {
+      let best = null, bestD = Infinity;
+      for (const p of st.leftParticles) {
+        if (p.assigned || p.sp !== slot.psp) continue;
+        const d = Math.hypot(slot.x - p.x, slot.y - p.y);
+        if (d < bestD) { bestD = d; best = p; }
+      }
+      if (!best) return;
+      best.assigned = true;
+      pending++;
+      flyTo(best, slot.x, slot.y, ji * 0.18, () => { if (--pending === 0) onAllDone(); });
+    });
+  });
+  if (pending === 0) onAllDone();
+}
+
+function finalizeRecombine() {
+  const st = recombineState;
+  const leftovers = st.leftParticles.filter((p) => !p.assigned);
+  leftovers.forEach((p) => p.el.classList.add("leftover"));
+  const msgs = [];
+  if (leftovers.length) {
+    msgs.push(`左辺の ${summarizeSpecies(leftovers.map((p) => p.sp))} が余った（組になる相手が足りない）。左辺の係数を見直そう。`);
+  }
+  let mismatch = false, unclaimed = false;
+  st.rightCols.forEach((col) => {
+    col.claimedBoxes.slice(col.formed).forEach((b) => b.classList.add("missingBox"));
+    col.claimedBoxes.slice(0, col.formed).forEach((b) => b.classList.add("filledBox"));
+    if (col.group && col.entereds.every((e) => e > 0) && new Set(col.entereds).size !== 1) {
+      // 例: H₂O と CO₂ に違う係数を入れた
+      mismatch = true;
+      col.labelEl.classList.add("badLabel");
+      msgs.push(`${col.terms.map((t) => SPECIES[t].disp).join(" と ")} は ${SPECIES[col.sp].disp} が分かれてできるので、同じ数になるはず。`);
+    } else if (col.entered === 0) {
+      unclaimed = true;
+    } else if (col.entered !== col.formed) {
+      mismatch = true;
+      col.labelEl.classList.add("badLabel");
+      const name = col.group ? col.terms.map((t) => SPECIES[t].disp).join("・") : SPECIES[col.sp].disp;
+      msgs.push(`${name} は ${col.formed} 個${col.group ? "ずつ" : ""}できたのに、係数は ${col.entered} になっている。`);
+    } else {
+      col.labelEl.classList.add("goodLabel");
+    }
+  });
+  st.formPlan.forEach((job) => {
+    if (!job.overflow) return;
+    job.boxEl.classList.add(job.col.entered === 0 ? "madeBox" : "overBox");
+  });
+  if (!leftovers.length && unclaimed) {
+    const list = st.rightCols.map((c) => c.group
+      ? `${c.terms.map((t) => SPECIES[t].disp).join("・")} 各${c.formed}`
+      : `${SPECIES[c.sp].disp}×${c.formed}`).join("・");
+    msgs.push(`できた数（${list}）を右辺の係数に入れよう。`);
+  }
+  if (!leftovers.length && !mismatch && !unclaimed) {
+    msgs.push(coeffOk
+      ? "ぴったり！ 余りなし、できた数と係数もすべて一致した。"
+      : "できた数と係数は一致した。あとは全体を最も簡単な整数比にしよう。");
+  }
+  recombineMsgEl.textContent = msgs.join(" ");
+  lastRecombine = {
+    formed: Object.assign({}, st.sim.formed),
+    leftovers: leftovers.map((p) => p.sp),
+    mismatch, unclaimed,
+    fit: !leftovers.length && !mismatch && !unclaimed,
+  };
+}
+
+recombineBtn.onclick = () => {
+  if (recombineState && recombineState.done) buildRecombine();
+  else animateRecombine();
+};
+
+/* ---- 進行 ---- */
+
+function maybeClear() {
+  if (cleared || !reactionDone || !coeffOk) return;
+  cleared = true;
+  clearEl.hidden = false;
+  clearEl.innerHTML = "";
+  const t = document.createElement("div");
+  t.textContent = "クリア！ ビーカーの実験と反応式が両方そろった。";
+  clearEl.appendChild(t);
+  if (stageIdx < STAGES.length - 1) {
+    const b = document.createElement("button");
+    b.textContent = "次のステージへ →";
+    b.onclick = () => { stageIdx++; initStage(); };
+    clearEl.appendChild(b);
+  } else {
+    const d = document.createElement("div");
+    d.textContent = "全ステージクリア！おつかれさま。";
+    clearEl.appendChild(d);
+  }
+}
+
+function buildStageNav() {
+  stageNavEl.innerHTML = "";
+  STAGES.forEach((st, i) => {
+    const b = document.createElement("button");
+    b.textContent = String(i + 1);
+    b.className = i === stageIdx ? "active" : "";
+    b.title = st.title;
+    b.onclick = () => { stageIdx = i; initStage(); };
+    stageNavEl.appendChild(b);
+  });
+}
+
+function buildToolbar() {
+  toolbarEl.innerHTML = "";
+  const stage = STAGES[stageIdx];
+  for (const sp of stage.reactants) {
+    const b = document.createElement("button");
+    b.className = "add";
+    b.textContent = "＋ " + SPECIES[sp].disp;
+    b.onclick = () => addMolecule(sp);
+    toolbarEl.appendChild(b);
+  }
+  const react = document.createElement("button");
+  react.className = "react";
+  react.textContent = "⚡ 反応させる";
+  react.onclick = doReact;
+  const reset = document.createElement("button");
+  reset.className = "reset";
+  reset.textContent = "↺ やり直す";
+  reset.onclick = () => initStage();
+  toolbarEl.append(react, reset);
+}
+
+function initStage() {
+  for (const p of particles) if (p.el) p.el.remove();
+  particles = [];
+  groups = [];
+  escaped = {};
+  addedCount = {};
+  madeCount = 0;
+  reactionDone = false;
+  coeffOk = false;
+  cleared = false;
+  drawBeakerStatic();
+  particleLayer = mk("g", {});
+  buildStageNav();
+  buildToolbar();
+  const stage = STAGES[stageIdx];
+  stageTitleEl.innerHTML = `<strong>${stage.title}</strong>`;
+  buildEquationUI();
+  renderTally();
+  buildRecombine();
+  netionEl.hidden = true;
+  clearEl.hidden = true;
+  setMsg(stage.intro);
+  refreshHUD();
+}
+
+/* テスト・監査用フック（UI からは使わない）。
+   advance(ms) でシミュレーション時間を決定論的に進められる。 */
+window.IonEq = {
+  advance(ms) {
+    // tick は1回で最大1秒しか進まないため、長い時間は分割して進める
+    let remaining = ms;
+    while (remaining > 0) {
+      const chunk = Math.min(1000, remaining);
+      tick(lastT + chunk);
+      remaining -= chunk;
+    }
+  },
+  state() {
+    const counts = {};
+    for (const p of particles) counts[p.sp] = (counts[p.sp] || 0) + 1;
+    return {
+      counts, made: madeCount, reactionDone, coeffOk, cleared, stageIdx,
+      settled: particles.filter((p) => p.mode === "settled").length,
+      escaped: Object.assign({}, escaped),
+      recombine: lastRecombine,
+    };
+  },
+  recombine() { animateRecombine(); return lastRecombine; },
+};
+
+initStage();
+requestAnimationFrame(frame);
+
+})();
