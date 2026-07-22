@@ -31,6 +31,14 @@ const SPECIES = {
   "NO3-":    { disp: "NO₃⁻",  name: "硝酸イオン",         atoms: { N: 1, O: 3 },   charge: -1 },
   "Ba^2+":   { disp: "Ba²⁺",  name: "バリウムイオン",     atoms: { Ba: 1 },        charge: 2 },
   "CO3^2-":  { disp: "CO₃²⁻", name: "炭酸イオン",         atoms: { C: 1, O: 3 },   charge: -2 },
+  // 酸化還元モード用
+  "Zn":      { disp: "Zn",     name: "亜鉛（原子）",       atoms: { Zn: 1 },        charge: 0 },
+  "Zn^2+":   { disp: "Zn²⁺",  name: "亜鉛イオン",         atoms: { Zn: 1 },        charge: 2 },
+  "Cu":      { disp: "Cu",     name: "銅（原子）",         atoms: { Cu: 1 },        charge: 0 },
+  "Cu^2+":   { disp: "Cu²⁺",  name: "銅(Ⅱ)イオン",       atoms: { Cu: 1 },        charge: 2 },
+  "Ag":      { disp: "Ag",     name: "銀（原子）",         atoms: { Ag: 1 },        charge: 0 },
+  "H2":      { disp: "H₂",    name: "水素",               atoms: { H: 2 },         charge: 0 },
+  "e-":      { disp: "e⁻",    name: "電子",               atoms: {},               charge: -1 },
 };
 
 /* 強電解質の電離表（v1 は完全電離のみ扱う） */
@@ -134,7 +142,80 @@ const STAGES = [
 ];
 
 /* 表示時の元素の並び順（金属 → H → その他） */
-const ELEMENT_ORDER = ["Na", "Ca", "Ag", "Ba", "H", "C", "N", "S", "O", "Cl"];
+const ELEMENT_ORDER = ["Na", "Ca", "Ag", "Ba", "Zn", "Cu", "H", "C", "N", "S", "O", "Cl"];
+
+/* ---- 酸化還元モード（DESIGN_redox.md）---- */
+
+/* 半反応式（部品）。left/right は e⁻ を含む項の一覧。原子・電荷保存はテストで検証 */
+const HALF_REACTIONS = {
+  "Zn_ox":  { disp: "Zn → Zn²⁺ ＋ 2e⁻", kind: "oxidation",
+              left: [{ sp: "Zn", n: 1 }], right: [{ sp: "Zn^2+", n: 1 }, { sp: "e-", n: 2 }] },
+  "Cu_ox":  { disp: "Cu → Cu²⁺ ＋ 2e⁻", kind: "oxidation",
+              left: [{ sp: "Cu", n: 1 }], right: [{ sp: "Cu^2+", n: 1 }, { sp: "e-", n: 2 }] },
+  "Cu_red": { disp: "Cu²⁺ ＋ 2e⁻ → Cu", kind: "reduction",
+              left: [{ sp: "Cu^2+", n: 1 }, { sp: "e-", n: 2 }], right: [{ sp: "Cu", n: 1 }] },
+  "Ag_red": { disp: "Ag⁺ ＋ e⁻ → Ag", kind: "reduction",
+              left: [{ sp: "Ag+", n: 1 }, { sp: "e-", n: 1 }], right: [{ sp: "Ag", n: 1 }] },
+  "H_red":  { disp: "2H⁺ ＋ 2e⁻ → H₂", kind: "reduction",
+              left: [{ sp: "H+", n: 2 }, { sp: "e-", n: 2 }], right: [{ sp: "H2", n: 1 }] },
+};
+
+/* 半反応式の e⁻ の数（酸化なら出す数、還元なら受け取る数） */
+function electronsOf(hr) {
+  const all = [...hr.left, ...hr.right];
+  return all.filter((t) => t.sp === "e-").reduce((s, t) => s + t.n, 0);
+}
+
+const REDOX_STAGES = [
+  {
+    id: "r1", title: "ステージ1：亜鉛 × 銅(Ⅱ)イオン",
+    ox: "Zn_ox", red: "Cu_red", answer: [1, 1],
+    intro: "硫酸銅水溶液に亜鉛板を入れると、板に赤い銅が付き、亜鉛が溶けていく。電子の動きを見よう。",
+  },
+  {
+    id: "r2", title: "ステージ2：銅 × 銀イオン（銀樹）",
+    ox: "Cu_ox", red: "Ag_red", answer: [1, 2],
+    intro: "硝酸銀水溶液に銅線を入れると銀樹が育つ。Cu は e⁻ を2個出すが、Ag⁺ は1個ずつしか受け取れない。",
+  },
+  {
+    id: "r3", title: "ステージ3：亜鉛 × 塩酸（水素発生）",
+    ox: "Zn_ox", red: "H_red", answer: [1, 1],
+    intro: "亜鉛に塩酸を注ぐと H₂ の泡が出る。e⁻ を受け取るのは H⁺ が2個で1組。",
+  },
+];
+
+/* 倍率 a（酸化側）・b（還元側）の判定: e⁻ の授受が等しく、最簡整数比であること */
+function checkRedoxMultipliers(stage, a, b) {
+  if (![a, b].every((v) => Number.isInteger(v) && v >= 1)) {
+    return { ok: false, reason: "倍率は1以上の整数で" };
+  }
+  const give = electronsOf(HALF_REACTIONS[stage.ox]) * a;
+  const take = electronsOf(HALF_REACTIONS[stage.red]) * b;
+  if (give !== take) {
+    return { ok: false, reason: `出す e⁻（${give}個）と受け取る e⁻（${take}個）が合っていない`, give, take };
+  }
+  if (gcd2(a, b) !== 1) {
+    return { ok: false, reason: "e⁻ は合っているが、倍率は最も簡単な整数比にしよう", give, take };
+  }
+  return { ok: true, give, take };
+}
+
+/* 半反応式×倍率を足し合わせ、両辺に現れる種（e⁻）を打ち消したイオン反応式を返す */
+function combineHalves(stage, a, b) {
+  const ox = HALF_REACTIONS[stage.ox], red = HALF_REACTIONS[stage.red];
+  const L = {}, R = {};
+  const add = (map, terms, k) => { for (const t of terms) map[t.sp] = (map[t.sp] || 0) + t.n * k; };
+  add(L, ox.left, a); add(L, red.left, b);
+  add(R, ox.right, a); add(R, red.right, b);
+  for (const sp of Object.keys(L)) {
+    if (R[sp]) {
+      const c = Math.min(L[sp], R[sp]);
+      L[sp] -= c; R[sp] -= c;
+    }
+  }
+  const toTerms = (m) => Object.entries(m).filter(([, n]) => n > 0).map(([sp, n]) => ({ sp, n }));
+  return { left: toTerms(L), right: toTerms(R) };
+}
 
 /* terms: [{sp, n}] → { atoms: {元素: 個数}, charge } */
 function tallyTerms(terms) {

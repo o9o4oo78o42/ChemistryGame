@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>イオンでみる化学反応式 - 酸化還元</title>
+<link rel="stylesheet" href="style.css?v=7">
+</head>
+<body>
+<header>
+  <h1>イオンでみる化学反応式 <span class="modeTag">酸化還元（半反応式）</span></h1>
+  <div class="version">v7</div>
+  <nav id="stageNav"></nav>
+  <a class="modeLink" href="index.html">← イオン反応モード</a>
+</header>
+<main>
+  <section id="labPane">
+    <div id="stageTitle"></div>
+    <div id="toolbar"></div>
+    <svg id="beaker" viewBox="0 0 480 430" role="img" aria-label="金属板と溶液中のイオン"></svg>
+    <div id="ionCounts"></div>
+    <div id="msg"></div>
+  </section>
+  <section id="eqPane">
+    <h2>半反応式を整数倍して足し合わせよう</h2>
+    <div id="halfOx" class="halfRow"></div>
+    <div id="halfRed" class="halfRow"></div>
+    <div id="eTally"></div>
+    <div id="sumView" hidden></div>
+    <div id="clearBanner" hidden></div>
+  </section>
+</main>
+<script src="model.js?v=7"></script>
+<script src="redox.js?v=7"></script>
+</body>
+</html>

@@ -19,7 +19,7 @@ function runModelTests() {
   t("SPECIES: 全種に disp・atoms・charge が定義されている", () => {
     for (const [k, s] of Object.entries(SPECIES)) {
       assert(s.disp && s.atoms && typeof s.charge === "number", k);
-      assert(Object.keys(s.atoms).length > 0, k + " atoms empty");
+      assert(Object.keys(s.atoms).length > 0 || k === "e-", k + " atoms empty");
     }
   });
 
@@ -112,6 +112,33 @@ function runModelTests() {
         }
       }
     }
+  });
+
+  t("半反応式: 原子と電荷が保存され、e⁻ を含む", () => {
+    for (const [id, hr] of Object.entries(HALF_REACTIONS)) {
+      assert(compareSides(hr.left, hr.right).balanced, id + " がつり合わない");
+      assert(electronsOf(hr) > 0, id + ": e⁻ がない");
+      assert(hr.kind === "oxidation" || hr.kind === "reduction", id + ": kind 不正");
+    }
+  });
+
+  t("酸化還元: 模範倍率が正解、e⁻ 不一致や非最簡比は不正解", () => {
+    for (const st of REDOX_STAGES) {
+      assert(HALF_REACTIONS[st.ox] && HALF_REACTIONS[st.red], st.id + ": 半反応式なし");
+      assert(checkRedoxMultipliers(st, st.answer[0], st.answer[1]).ok, st.id);
+      assert(!checkRedoxMultipliers(st, st.answer[0] * 2, st.answer[1] * 2).ok, st.id + ": 2倍を通した");
+    }
+    assert(!checkRedoxMultipliers(REDOX_STAGES[1], 1, 1).ok, "r2 の 1:1 を通した");
+  });
+
+  t("combineHalves: e⁻ が打ち消され、イオン反応式がつり合う", () => {
+    for (const st of REDOX_STAGES) {
+      const c = combineHalves(st, st.answer[0], st.answer[1]);
+      assert(![...c.left, ...c.right].some((t) => t.sp === "e-"), st.id + ": e⁻ が残った");
+      assert(compareSides(c.left, c.right).balanced, st.id + ": つり合わない");
+    }
+    const c2 = combineHalves(REDOX_STAGES[1], 1, 2);
+    assert(c2.left.some((t) => t.sp === "Ag+" && t.n === 2), "r2: 2Ag⁺ にならない");
   });
 
   t("compareSides: 電荷の不一致を検出する", () => {
@@ -263,6 +290,57 @@ async function runUITests(iframe) {
   return results;
 }
 
+/* ---- 酸化還元モードの UI テスト（redox.html を iframe で駆動） ---- */
+
+async function runRedoxUITests(iframe) {
+  const results = [];
+  const t = async (name, fn) => {
+    try { await fn(); results.push({ name, ok: true }); }
+    catch (e) { results.push({ name, ok: false, err: String(e) }); }
+  };
+  const assert = (cond, msg) => { if (!cond) throw new Error(msg || "assertion failed"); };
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument;
+  const $$ = (sel) => [...doc.querySelectorAll(sel)];
+  const stageBtn = (i) => $$("#stageNav button")[i];
+  const playBtn = () => doc.getElementById("playBtn");
+  const upBtns = () => $$(".halfRow .stepper button").filter((b) => b.textContent === "＋");
+  const adv = (ms) => win.RedoxEq.advance(ms);
+  const state = () => win.RedoxEq.state();
+
+  await t("REDOX: r2 で倍率1:1のままだと e⁻ が1個余る", async () => {
+    stageBtn(1).click();
+    playBtn().click();
+    adv(20000);
+    const s = state();
+    assert(s.phase === "done", "アニメが終わらない: " + s.phase);
+    assert(s.poolE === 1, "e⁻ の余りが1でない: " + JSON.stringify(s));
+    assert(s.deposited === 1 && !s.cleared, "析出/クリア状態が想定外: " + JSON.stringify(s));
+  });
+
+  await t("REDOX: r2 で 1:2 にすると銀が2個析出してクリア", async () => {
+    upBtns()[1].click(); // 還元側 ×2（レイアウトもリセットされる）
+    playBtn().click();
+    adv(25000);
+    const s = state();
+    assert(s.poolE === 0 && s.waiting === 0, "e⁻ が過不足: " + JSON.stringify(s));
+    assert(s.deposited === 2, "銀樹が2個でない: " + s.deposited);
+    assert(s.cleared, "クリアにならない");
+    assert(doc.getElementById("sumView").textContent.includes("2 Ag"), "足し合わせ表示に 2Ag が出ない");
+  });
+
+  await t("REDOX: r3 で H₂ の泡が逃げてクリア", async () => {
+    stageBtn(2).click();
+    playBtn().click();
+    adv(25000);
+    const s = state();
+    assert(s.escaped["H2"] === 1, "H2 が逃げない: " + JSON.stringify(s));
+    assert(s.cleared, "クリアにならない");
+  });
+
+  return results;
+}
+
 /* ---- ブラウザでの実行と描画 ---- */
 
 if (typeof document !== "undefined" && document.getElementById("results")) {
@@ -282,15 +360,20 @@ if (typeof document !== "undefined" && document.getElementById("results")) {
   };
   const modelOk = render(document.getElementById("results"), runModelTests(), "モデル");
   const iframe = document.getElementById("app");
+  const iframeR = document.getElementById("appRedox");
   const startUI = () => {
-    if (!iframe.contentWindow || !iframe.contentWindow.IonEq) { setTimeout(startUI, 100); return; }
-    runUITests(iframe).then((rs) => {
-      const uiOk = render(document.getElementById("uiresults"), rs, "UI");
+    const ready = iframe.contentWindow && iframe.contentWindow.IonEq &&
+      iframeR.contentWindow && iframeR.contentWindow.RedoxEq;
+    if (!ready) { setTimeout(startUI, 100); return; }
+    runUITests(iframe).then((rs1) => runRedoxUITests(iframeR).then((rs2) => {
+      const uiEl = document.getElementById("uiresults");
+      const uiOk = render(uiEl, rs1, "UI(イオン反応)");
+      const rOk = render(uiEl, rs2, "UI(酸化還元)");
       const total = document.getElementById("total");
-      total.textContent = modelOk && uiOk ? "TOTAL: ALL PASS" : "TOTAL: FAIL";
-      total.className = modelOk && uiOk ? "pass" : "fail";
-    });
+      const allOk = modelOk && uiOk && rOk;
+      total.textContent = allOk ? "TOTAL: ALL PASS" : "TOTAL: FAIL";
+      total.className = allOk ? "pass" : "fail";
+    }));
   };
-  if (iframe.contentDocument && iframe.contentDocument.readyState === "complete") startUI();
-  else iframe.addEventListener("load", startUI);
+  startUI();
 }
