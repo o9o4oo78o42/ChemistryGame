@@ -1946,7 +1946,7 @@
         const tp = c.W.tutorialPlayer;
         assert(tp, 'tutorialPlayer が初期化されていない');
         for (let i = 0; i < 30 && tp.tutorials.length === 0; i++) await c.tick(100);
-        assert(tp.tutorials.length >= 3, `チュートリアルが${tp.tutorials.length}本（3以上を期待）`);
+        assert(tp.tutorials.length >= 7, `チュートリアルが${tp.tutorials.length}本（7以上を期待）`);
 
         // FAQモーダル: 一覧・検索・デバイス切替の存在
         c.D.getElementById('btn-help').click();
@@ -1977,6 +1977,24 @@
         await tp.play('ring-fusion', { fast: true });
         assert(tp.lastResult.formula === 'C₁₀H₈', `ring-fusionの結末が${tp.lastResult.formula}`);
         assert(tp.lastResult.name.includes('ナフタレン'), `ring-fusionの名称が「${tp.lastResult.name}」`);
+
+        // M2で追加した4パート（座標の陳腐化を結末の分子で検出する）
+        await tp.play('bond-stretch', { fast: true });
+        assert(tp.lastResult.formula === 'C₃H₈', `bond-stretchの結末が${tp.lastResult.formula}（プロパンを期待）`);
+
+        await tp.play('functional-group', { fast: true });
+        assert(tp.lastResult.name.includes('フェノール'), `functional-groupの結末が「${tp.lastResult.name}」`);
+
+        await tp.play('reaction', { fast: true });
+        assert(tp.lastResult.name.includes('エタノール'),
+            `reactionの結末が「${tp.lastResult.name}」（Undoでエタノールに戻る想定）`);
+
+        await tp.play('view-control', { fast: true });
+        assert(tp.lastResult.formula === 'C₆H₆', `view-controlの結末が${tp.lastResult.formula}`);
+
+        // ホバーチップの導線（data-tutorial が主要ボタンに付いている）
+        assert(c.D.querySelectorAll('[data-tutorial]').length >= 5, 'ホバー導線の属性が付いていない');
+        assert(c.D.getElementById('tutorial-chip'), 'ホバーチップの要素が作られていない');
 
         // 完全復元: マーカー分子・履歴・オーバーレイ・元素選択
         assert(g.userMolecule.atoms.length === 1 && g.userMolecule.atoms[0].element === 'N' &&

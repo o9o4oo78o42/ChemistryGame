@@ -34,6 +34,44 @@ class TutorialPlayer {
         });
 
         this.load();
+        this.setupHoverChips();
+    }
+
+    // 主要ボタンを800msホバーすると「▶デモを見る」チップを出す（P9-6 M2）。
+    // 邪魔にならないよう、すぐ離せば何も出ない。タッチ環境ではホバーが無いため自然に無効
+    setupHoverChips() {
+        const chip = document.createElement('button');
+        chip.id = 'tutorial-chip';
+        chip.className = 'view-btn';
+        chip.style.cssText = 'position:fixed; z-index:2500; display:none; font-size:11.5px; padding:4px 10px;' +
+            'border:1px solid var(--color-cyan, #00f2fe); background:rgba(10,16,30,0.96); color:#7fe8ef; cursor:pointer;';
+        chip.textContent = '▶ デモを見る';
+        document.body.appendChild(chip);
+        this.chipEl = chip;
+        let timer = null;
+        let chipId = null;
+        const hide = () => {
+            clearTimeout(timer);
+            if (!chip.matches(':hover')) chip.style.display = 'none';
+        };
+        chip.addEventListener('click', () => {
+            chip.style.display = 'none';
+            if (chipId) this.play(chipId);
+        });
+        document.querySelectorAll('[data-tutorial]').forEach(el => {
+            el.addEventListener('pointerenter', (e) => {
+                if (e.pointerType === 'touch' || this.running) return;
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    const r = el.getBoundingClientRect();
+                    chipId = el.dataset.tutorial;
+                    chip.style.display = 'block';
+                    chip.style.left = Math.min(r.right + 8, window.innerWidth - 130) + 'px';
+                    chip.style.top = (r.top - 2) + 'px';
+                }, 800);
+            });
+            el.addEventListener('pointerleave', () => setTimeout(hide, 120));
+        });
     }
 
     async load() {
@@ -177,11 +215,11 @@ class TutorialPlayer {
         const svg = g.svg;
         switch (a.type) {
             case 'wait':
-                await this.sleep(fast ? 10 : a.ms);
+                await this.sleep(fast ? 0 : a.ms);
                 break;
             case 'undo':
                 g.undo();
-                await this.sleep(fast ? 15 : 500);
+                await this.sleep(fast ? 0 : 500);
                 break;
             case 'button': {
                 const el = document.querySelector(a.selector);
@@ -190,7 +228,7 @@ class TutorialPlayer {
                 await this.moveCursor({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, fast);
                 this.pulse();
                 el.click();
-                await this.sleep(fast ? 15 : 450);
+                await this.sleep(fast ? 0 : 450);
                 break;
             }
             case 'click': {
@@ -199,14 +237,14 @@ class TutorialPlayer {
                 this.pulse();
                 svg.dispatchEvent(this.pe('pointerdown', cl));
                 window.dispatchEvent(this.pe('pointerup', cl));
-                await this.sleep(fast ? 15 : 500);
+                await this.sleep(fast ? 0 : 500);
                 break;
             }
             case 'hover': {
                 const cl = this.svgPoint(a.x, a.y);
                 await this.moveCursor(cl, fast);
                 svg.dispatchEvent(this.pe('pointermove', cl));
-                await this.sleep(fast ? 15 : 300);
+                await this.sleep(fast ? 0 : 300);
                 break;
             }
             case 'clickBond':
@@ -227,7 +265,80 @@ class TutorialPlayer {
                         bubbles: true, cancelable: true, clientX: cl.clientX, clientY: cl.clientY
                     }));
                 }
-                await this.sleep(fast ? 15 : 550);
+                await this.sleep(fast ? 0 : 550);
+                break;
+            }
+            case 'summon': {
+                // 名称から分子を呼び出す（反応デモの準備）
+                const input = document.getElementById('summon-input');
+                const r = input.getBoundingClientRect();
+                await this.moveCursor({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, fast);
+                this.pulse();
+                input.value = a.name;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                await this.sleep(fast ? 0 : 600);
+                break;
+            }
+            case 'reactionButton': {
+                const btn = [...document.querySelectorAll('#reaction-actions button')]
+                    .find(b => b.textContent.includes(a.contains));
+                if (!btn) throw new Error('反応ボタンが見つかりません: ' + a.contains);
+                const r = btn.getBoundingClientRect();
+                await this.moveCursor({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, fast);
+                this.pulse();
+                btn.click();
+                // 適用箇所の選択待ちになったら、候補の原子をクリックして確定する
+                if (window.reactor && window.reactor.picking) {
+                    const sites = window.reactor.picking.sites;
+                    const target = g.userMolecule.atoms.find(at => sites.some(s => s.includes(at.id)));
+                    if (target) {
+                        const cl = this.svgPoint(target.x, target.y);
+                        await this.moveCursor(cl, fast);
+                        this.pulse();
+                        svg.dispatchEvent(this.pe('pointerdown', cl));
+                        window.dispatchEvent(this.pe('pointerup', cl));
+                    }
+                }
+                await this.sleep(fast ? 0 : 700);
+                break;
+            }
+            case 'wheel': {
+                const cl = this.svgPoint(a.x, a.y);
+                await this.moveCursor(cl, fast);
+                for (let i = 0; i < (fast ? 1 : 5); i++) {
+                    svg.dispatchEvent(new WheelEvent('wheel', {
+                        bubbles: true, cancelable: true, ctrlKey: !!a.ctrl,
+                        deltaY: a.deltaY, clientX: cl.clientX, clientY: cl.clientY
+                    }));
+                    await this.sleep(fast ? 0 : 90);
+                }
+                await this.sleep(fast ? 0 : 400);
+                break;
+            }
+            case 'pan': {
+                // 右ボタンドラッグによるパン（2本指スクロール相当）
+                const from = this.svgPoint(a.from.x, a.from.y);
+                const to = this.svgPoint(a.to.x, a.to.y);
+                await this.moveCursor(from, fast);
+                this.pulse();
+                svg.dispatchEvent(new PointerEvent('pointerdown', {
+                    bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse',
+                    button: 2, clientX: from.clientX, clientY: from.clientY
+                }));
+                const N = fast ? 2 : 5;
+                for (let i = 1; i <= N; i++) {
+                    const cl = {
+                        clientX: from.clientX + (to.clientX - from.clientX) * i / N,
+                        clientY: from.clientY + (to.clientY - from.clientY) * i / N
+                    };
+                    await this.moveCursor(cl, fast, 70);
+                    svg.dispatchEvent(this.pe('pointermove', cl));
+                }
+                window.dispatchEvent(new PointerEvent('pointerup', {
+                    bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse',
+                    button: 2, clientX: to.clientX, clientY: to.clientY
+                }));
+                await this.sleep(fast ? 0 : 450);
                 break;
             }
             case 'drag': {
@@ -248,7 +359,7 @@ class TutorialPlayer {
                     svg.dispatchEvent(this.pe('pointermove', cl));
                 }
                 window.dispatchEvent(this.pe('pointerup', to));
-                await this.sleep(fast ? 15 : 450);
+                await this.sleep(fast ? 0 : 450);
                 break;
             }
             default:
@@ -319,10 +430,14 @@ class TutorialPlayer {
         else this.cursorEl.style.transition = `left ${durationMs}ms ease, top ${durationMs}ms ease`;
         this.cursorEl.style.left = cl.clientX + 'px';
         this.cursorEl.style.top = cl.clientY + 'px';
-        await this.sleep(fast ? 5 : durationMs + 40);
+        await this.sleep(fast ? 0 : durationMs + 40);
     }
 
     sleep(ms) {
+        // 高速モード（回帰テスト）はタイマーを使わずマイクロタスクで進める。
+        // バックグラウンドのタブではタイマーが最大1秒程度に抑制されるため、
+        // 待機のたびに数百ミリ秒〜1秒を消費してテストが極端に遅くなる（P9-6 M2で判明）
+        if (ms <= 0) return Promise.resolve();
         // 中断（✕/Esc）に即応できるよう小刻みに待つ
         return new Promise(resolve => {
             const start = performance.now();
