@@ -53,9 +53,9 @@ function shuffleArray(arr) {
 
 // 崩し方の強度設定（0=弱: 回転・反転のみ / 1=標準 / 2=強）
 const TRANSFORM_LEVELS = [
-    { kekuleProb: 0.0, stretchPasses: 0, stretchProb: 0.0, maxStretchUnits: 1 },
-    { kekuleProb: 0.5, stretchPasses: 1, stretchProb: 0.5, maxStretchUnits: 1 },
-    { kekuleProb: 1.0, stretchPasses: 2, stretchProb: 1.0, maxStretchUnits: 2 }
+    { kekuleProb: 0.0, stretchPasses: 0, stretchProb: 0.0, maxStretchUnits: 1, bendPasses: 0, bendProb: 0.0 },
+    { kekuleProb: 0.5, stretchPasses: 1, stretchProb: 0.5, maxStretchUnits: 1, bendPasses: 1, bendProb: 0.6 },
+    { kekuleProb: 1.0, stretchPasses: 2, stretchProb: 1.0, maxStretchUnits: 2, bendPasses: 3, bendProb: 1.0 }
 ];
 
 // トポロジーを変えずに表記だけを変える（回転・反転・ケクレ位相反転・橋結合の伸長）
@@ -154,6 +154,99 @@ function transformCompoundDepiction(target, strength = 1) {
             moved.forEach((p, i) => { atoms[i].x = p.x; atoms[i].y = p.y; });
         }
     }
+
+    // 4. 主鎖の屈曲（P9-4）: 橋結合を選び、その先の枝全体を結合点まわりに90°回転させる。
+    //    「主鎖が一直線でない」描き方を作る（直交作図のまま曲げるので手書き感覚を保つ）。
+    //    多重結合（sp2/sp の120°/180°作図）を含む枝は、慣習的な作図が崩れるため回さない。
+    // 重原子が一直線に並んでいるか（屈曲したかどうかの判定に使う）
+    const isCollinear = () => {
+        const heavy = atoms.filter(a => a.element !== 'H');
+        if (heavy.length < 3) return true;
+        return new Set(heavy.map(a => Math.round(a.y))).size === 1 ||
+               new Set(heavy.map(a => Math.round(a.x))).size === 1;
+    };
+    const tryBend = (requireBent) => {
+        if (bonds.length === 0) return;
+        const adj = atoms.map(() => []);
+        bonds.forEach((b, bi) => {
+            adj[b.atom1Index].push({ to: b.atom2Index, bi });
+            adj[b.atom2Index].push({ to: b.atom1Index, bi });
+        });
+        const reach = (start, excludeBi) => {
+            const seen = new Set([start]);
+            const stack = [start];
+            while (stack.length) {
+                const i = stack.pop();
+                adj[i].forEach(e => {
+                    if (e.bi === excludeBi || seen.has(e.to)) return;
+                    seen.add(e.to);
+                    stack.push(e.to);
+                });
+            }
+            return seen;
+        };
+        // 回転の軸になりうる結合: 橋（切ると2つに分かれる）かつ単結合
+        const candidates = [];
+        bonds.forEach((b, bi) => {
+            if (b.type !== 1) return;
+            const side2 = reach(b.atom2Index, bi);
+            if (side2.has(b.atom1Index)) return; // 環内結合は対象外
+            const side1 = reach(b.atom1Index, bi);
+            [[b.atom1Index, side2], [b.atom2Index, side1]].forEach(([pivotIdx, movingSet]) => {
+                if (movingSet.size < 2 || movingSet.size === atoms.length) return;
+                // 回す側に多重結合が含まれるなら見送る（120°/180°の作図を壊さない）
+                const movingHasMultiple = bonds.some(bb => bb.type > 1 &&
+                    movingSet.has(bb.atom1Index) && movingSet.has(bb.atom2Index));
+                if (movingHasMultiple) return;
+                candidates.push({ pivotIdx, movingSet });
+            });
+        });
+        if (candidates.length === 0) return;
+        // 候補と回転方向をランダム順に試し、重ならない曲げ方が見つかった時点で確定する
+        const trials = [];
+        candidates.forEach(cand => [1, -1].forEach(dir => trials.push({ cand, dir })));
+        for (let i = trials.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [trials[i], trials[j]] = [trials[j], trials[i]];
+        }
+        for (const { cand, dir } of trials) {
+            const pivot = atoms[cand.pivotIdx];
+            const rotated = atoms.map((a, i) => {
+                if (!cand.movingSet.has(i)) return { x: a.x, y: a.y };
+                const rx = a.x - pivot.x;
+                const ry = a.y - pivot.y;
+                return { x: pivot.x - dir * ry, y: pivot.y + dir * rx }; // 90°回転
+            });
+            let bendOk = true;
+            bendCheck:
+            for (let i = 0; i < rotated.length; i++) {
+                for (let j = i + 1; j < rotated.length; j++) {
+                    if (Math.hypot(rotated[i].x - rotated[j].x, rotated[i].y - rotated[j].y) < GRID_SIZE * 0.65) {
+                        bendOk = false;
+                        break bendCheck;
+                    }
+                }
+            }
+            if (!bendOk) continue;
+            if (requireBent) {
+                // 曲げ直しの最終試行では、結果が一直線に戻る曲げ方は採用しない
+                const before = atoms.map(a => ({ x: a.x, y: a.y }));
+                rotated.forEach((p, i) => { atoms[i].x = p.x; atoms[i].y = p.y; });
+                if (!isCollinear()) return;
+                before.forEach((p, i) => { atoms[i].x = p.x; atoms[i].y = p.y; });
+                continue;
+            }
+            rotated.forEach((p, i) => { atoms[i].x = p.x; atoms[i].y = p.y; });
+            return;
+        }
+    };
+
+    for (let pass = 0; pass < conf.bendPasses; pass++) {
+        if (Math.random() >= conf.bendProb) continue;
+        tryBend(false);
+    }
+    // 曲げたつもりが打ち消し合って一直線に戻ることがあるため、最後に一度だけ曲げ直す
+    if (conf.bendPasses > 0 && isCollinear()) tryBend(true);
 
     return { atoms, bonds };
 }

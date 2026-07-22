@@ -2038,6 +2038,63 @@
             '縮合部の炭素（4本結合×2）が保たれていない');
     });
 
+    test('M3: 主鎖の屈曲出題（一直線でない描き方・トポロジーは不変）', async (c) => {
+        c.reset();
+        const g = c.game;
+        const heavyPts = (t) => t.atoms.filter(a => a.element !== 'H');
+        const isCollinear = (t) => {
+            const h = heavyPts(t);
+            return new Set(h.map(a => Math.round(a.y))).size === 1 ||
+                   new Set(h.map(a => Math.round(a.x))).size === 1;
+        };
+        // 一直線に描かれている鎖式化合物（曲げられるもの）
+        const entry = [...c.W.STAGES, ...c.W.COMPOUNDS].find(e =>
+            e.name === 'ブタン' || e.name === 'ペンタン' || e.name === '1-ブタノール');
+        assert(entry && isCollinear(entry.target), '一直線の対象化合物が見つからない');
+        const origCode = c.W.canonicalCode(g.createTargetFromData({ target: entry.target }));
+
+        let bent = 0;
+        for (let i = 0; i < 20; i++) {
+            const td = c.W.transformCompoundDepiction(entry.target, 2);
+            const mol = g.createTargetFromData({ target: td });
+            // 屈曲してもトポロジー・価標・原子間隔は保たれる
+            assert(c.W.canonicalCode(mol) === origCode, `${entry.name}: 屈曲で別の化合物になった`);
+            mol.atoms.forEach(a => assert(c.W.isValencyValid(mol, a.id), '屈曲で価標が壊れた'));
+            const pts = td.atoms;
+            for (let x = 0; x < pts.length; x++) {
+                for (let y = x + 1; y < pts.length; y++) {
+                    assert(Math.hypot(pts[x].x - pts[y].x, pts[x].y - pts[y].y) >= 24,
+                        '屈曲で原子が重なった');
+                }
+            }
+            // 直交作図が保たれる（結合はすべて水平か垂直）
+            td.bonds.forEach(b => {
+                const p = pts[b.atom1Index], q = pts[b.atom2Index];
+                assert(Math.abs(p.x - q.x) < 1 || Math.abs(p.y - q.y) < 1 ||
+                       Math.abs(Math.hypot(q.x - p.x, q.y - p.y) - 35) < 3, // ベンゼン環の辺は除く
+                    '屈曲で直交作図が崩れた');
+            });
+            if (!isCollinear(td)) bent++;
+        }
+        assert(bent >= 12, `20回中${bent}回しか屈曲しなかった（12回以上を期待）`);
+
+        // 強度0では崩さない（原形のまま出題できる）
+        const flat = c.W.transformCompoundDepiction(entry.target, 0);
+        assert(isCollinear(flat), '強度0で主鎖が曲がった');
+
+        // 多重結合を含む分子は sp2/sp の作図を壊さない（C=Cの両端は回さない）
+        const ethene = [...c.W.STAGES].find(e => e.name.includes('エチレン'));
+        if (ethene) {
+            for (let i = 0; i < 10; i++) {
+                const td = c.W.transformCompoundDepiction(ethene.target, 2);
+                const mol = g.createTargetFromData({ target: td });
+                assert(c.W.canonicalCode(mol) ===
+                    c.W.canonicalCode(g.createTargetFromData({ target: ethene.target })),
+                    'エチレンの変形でトポロジーが変わった');
+            }
+        }
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {
