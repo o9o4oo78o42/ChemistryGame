@@ -1946,7 +1946,8 @@
         const tp = c.W.tutorialPlayer;
         assert(tp, 'tutorialPlayer が初期化されていない');
         for (let i = 0; i < 30 && tp.tutorials.length === 0; i++) await c.tick(100);
-        assert(tp.tutorials.length >= 7, `チュートリアルが${tp.tutorials.length}本（7以上を期待）`);
+        assert(tp.tutorials.length >= 12, `チュートリアル項目が${tp.tutorials.length}件（12以上を期待）`);
+        assert(tp.tutorials.filter(t => t.answer).length >= 3, 'FAQ（テキスト項目）が3件以上ない');
 
         // FAQモーダル: 一覧・検索・デバイス切替の存在
         c.D.getElementById('btn-help').click();
@@ -1991,6 +1992,35 @@
 
         await tp.play('view-control', { fast: true });
         assert(tp.lastResult.formula === 'C₆H₆', `view-controlの結末が${tp.lastResult.formula}`);
+
+        // M3で追加したパート（反応機構ビューア・学習ツール）も通し再生できる
+        await tp.play('mechanism', { fast: true });
+        assert(!c.W.reactionPlayer.active, '反応機構デモ後にモードが残っている');
+        await tp.play('learn-tools', { fast: true });
+        assert([...c.D.querySelectorAll('.modal-overlay')]
+            .every(m => m.id === 'tutorial-modal' || m.classList.contains('hidden')),
+            '学習ツールのデモ後にモーダルが開いたまま');
+        assert(!c.game.condensedMode, 'デモ後に縮約表示が残っている');
+
+        // FAQ（操作デモを持たないテキスト項目）は開閉で答えを表示する
+        c.D.getElementById('btn-help').click();
+        const faqRow = [...c.D.querySelectorAll('#tutorial-list > div')]
+            .find(r => r.textContent.includes('正しく描いたのに'));
+        assert(faqRow, 'FAQ項目が一覧に出ない');
+        const faqBtn = faqRow.querySelector('button');
+        assert(faqBtn.textContent === '答えを見る', `FAQのボタンが「${faqBtn.textContent}」`);
+        faqBtn.click();
+        assert(faqRow.textContent.includes('つながり方'), 'FAQの答えが表示されない');
+        faqBtn.click();
+        // 検索はFAQの本文も対象にする
+        const search = c.D.getElementById('tutorial-search');
+        search.value = '水素';
+        search.dispatchEvent(new c.W.Event('input', { bubbles: true }));
+        assert([...c.D.querySelectorAll('#tutorial-list > div')].some(r => r.textContent.includes('水素（H）')),
+            '検索でFAQが引っかからない');
+        search.value = '';
+        search.dispatchEvent(new c.W.Event('input', { bubbles: true }));
+        c.D.getElementById('btn-tutorial-close').click();
 
         // ホバーチップの導線（data-tutorial が主要ボタンに付いている）
         assert(c.D.querySelectorAll('[data-tutorial]').length >= 5, 'ホバー導線の属性が付いていない');

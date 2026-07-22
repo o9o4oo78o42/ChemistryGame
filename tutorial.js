@@ -76,7 +76,9 @@ class TutorialPlayer {
 
     async load() {
         try {
-            const res = await fetch(new URL('tutorials.json', window.location.href).href);
+            // 他のデータ（stages.json 等）と同じくキャッシュ再検証を強制する。
+            // 付けないと更新後も古い内容が最大10分使われる（GitHub Pagesはmax-age=600）
+            const res = await fetch(new URL('tutorials.json', window.location.href).href, { cache: 'no-cache' });
             this.tutorials = await res.json();
             this.renderList();
         } catch (e) {
@@ -95,28 +97,50 @@ class TutorialPlayer {
         this.listEl.innerHTML = '';
         this.tutorials
             .filter(t => !q || t.title.includes(q) || t.summary.includes(q) ||
+                         (t.answer || '').includes(q) ||
                          (t.keywords || []).some(k => k.includes(q)))
             .forEach(t => {
                 const row = document.createElement('div');
-                row.style.cssText = 'display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); border-radius:8px; padding:9px 12px;';
+                row.style.cssText = 'background:rgba(255,255,255,0.05); border-radius:8px; padding:9px 12px;';
+                const head = document.createElement('div');
+                head.style.cssText = 'display:flex; align-items:center; gap:10px;';
                 const info = document.createElement('div');
                 info.style.cssText = 'flex:1; text-align:left;';
                 info.innerHTML = `<div style="font-size:13.5px; color:#fff;">${t.title}</div>` +
                                  `<div style="font-size:11.5px; color:var(--text-secondary);">${t.summary}</div>`;
+                head.appendChild(info);
+
                 const btn = document.createElement('button');
                 btn.className = 'view-btn';
                 btn.style.cssText = 'white-space:nowrap; padding:7px 12px;';
-                btn.textContent = '▶ デモを見る';
-                btn.addEventListener('click', () => {
-                    this.modal.classList.add('hidden');
-                    this.play(t.id);
-                });
-                row.appendChild(info);
-                row.appendChild(btn);
+                if (t.answer) {
+                    // 操作デモを持たない「よくある質問」項目。開閉で答えを表示する（P9-6 M3）
+                    const ans = document.createElement('div');
+                    ans.style.cssText = 'display:none; font-size:12px; line-height:1.7; color:var(--text-primary);' +
+                        'text-align:left; margin-top:8px; white-space:pre-line; border-top:1px solid rgba(255,255,255,0.12); padding-top:7px;';
+                    ans.textContent = t.answer;
+                    btn.textContent = '答えを見る';
+                    btn.addEventListener('click', () => {
+                        const open = ans.style.display === 'block';
+                        ans.style.display = open ? 'none' : 'block';
+                        btn.textContent = open ? '答えを見る' : '閉じる';
+                    });
+                    head.appendChild(btn);
+                    row.appendChild(head);
+                    row.appendChild(ans);
+                } else {
+                    btn.textContent = '▶ デモを見る';
+                    btn.addEventListener('click', () => {
+                        this.modal.classList.add('hidden');
+                        this.play(t.id);
+                    });
+                    head.appendChild(btn);
+                    row.appendChild(head);
+                }
                 this.listEl.appendChild(row);
             });
         if (this.listEl.children.length === 0) {
-            this.listEl.innerHTML = '<div style="font-size:12px; color:var(--text-muted);">該当するチュートリアルがありません。</div>';
+            this.listEl.innerHTML = '<div style="font-size:12px; color:var(--text-muted);">該当する項目がありません。</div>';
         }
     }
 
@@ -125,7 +149,7 @@ class TutorialPlayer {
     async play(id, opts = {}) {
         if (this.running) return;
         const t = this.tutorials.find(x => x.id === id);
-        if (!t) return;
+        if (!t || !t.steps) return; // 「よくある質問」項目は操作デモを持たない
         const g = this.game;
         this.running = true;
         this.aborted = false;
@@ -161,6 +185,11 @@ class TutorialPlayer {
             console.error('チュートリアル再生エラー:', e);
             g.showToast('デモの再生に失敗しました: ' + e.message);
         } finally {
+            // 反応機構モードやモーダルを開いたままにしない
+            if (window.reactionPlayer && window.reactionPlayer.active) window.reactionPlayer.exit();
+            document.querySelectorAll('.modal-overlay').forEach(m => {
+                if (m.id !== 'tutorial-modal') m.classList.add('hidden');
+            });
             // 完全復元（デモ中の操作が積んだ履歴も巻き戻す）
             g.history = saved.history;
             g.redoStack = saved.redo;
@@ -266,6 +295,34 @@ class TutorialPlayer {
                     }));
                 }
                 await this.sleep(fast ? 0 : 550);
+                break;
+            }
+            case 'toggle': {
+                // チェックボックス（反応機構モードの切替など）を操作する
+                const el = document.querySelector(a.selector);
+                if (!el) throw new Error('要素が見つかりません: ' + a.selector);
+                const r = el.getBoundingClientRect();
+                const label = el.closest('label') || el.parentElement;
+                const lr = (r.width > 0 ? r : (label ? label.getBoundingClientRect() : r));
+                await this.moveCursor({ clientX: lr.left + lr.width / 2, clientY: lr.top + lr.height / 2 }, fast);
+                this.pulse();
+                el.checked = (a.checked !== undefined) ? a.checked : !el.checked;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                await this.sleep(fast ? 0 : 700);
+                break;
+            }
+            case 'select': {
+                // ドロップダウンから項目を選ぶ
+                const el = document.querySelector(a.selector);
+                if (!el) throw new Error('要素が見つかりません: ' + a.selector);
+                const r = el.getBoundingClientRect();
+                await this.moveCursor({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, fast);
+                this.pulse();
+                const opt = [...el.options].find(o => o.textContent.includes(a.contains));
+                if (!opt) throw new Error('選択肢が見つかりません: ' + a.contains);
+                el.value = opt.value;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                await this.sleep(fast ? 0 : 700);
                 break;
             }
             case 'summon': {
