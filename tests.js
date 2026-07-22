@@ -1659,6 +1659,73 @@
         g.updateDrawing();
     });
 
+    // ===== M. 学習ビュー（P9-3） =====
+
+    test('M1: 構造異性体の全列挙（既知の異性体数と一致）と学習モーダル', async (c) => {
+        c.reset();
+        const g = c.game;
+        const enumerate = c.W.enumerateConstitutionalIsomers;
+
+        // 教科書で確認できる異性体数と一致すること（立体異性体は数えない）
+        const cases = [
+            ['C₄H₁₀O', ['C', 'C', 'C', 'C', 'O'], 10, 7],
+            ['C₃H₈O', ['C', 'C', 'C', 'O'], 8, 3],
+            ['C₄H₁₀', ['C', 'C', 'C', 'C'], 10, 2],
+            ['C₅H₁₂', ['C', 'C', 'C', 'C', 'C'], 12, 3],
+            ['C₄H₈', ['C', 'C', 'C', 'C'], 8, 5],
+            ['C₂H₆O', ['C', 'C', 'O'], 6, 2]
+        ];
+        cases.forEach(([name, els, h, expect]) => {
+            const r = enumerate(els, h);
+            assert(!r.overflow, `${name} で列挙が打ち切られた`);
+            assert(r.isomers.length === expect,
+                `${name} の異性体が ${r.isomers.length} 種類（${expect} を期待）`);
+        });
+
+        // 列挙結果はすべて連結・分子式一致・重複なし（C₄H₁₀O で検証）
+        const res = enumerate(['C', 'C', 'C', 'C', 'O'], 10);
+        const codes = new Set();
+        res.isomers.forEach(iso => {
+            const hSum = iso.atoms.reduce((s, a) => s + iso.getFreeValency(a.id), 0);
+            assert(hSum === 10, `水素数が ${hSum}`);
+            assert(iso.atoms.length === 5 && iso.bonds.length >= 4, '原子・結合数が不正');
+            const code = c.W.canonicalCode(iso);
+            assert(!codes.has(code), '重複した異性体が含まれる');
+            codes.add(code);
+        });
+
+        // 2-ブタノールで学習モーダルを開く: アルコール4種・エーテル3種の内訳が出る
+        const input = c.D.getElementById('summon-input');
+        input.value = '2-ブタノール';
+        input.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        c.D.getElementById('btn-isomers').click();
+        assert(!c.D.getElementById('learn-modal').classList.contains('hidden'), '学習モーダルが開かない');
+        const body = c.D.getElementById('learn-body').textContent;
+        assert(c.D.getElementById('learn-title').textContent.includes('C₄H₁₀O'),
+            `タイトルが「${c.D.getElementById('learn-title').textContent}」`);
+        assert(body.includes('全部で 7 種類'), `内訳文が「${body.slice(0, 60)}」`);
+        assert(body.includes('アルコール … 4 種類'), 'アルコール4種の内訳が出ない');
+        assert(body.includes('エーテル … 3 種類'), 'エーテル3種の内訳が出ない');
+        assert(body.includes('2-ブタノール') && body.includes('いま描いている分子'),
+            '自分自身が登録名として示されない');
+        assert(body.includes('書き出し方のコツ'), '書き出し方の解説がない');
+        assert(body.includes('2級アルコール'), '級に応じた学習ポイントが出ない');
+        c.D.getElementById('btn-learn-close').click();
+        assert(c.D.getElementById('learn-modal').classList.contains('hidden'), 'モーダルが閉じない');
+
+        // 複数分子のときは案内して開かない
+        input.value = 'エタノール';
+        input.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        assert(g.countMolecules() === 2, '2分子にならない');
+        c.D.getElementById('btn-isomers').click();
+        assert(c.D.getElementById('learn-modal').classList.contains('hidden'), '複数分子でモーダルが開いた');
+        assert(c.D.getElementById('verify-result').textContent.includes('1つだけ'), '案内トーストが出ない');
+
+        c.D.getElementById('verify-result').classList.add('hidden');
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

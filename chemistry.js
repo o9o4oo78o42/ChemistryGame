@@ -375,6 +375,106 @@ class Molecule {
  * ケクレ構造の二重結合の位置は化学的に無意味（共鳴）なので、
  * 検証時にこの集合に含まれる結合の次数差を吸収するために使います（開発方針 4章-3）。
  */
+/**
+ * 構造異性体の全列挙（P9-3）。重原子の組成と水素数を与えると、その分子式を満たす
+ * 連結グラフをすべて生成し、正準コードで重複を除いて返す純粋関数。
+ * 高校範囲の分子式（重原子7個程度まで）を想定し、それを超える場合は overflow を返す。
+ */
+function enumerateConstitutionalIsomers(elements, hCount, nodeLimit = 3000000) {
+    const n = elements.length;
+    if (n === 0 || n > 8) return { isomers: [], overflow: n > 8 };
+
+    const max = elements.map(e => VALENCIES[e] || 0);
+    const pairs = [];
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) pairs.push([i, j]);
+    }
+    // 各頂点について、その頂点が関わる最後のペアの位置（次数が確定する時点＝枝刈りに使う）
+    const lastPairOf = new Array(n).fill(-1);
+    pairs.forEach(([i, j], k) => {
+        lastPairOf[i] = k;
+        lastPairOf[j] = k;
+    });
+
+    const used = new Array(n).fill(0);
+    const adj = Array.from({ length: n }, () => []);
+    const isomers = [];
+    const seen = new Set();
+    let nodes = 0;
+    let overflow = false;
+
+    const isConnected = () => {
+        const visited = new Set([0]);
+        const stack = [0];
+        while (stack.length) {
+            const v = stack.pop();
+            adj[v].forEach(([u]) => {
+                if (!visited.has(u)) {
+                    visited.add(u);
+                    stack.push(u);
+                }
+            });
+        }
+        return visited.size === n;
+    };
+
+    const record = () => {
+        let freeSum = 0;
+        for (let i = 0; i < n; i++) freeSum += max[i] - used[i];
+        if (freeSum !== hCount) return;
+        if (!isConnected()) return;
+        const mol = new Molecule();
+        const ids = elements.map(e => mol.addAtom(e, 0, 0).id);
+        for (let v = 0; v < n; v++) {
+            adj[v].forEach(([u, t]) => {
+                if (u > v) mol.addBond(ids[v], ids[u], t);
+            });
+        }
+        const code = canonicalCode(mol);
+        if (seen.has(code)) return;
+        seen.add(code);
+        isomers.push(mol);
+    };
+
+    const dfs = (k) => {
+        if (overflow) return;
+        if (++nodes > nodeLimit) {
+            overflow = true;
+            return;
+        }
+        if (k === pairs.length) {
+            record();
+            return;
+        }
+        const [i, j] = pairs[k];
+        const maxType = Math.min(3, max[i] - used[i], max[j] - used[j]);
+        for (let t = 0; t <= maxType; t++) {
+            if (t > 0) {
+                used[i] += t;
+                used[j] += t;
+                adj[i].push([j, t]);
+                adj[j].push([i, t]);
+            }
+            // 枝刈り: その頂点に関わるペアが尽きたのに結合0本なら、連結分子にならない
+            let ok = true;
+            if (n > 1) {
+                if (lastPairOf[i] === k && adj[i].length === 0) ok = false;
+                if (ok && lastPairOf[j] === k && adj[j].length === 0) ok = false;
+            }
+            if (ok) dfs(k + 1);
+            if (t > 0) {
+                used[i] -= t;
+                used[j] -= t;
+                adj[i].pop();
+                adj[j].pop();
+            }
+            if (overflow) return;
+        }
+    };
+    dfs(0);
+    return { isomers, overflow };
+}
+
 // 官能基・特徴構造の検出（P9-1 M1）。プロパティ表示と反応ルールの適用判定に使う純粋関数。
 // 返り値: [{ type, label, atomIds }]（同種の基は複数エントリになる）
 function findFunctionalGroups(mol) {
@@ -1056,4 +1156,5 @@ if (typeof window !== 'undefined') {
     window.rootedFragmentCode = rootedFragmentCode;
     window.fragmentFormula = fragmentFormula;
     window.findFunctionalGroups = findFunctionalGroups;
+    window.enumerateConstitutionalIsomers = enumerateConstitutionalIsomers;
 }

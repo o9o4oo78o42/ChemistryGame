@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=113">
+    <link rel="stylesheet" href="style.css?v=114">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -25,7 +25,7 @@
         <!-- ヘッダー -->
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
-            <div class="version">v113</div>
+            <div class="version">v114</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -172,6 +172,7 @@
                     <h3 style="font-size:12px; color:var(--text-secondary);">⚗ この分子の反応</h3>
                     <div id="molecule-props" style="font-size:12px; line-height:1.5; color:var(--text-primary);">分子を作図するか、下の検索から呼び出すと分類が表示されます。</div>
                     <div id="reaction-actions" style="display:flex; flex-direction:column; gap:5px;"></div>
+                    <button id="btn-isomers" class="view-btn" style="font-size:12px; padding:6px 8px;">📚 同じ分子式の異性体を調べる</button>
                     <label style="font-size:11px; color:var(--text-secondary);">名称から分子を呼び出す:
                         <input id="summon-input" list="summon-list" placeholder="例: エタノール"
                                style="width:100%; margin-top:4px; padding:5px; background:rgba(0,0,0,0.3); color:var(--text-primary); border:1px solid var(--border-color); border-radius:4px;">
@@ -303,6 +304,15 @@
         </div>
     </div>
 
+    <!-- 学習ビュー: 構造異性体の列挙と解説（P9-3） -->
+    <div id="learn-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 480px;">
+            <h2 id="learn-title" class="neon-text" style="font-size:20px; color:var(--color-cyan); text-shadow:0 0 10px var(--color-cyan);">構造異性体</h2>
+            <div id="learn-body" style="text-align:left; max-height:60vh; overflow-y:auto; width:100%;"></div>
+            <button id="btn-learn-close" class="primary-btn">閉じる</button>
+        </div>
+    </div>
+
     <!-- 任意員環の員数選択モーダル（P7-4: prompt撲滅） -->
     <div id="nring-modal" class="modal-overlay hidden">
         <div class="modal-content" style="max-width: 360px;">
@@ -341,11 +351,12 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=113"></script>
-    <script src="game.js?v=113"></script>
-    <script src="reaction.js?v=113"></script>
-    <script src="quiz.js?v=113"></script>
-    <script src="stereo.js?v=113"></script>
-    <script src="reactor.js?v=113"></script>
+    <script src="chemistry.js?v=114"></script>
+    <script src="game.js?v=114"></script>
+    <script src="reaction.js?v=114"></script>
+    <script src="quiz.js?v=114"></script>
+    <script src="stereo.js?v=114"></script>
+    <script src="reactor.js?v=114"></script>
+    <script src="learn.js?v=114"></script>
 </body>
 </html>
