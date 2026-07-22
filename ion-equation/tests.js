@@ -114,6 +114,25 @@ function runModelTests() {
     }
   });
 
+  t("STRUCTURE: 房の原子の内訳が SPECIES の組成と一致する", () => {
+    for (const [sp, st] of Object.entries(STRUCTURE)) {
+      assert(SPECIES[sp], sp + ": SPECIES にない");
+      const m = {};
+      for (const a of st.atoms) m[a.el] = (m[a.el] || 0) + 1;
+      assert(JSON.stringify(sortObjKeys(m)) === JSON.stringify(sortObjKeys(SPECIES[sp].atoms)),
+        sp + ": 房の内訳 " + JSON.stringify(m) + " ≠ 組成 " + JSON.stringify(SPECIES[sp].atoms));
+      if (SPECIES[sp].charge !== 0) assert(st.env, sp + ": 多原子イオンに包み（env）がない");
+    }
+    // ステージに登場する多原子イオンと分子はすべて房データを持つ
+    for (const st2 of STAGES) {
+      for (const sp of [...st2.reactants, ...st2.products]) {
+        if (Object.keys(SPECIES[sp].atoms).length > 1) {
+          assert(STRUCTURE[sp] || DISSOCIATION[sp], sp + ": 房も電離表もない");
+        }
+      }
+    }
+  });
+
   t("半反応式: 原子と電荷が保存され、e⁻ を含む", () => {
     for (const [id, hr] of Object.entries(HALF_REACTIONS)) {
       assert(compareSides(hr.left, hr.right).balanced, id + " がつり合わない");
@@ -260,6 +279,19 @@ async function runUITests(iframe) {
     ups()[2].click(); ups()[3].click(); ups()[3].click(); // 1,2,1,2
     const s = state();
     assert(s.coeffOk && s.cleared, "クリアにならない: coeffOk=" + s.coeffOk + " cleared=" + s.cleared);
+  });
+
+  await t("UI: 多原子イオンと分子が原子の房で描かれる", async () => {
+    stageBtn(1).click(); // ステージ2
+    addBtn(0).click();   // H₂SO₄
+    adv(3000);
+    const groups = [...doc.querySelectorAll("#beaker .particle")];
+    const so4 = groups.find((gr) => [...gr.querySelectorAll("text")].some((t) => t.textContent === "S"));
+    assert(so4, "S 原子を含む房（SO₄²⁻）が見つからない");
+    assert(so4.querySelectorAll("circle").length >= 6,
+      "SO₄²⁻ の房の要素数が少ない（包み+原子5+バッジ）: " + so4.querySelectorAll("circle").length);
+    const hplus = groups.find((gr) => [...gr.querySelectorAll("text")].some((t) => t.textContent === "H⁺"));
+    assert(hplus, "単原子イオン H⁺ が従来表示で見つからない");
   });
 
   await t("UI: ステージ4で AgCl が沈殿し、傍観イオンが残る", async () => {

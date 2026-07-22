@@ -38,6 +38,26 @@ const STYLE = {
   "BaSO4":  { color: "#f5f2ea", r: 20, darkText: true },
 };
 const MOLECULE_STYLE = { color: "#8a8f98", r: 20 };
+
+/* 房表示の原子の元素色（全モード共通の見た目ルール）。dark はラベルを濃色にする */
+const ELEMENT_STYLE = {
+  H:  { color: "#eceff1", dark: true, stroke: "#90a0ab" },
+  O:  { color: "#e06055" },
+  C:  { color: "#565c64" },
+  N:  { color: "#5b8def" },
+  S:  { color: "#e6c34a", dark: true },
+  Cl: { color: "#58b184" },
+  Na: { color: "#e08a3c" },
+  Ca: { color: "#b8792e" },
+  Ag: { color: "#a6adb8", dark: true },
+  Ba: { color: "#4f9d6b" },
+};
+
+/* 房の外接半径（運動・境界判定に使う。座標は見た目専用でも半径は接触に使う） */
+function structExtent(struct) {
+  if (struct.env) return struct.env;
+  return Math.max(...struct.atoms.map((a) => Math.hypot(a.x, a.y) + a.r));
+}
 const CHIP_ORDER = ["H+", "OH-", "Ag+", "Ba^2+", "Na+", "Ca^2+", "Cl-", "NO3-", "SO4^2-", "CO3^2-", "H2O", "H2CO3", "CO2", "AgCl", "BaSO4"];
 /* 生成後に泡となって水面へ逃げる気体 */
 const BUBBLE_SPECIES = new Set(["CO2"]);
@@ -81,11 +101,48 @@ function drawBeakerStatic() {
 
 /* ---- 粒子 ---- */
 
+function addChargeBadge(g, r, charge, strokeColor) {
+  const btxt = (Math.abs(charge) > 1 ? String(Math.abs(charge)) : "") + (charge > 0 ? "+" : "−");
+  const bx = r * 0.8, by = -r * 0.8;
+  mk("circle", { cx: bx, cy: by, r: 8, fill: "#fff", stroke: strokeColor, "stroke-width": 1.5 }, g);
+  const bt = mk("text", { x: bx, y: by + 3.5, "text-anchor": "middle", "font-size": 10, fill: "#333", "font-weight": "bold" }, g);
+  bt.textContent = btxt;
+}
+
 function makeParticleEl(p) {
-  const st = STYLE[p.sp] || MOLECULE_STYLE;
   const g = mk("g", { class: "particle" }, particleLayer);
+  const spec = SPECIES[p.sp];
+  const tip = mk("title", {}, g);
+  tip.textContent = `${spec.disp}（${spec.name}）`;
+  const struct = STRUCTURE[p.sp];
+  if (struct) {
+    // 房表示: 多原子イオンは包み＋全体電荷、分子は裸の原子クラスタ
+    const c = spec.charge;
+    if (c !== 0) {
+      const warm = c > 0;
+      mk("circle", {
+        r: struct.env,
+        fill: warm ? "rgba(224,138,60,.13)" : "rgba(77,120,216,.12)",
+        stroke: warm ? "rgba(224,138,60,.75)" : "rgba(77,120,216,.7)",
+        "stroke-width": 1.5,
+      }, g);
+    }
+    for (const a of struct.atoms) {
+      const es = ELEMENT_STYLE[a.el] || { color: "#8a8f98" };
+      mk("circle", { cx: a.x, cy: a.y, r: a.r, fill: es.color, stroke: es.stroke || "rgba(0,0,0,.2)", "stroke-width": 1 }, g);
+      const t = mk("text", {
+        x: a.x, y: a.y + (a.r >= 8 ? 3 : 2.5), "text-anchor": "middle",
+        "font-size": a.r >= 8 ? 8 : 6.5,
+        fill: es.dark ? "#3a4a55" : "#fff", "font-weight": "bold",
+      }, g);
+      t.textContent = a.el;
+    }
+    if (c !== 0) addChargeBadge(g, p.r, c, c > 0 ? "#e08a3c" : "#4d78d8");
+    return g;
+  }
+  const st = STYLE[p.sp] || MOLECULE_STYLE;
   mk("circle", { r: p.r, fill: st.color, stroke: "rgba(0,0,0,.25)", "stroke-width": 1.5 }, g);
-  const disp = SPECIES[p.sp].disp;
+  const disp = spec.disp;
   const label = mk("text", {
     y: 4.5, "text-anchor": "middle",
     "font-size": disp.length > 4 ? 11 : 12,
@@ -93,23 +150,18 @@ function makeParticleEl(p) {
     "font-weight": "bold",
   }, g);
   label.textContent = disp;
-  const c = SPECIES[p.sp].charge;
-  if (c !== 0) {
-    const btxt = (Math.abs(c) > 1 ? String(Math.abs(c)) : "") + (c > 0 ? "+" : "−");
-    const bx = p.r * 0.85, by = -p.r * 0.85;
-    mk("circle", { cx: bx, cy: by, r: 8, fill: "#fff", stroke: st.color, "stroke-width": 1.5 }, g);
-    const bt = mk("text", { x: bx, y: by + 3.5, "text-anchor": "middle", "font-size": 10, fill: "#333", "font-weight": "bold" }, g);
-    bt.textContent = btxt;
-  }
+  if (spec.charge !== 0) addChargeBadge(g, p.r, spec.charge, st.color);
   return g;
 }
 
 function spawnParticle(sp, x, y, mode) {
   const st = STYLE[sp] || MOLECULE_STYLE;
+  const struct = STRUCTURE[sp];
   const p = {
     id: nextId++, sp, x, y,
     vx: rnd(-40, 40), vy: rnd(-30, 30),
-    r: st.r, mode, partner: null, dead: false,
+    r: struct ? structExtent(struct) : st.r,
+    mode, partner: null, dead: false,
     born: performance.now(),
   };
   p.el = makeParticleEl(p);
