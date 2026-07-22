@@ -166,6 +166,39 @@ function electronsOf(hr) {
   return all.filter((t) => t.sp === "e-").reduce((s, t) => s + t.n, 0);
 }
 
+/* 酸化数（種→元素→値）。「原子の酸化数の合計＝種の電荷」をテストで機械検証する */
+const OXIDATION = {
+  "Zn":    { Zn: 0 },
+  "Zn^2+": { Zn: 2 },
+  "Cu":    { Cu: 0 },
+  "Cu^2+": { Cu: 2 },
+  "Ag":    { Ag: 0 },
+  "Ag+":   { Ag: 1 },
+  "H+":    { H: 1 },
+  "H2":    { H: 0 },
+};
+
+/* 半反応式の中で酸化数が変化する元素と前後の値を返す。
+   表示は「変化する原子だけ」なので、この結果が表示対象の正になる */
+function oxChangeOfHalf(hr) {
+  const val = (terms) => {
+    const m = {};
+    for (const t of terms) {
+      if (t.sp === "e-") continue;
+      const ox = OXIDATION[t.sp];
+      if (!ox) continue;
+      for (const el of Object.keys(ox)) m[el] = ox[el];
+    }
+    return m;
+  };
+  const L = val(hr.left), R = val(hr.right);
+  const changes = [];
+  for (const el of Object.keys(L)) {
+    if (el in R && L[el] !== R[el]) changes.push({ el, from: L[el], to: R[el] });
+  }
+  return changes;
+}
+
 const REDOX_STAGES = [
   {
     id: "r1", title: "ステージ1：亜鉛 × 銅(Ⅱ)イオン",

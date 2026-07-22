@@ -43,6 +43,7 @@ let units = [];             // 還元の1単位 = {ions, need, mx, my, arrived, 
 let deposited = 0;
 let escaped = {};
 let phase = "idle";         // idle | running | done
+let soloMode = null;        // null=足し合わせ | "ox"=酸化単体 | "red"=還元単体
 let runExact = false;
 let cleared = false;
 let simTime = 0;
@@ -67,6 +68,26 @@ function oxHR() { return HALF_REACTIONS[stage().ox]; }
 function redHR() { return HALF_REACTIONS[stage().red]; }
 /* 酸化側の金属種（左辺の非 e⁻ 項） */
 function oxMetal() { return oxHR().left.find((t) => t.sp !== "e-").sp; }
+function oxIonSp() { return oxHR().right.find((t) => t.sp !== "e-").sp; }
+
+/* ---- 酸化数表示（変化する原子だけ、円の中に） ---- */
+
+function fmtOx(v) { return v > 0 ? "+" + v : String(v); }
+
+function stageOxChanges() {
+  return [...oxChangeOfHalf(oxHR()), ...oxChangeOfHalf(redHR())];
+}
+
+/* この種を円内酸化数つきで描くべきなら表示文字列、そうでなければ null */
+function oxLabelFor(sp) {
+  if (sp === "e-") return null;
+  const ox = OXIDATION[sp];
+  if (!ox) return null;
+  for (const c of stageOxChanges()) {
+    if (ox[c.el] !== undefined && SPECIES[sp].atoms[c.el]) return fmtOx(ox[c.el]);
+  }
+  return null;
+}
 
 /* ---- 描画 ---- */
 
@@ -89,12 +110,20 @@ function makeParticleEl(p) {
   const g = mk("g", { class: "particle" }, particleLayer);
   mk("circle", { r: p.r, fill: st.color, stroke: "rgba(0,0,0,.25)", "stroke-width": 1.5 }, g);
   const disp = SPECIES[p.sp].disp;
+  const oxTxt = oxLabelFor(p.sp);
   const label = mk("text", {
-    y: p.sp === "e-" ? 3 : 4.5, "text-anchor": "middle",
+    y: oxTxt !== null ? -1.5 : (p.sp === "e-" ? 3 : 4.5), "text-anchor": "middle",
     "font-size": p.sp === "e-" ? 8 : (disp.length > 3 ? 10 : 12),
     fill: st.darkText ? "#3a4a55" : "#fff", "font-weight": "bold",
   }, g);
   label.textContent = disp;
+  if (oxTxt !== null) {
+    const ot = mk("text", {
+      y: 11, "text-anchor": "middle", "font-size": 8.5,
+      fill: st.darkText ? "#5a6570" : "rgba(255,255,255,.92)", "font-weight": "bold",
+    }, g);
+    ot.textContent = oxTxt;
+  }
   const c = SPECIES[p.sp].charge;
   if (c !== 0 && p.sp !== "e-") {
     const btxt = (Math.abs(c) > 1 ? String(Math.abs(c)) : "") + (c > 0 ? "+" : "−");
@@ -110,7 +139,9 @@ function spawnParticle(sp, x, y, mode) {
   const st = RSTYLE[sp] || { r: 16 };
   const p = {
     id: nextId++, sp, x, y, vx: rnd(-30, 30), vy: rnd(-20, 20),
-    r: st.r, mode, dead: false, born: performance.now(),
+    // 酸化数を円内に書く粒はひと回り大きくして2行を収める
+    r: st.r + (oxLabelFor(sp) !== null ? 3 : 0),
+    mode, dead: false, born: performance.now(),
   };
   p.el = makeParticleEl(p);
   particles.push(p);
@@ -125,6 +156,12 @@ function removeParticle(p) {
 
 function splash(x, y) {
   const c = mk("circle", { cx: x, cy: y, r: 14, fill: "none", stroke: "#79b8d8", "stroke-width": 2.5, class: "splash" }, particleLayer);
+  setTimeout(() => c.remove(), 500);
+}
+
+/* 酸化数が変化した瞬間の強調（黄色いリング） */
+function oxFlash(x, y) {
+  const c = mk("circle", { cx: x, cy: y, r: 17, fill: "none", stroke: "#f2c14e", "stroke-width": 3, class: "splash" }, particleLayer);
   setTimeout(() => c.remove(), 500);
 }
 
@@ -151,15 +188,25 @@ function layoutLab() {
   phase = "idle"; runExact = false;
   simTime = 0; events = [];
   const a = mult[0], b = mult[1];
-  // 酸化側: 板の縁に金属原子 a 個
-  for (let i = 0; i < a; i++) {
-    const pos = plateAtomPos(i);
-    spawnParticle(oxMetal(), pos.x, pos.y, "plateAtom");
+  // 酸化側: 板の縁に金属原子 a 個（還元単体のときは置かない）
+  if (soloMode !== "red") {
+    for (let i = 0; i < a; i++) {
+      const pos = plateAtomPos(i);
+      spawnParticle(oxMetal(), pos.x, pos.y, "plateAtom");
+    }
   }
-  // 還元側: 溶液中に b 単位ぶんのイオン
-  const ionTerms = redHR().left.filter((t) => t.sp !== "e-");
+  // 還元単体: e⁻ をあらかじめ板にストック（電池なら導線の向こうから来るぶん）
   const need = electronsOf(redHR());
-  for (let u = 0; u < b; u++) {
+  if (soloMode === "red") {
+    for (let k = 0; k < need * b; k++) {
+      const pos = poolSlotPos(poolTotal++);
+      const e = spawnParticle("e-", pos.x, pos.y, "pool");
+      poolE.push(e);
+    }
+  }
+  // 還元側: 溶液中に b 単位ぶんのイオン（酸化単体のときは置かない）
+  const ionTerms = redHR().left.filter((t) => t.sp !== "e-");
+  for (let u = 0; u < (soloMode === "ox" ? 0 : b); u++) {
     const unit = {
       ions: [], need,
       mx: PLATE.x + PLATE.w + 52, my: PLATE.y + 40 + u * 46,
@@ -186,11 +233,32 @@ function play() {
   }
   phase = "running";
   cleared = false;
-  const a = mult[0];
   const atoms = particles.filter((p) => p.mode === "plateAtom");
-  setMsg(`${SPECIES[oxMetal()].disp} が e⁻ を置いて ${SPECIES[oxHR().right.find((t) => t.sp !== "e-").sp].disp} になり、溶け出す…`);
+  if (soloMode === "ox") {
+    setMsg(`【酸化だけ】${SPECIES[oxMetal()].disp} が e⁻ を置いて ${SPECIES[oxIonSp()].disp} になり、溶け出す…`);
+    atoms.forEach((atom, i) => schedule(i * 0.9, () => oxidizeAtom(atom)));
+    schedule(atoms.length * 0.9 + 1.6, () => {
+      phase = "done";
+      setMsg(`酸化の半反応: ${SPECIES[oxMetal()].disp} ${atoms.length}個が e⁻ を合計 ${electronsOf(oxHR()) * atoms.length}個 板に置き、` +
+        `${SPECIES[oxIonSp()].disp} になって溶け出した。この e⁻ の行き先が還元の半反応。`);
+    });
+    return;
+  }
+  if (soloMode === "red") {
+    startReduction();
+    return;
+  }
+  setMsg(`${SPECIES[oxMetal()].disp} が e⁻ を置いて ${SPECIES[oxIonSp()].disp} になり、溶け出す…`);
   atoms.forEach((atom, i) => schedule(i * 0.9, () => oxidizeAtom(atom)));
-  schedule(a * 0.9 + 1.2, () => startReduction());
+  schedule(atoms.length * 0.9 + 1.2, () => startReduction());
+}
+
+function playSolo(kind) {
+  soloMode = kind;
+  cleared = false;
+  clearEl.hidden = true;
+  layoutLab();
+  play();
 }
 
 function oxidizeAtom(atom) {
@@ -200,11 +268,10 @@ function oxidizeAtom(atom) {
     const slot = poolSlotPos(poolTotal++);
     e.tx = slot.x; e.ty = slot.y;
   }
-  const ionSp = oxHR().right.find((t) => t.sp !== "e-").sp;
   const { x, y } = atom;
   removeParticle(atom);
-  splash(x, y);
-  const ion = spawnParticle(ionSp, x, y, "pop");
+  oxFlash(x, y);
+  const ion = spawnParticle(oxIonSp(), x, y, "pop");
   ion.vx = 90; ion.vy = rnd(-20, 20);
   refreshHUD();
 }
@@ -245,7 +312,7 @@ function transformUnit(unit) {
   const mx = unit.ions.reduce((s, p) => s + p.x, 0) / unit.ions.length;
   const my = unit.ions.reduce((s, p) => s + p.y, 0) / unit.ions.length;
   unit.ions.forEach(removeParticle);
-  splash(mx, my);
+  oxFlash(mx, my);
   for (const t of redHR().right.filter((t) => t.sp !== "e-")) {
     for (let k = 0; k < t.n; k++) {
       if (t.sp === "H2") {
@@ -268,6 +335,13 @@ function checkAllResolved() {
 
 function finishRun() {
   phase = "done";
+  if (soloMode === "red") {
+    const b = mult[1];
+    setMsg(`還元の半反応: 用意した e⁻ ${electronsOf(redHR()) * b}個を受け取って反応した。` +
+      `電池では、この e⁻ が導線の向こう（酸化が起きている極）からやって来る。`);
+    refreshHUD();
+    return;
+  }
   const leftoverE = poolE.length;
   const waiting = units.filter((u) => u.waiting).length;
   const chk = checkRedoxMultipliers(stage(), mult[0], mult[1]);
@@ -433,6 +507,44 @@ function refreshHUD() {
   for (const sp of Object.keys(escaped)) chip(`${SPECIES[sp].disp}↑ ×${escaped[sp]}（空気中へ）`, null, "escaped");
 }
 
+/* 項を縦2段（化学式＋酸化数タグ）で描く。酸化数は変化する元素の項だけに付く */
+function termSpan(term, changes) {
+  const wrap = document.createElement("span");
+  wrap.className = "fterm";
+  const main = document.createElement("span");
+  main.textContent = (term.n > 1 ? term.n + " " : "") + SPECIES[term.sp].disp;
+  wrap.appendChild(main);
+  const ox = term.sp === "e-" ? null : OXIDATION[term.sp];
+  if (ox) {
+    const ch = changes.find((c) => ox[c.el] !== undefined && SPECIES[term.sp].atoms[c.el]);
+    if (ch) {
+      const v = ox[ch.el];
+      const sub = document.createElement("span");
+      sub.className = "oxtag " + (v > 0 ? "oxpos" : v < 0 ? "oxneg" : "oxzero");
+      sub.textContent = fmtOx(v);
+      wrap.appendChild(sub);
+    }
+  }
+  return wrap;
+}
+
+function renderTermsWithOx(container, left, right, changes) {
+  container.innerHTML = "";
+  const sep = (t) => {
+    const s = document.createElement("span");
+    s.className = "fsep";
+    s.textContent = t;
+    return s;
+  };
+  const addSide = (terms) => terms.forEach((t, i) => {
+    if (i > 0) container.appendChild(sep("＋"));
+    container.appendChild(termSpan(t, changes));
+  });
+  addSide(left);
+  container.appendChild(sep("→"));
+  addSide(right);
+}
+
 function buildHalfRow(el, hr, idx, tag) {
   el.innerHTML = "";
   const kind = document.createElement("span");
@@ -440,7 +552,7 @@ function buildHalfRow(el, hr, idx, tag) {
   kind.textContent = tag;
   const formula = document.createElement("span");
   formula.className = "halfFormula";
-  formula.textContent = hr.disp;
+  renderTermsWithOx(formula, hr.left, hr.right, oxChangeOfHalf(hr));
   const times = document.createElement("span");
   times.textContent = "×";
   const down = document.createElement("button");
@@ -455,13 +567,19 @@ function buildHalfRow(el, hr, idx, tag) {
   const stepper = document.createElement("span");
   stepper.className = "stepper";
   stepper.append(down, num, up);
-  el.append(kind, formula, times, stepper);
+  const solo = document.createElement("button");
+  solo.className = "solo";
+  solo.textContent = "▶ 単体";
+  solo.title = "この半反応式だけをアニメで見る";
+  solo.onclick = () => playSolo(idx === 0 ? "ox" : "red");
+  el.append(kind, formula, times, stepper, solo);
 }
 
 function onMultChange() {
   buildHalfRow(halfOxEl, oxHR(), 0, "酸化");
   buildHalfRow(halfRedEl, redHR(), 1, "還元");
   cleared = false;
+  soloMode = null;
   clearEl.hidden = true;
   layoutLab();
   setMsg("倍率を変えた。ビーカーの配置も変わった。「▶ 反応を見る」で確かめよう。");
@@ -500,10 +618,22 @@ function updateSumView() {
     return t.sp === "e-" ? `<span class="cancel">${txt}</span>` : txt;
   }).join(" ＋ ");
   const combined = combineHalves(stage(), a, b);
-  sumViewEl.innerHTML =
-    `足し合わせ: ${fmtWithCancel(sumL)} → ${fmtWithCancel(sumR)}<br>` +
-    `e⁻ を打ち消すと: <strong>${fmtTerms(combined.left)} → ${fmtTerms(combined.right)}</strong>` +
-    (chk.ok ? "" : `<br><span class="ngcell">${chk.reason}</span>`);
+  sumViewEl.innerHTML = `足し合わせ: ${fmtWithCancel(sumL)} → ${fmtWithCancel(sumR)}`;
+  const l2 = document.createElement("div");
+  l2.className = "combinedLine";
+  const lbl = document.createElement("span");
+  lbl.textContent = "e⁻ を打ち消すと: ";
+  const eq = document.createElement("span");
+  eq.className = "combinedEq";
+  renderTermsWithOx(eq, combined.left, combined.right, stageOxChanges());
+  l2.append(lbl, eq);
+  sumViewEl.appendChild(l2);
+  if (!chk.ok) {
+    const w = document.createElement("div");
+    w.className = "ngcell";
+    w.textContent = chk.reason;
+    sumViewEl.appendChild(w);
+  }
 }
 
 function buildToolbar() {
@@ -512,11 +642,14 @@ function buildToolbar() {
   playBtn.id = "playBtn";
   playBtn.className = "react";
   playBtn.textContent = "▶ 反応を見る";
-  playBtn.onclick = play;
+  playBtn.onclick = () => {
+    if (soloMode) { soloMode = null; layoutLab(); }
+    play();
+  };
   const reset = document.createElement("button");
   reset.className = "reset";
   reset.textContent = "↺ やり直す";
-  reset.onclick = () => { layoutLab(); setMsg(stage().intro); };
+  reset.onclick = () => { soloMode = null; layoutLab(); setMsg(stage().intro); };
   toolbarEl.append(playBtn, reset);
 }
 
@@ -535,6 +668,7 @@ function buildStageNav() {
 function initStage() {
   mult = [1, 1];
   cleared = false;
+  soloMode = null;
   clearEl.hidden = true;
   buildStageNav();
   buildToolbar();
@@ -561,7 +695,7 @@ window.RedoxEq = {
     const counts = {};
     for (const p of particles) counts[p.sp] = (counts[p.sp] || 0) + 1;
     return {
-      phase, cleared, runExact, stageIdx,
+      phase, cleared, runExact, stageIdx, soloMode,
       mult: [...mult],
       poolE: poolE.length,
       waiting: units.filter((u) => u.waiting).length,

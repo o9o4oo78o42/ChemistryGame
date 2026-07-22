@@ -131,6 +131,27 @@ function runModelTests() {
     assert(!checkRedoxMultipliers(REDOX_STAGES[1], 1, 1).ok, "r2 の 1:1 を通した");
   });
 
+  t("酸化数: 種の電荷と一致し、Δ酸化数が半反応式の e⁻ 数と一致する", () => {
+    for (const [sp, ox] of Object.entries(OXIDATION)) {
+      const s = SPECIES[sp];
+      let sum = 0;
+      for (const el of Object.keys(s.atoms)) {
+        assert(ox[el] !== undefined, sp + ": " + el + " の酸化数の定義漏れ");
+        sum += ox[el] * s.atoms[el];
+      }
+      assert(sum === s.charge, sp + ": 酸化数の合計(" + sum + ")が電荷(" + s.charge + ")と一致しない");
+    }
+    for (const [id, hr] of Object.entries(HALF_REACTIONS)) {
+      const changes = oxChangeOfHalf(hr);
+      assert(changes.length === 1, id + ": 変化する元素が1つでない");
+      const atomsL = tallyTerms(hr.left.filter((t) => t.sp !== "e-"));
+      const delta = changes.reduce((acc, c) => acc + (c.to - c.from) * atomsL.atoms[c.el], 0);
+      const e = electronsOf(hr);
+      assert(delta === (hr.kind === "oxidation" ? e : -e),
+        id + ": Δ酸化数(" + delta + ")と e⁻ 数(" + e + ")の帳尻が合わない");
+    }
+  });
+
   t("combineHalves: e⁻ が打ち消され、イオン反応式がつり合う", () => {
     for (const st of REDOX_STAGES) {
       const c = combineHalves(st, st.answer[0], st.answer[1]);
@@ -336,6 +357,36 @@ async function runRedoxUITests(iframe) {
     const s = state();
     assert(s.escaped["H2"] === 1, "H2 が逃げない: " + JSON.stringify(s));
     assert(s.cleared, "クリアにならない");
+  });
+
+  await t("REDOX: 酸化数が円内と式の直下に表示される（変化する原子のみ）", async () => {
+    stageBtn(0).click(); // r1: Zn(0)・Cu²⁺(+2) が初期配置
+    const beakerTexts = [...doc.querySelectorAll("#beaker .particle text")].map((t) => t.textContent);
+    assert(beakerTexts.includes("0"), "Zn の円内に 0 がない: " + beakerTexts.join(","));
+    assert(beakerTexts.includes("+2"), "Cu²⁺ の円内に +2 がない");
+    const oxRow = doc.getElementById("halfOx").textContent;
+    assert(oxRow.includes("0") && oxRow.includes("+2"), "半反応式の直下に酸化数がない: " + oxRow);
+    assert(doc.querySelectorAll("#halfOx .oxtag").length === 2, "酸化行のタグが2個でない");
+  });
+
+  await t("REDOX: 酸化の半反応を単体再生できる（e⁻ が板にたまる）", async () => {
+    doc.querySelectorAll(".halfRow .solo")[0].click();
+    adv(10000);
+    const s = state();
+    assert(s.soloMode === "ox" && s.phase === "done", "単体再生が終わらない: " + JSON.stringify(s));
+    assert(s.poolE === 2, "e⁻ が2個たまらない: " + s.poolE);
+    assert(s.counts["Zn^2+"] === 1, "Zn²⁺ にならない: " + JSON.stringify(s.counts));
+    assert(s.deposited === 0 && !s.cleared, "還元まで起きてしまった");
+  });
+
+  await t("REDOX: 還元の半反応を単体再生できる（e⁻ ストックから受け取る）", async () => {
+    doc.querySelectorAll(".halfRow .solo")[1].click();
+    adv(12000);
+    const s = state();
+    assert(s.soloMode === "red" && s.phase === "done", "単体再生が終わらない: " + JSON.stringify(s));
+    assert(s.deposited === 1, "析出しない: " + s.deposited);
+    assert(s.poolE === 0, "ストックの e⁻ が残った: " + s.poolE);
+    assert(!s.counts["Zn"] && !s.counts["Zn^2+"], "酸化側が混ざっている: " + JSON.stringify(s.counts));
   });
 
   return results;
