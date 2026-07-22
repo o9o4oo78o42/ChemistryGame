@@ -1708,10 +1708,36 @@
         assert(body.includes('全部で 7 種類'), `内訳文が「${body.slice(0, 60)}」`);
         assert(body.includes('アルコール … 4 種類'), 'アルコール4種の内訳が出ない');
         assert(body.includes('エーテル … 3 種類'), 'エーテル3種の内訳が出ない');
-        assert(body.includes('2-ブタノール') && body.includes('いま描いている分子'),
+        assert(body.includes('2-ブタノール') && body.includes('（この分子）'),
             '自分自身が登録名として示されない');
         assert(body.includes('書き出し方のコツ'), '書き出し方の解説がない');
         assert(body.includes('2級アルコール'), '級に応じた学習ポイントが出ない');
+
+        // ギャラリー（P9-3b）: 7異性体すべてのサムネイルが描画され、自分がシアン枠で示される
+        const thumbs = c.D.querySelectorAll('#learn-body svg[id^="iso-svg-"]');
+        assert(thumbs.length === 7, `サムネイルが${thumbs.length}個（7を期待）`);
+        thumbs.forEach(svg => {
+            assert(svg.querySelector('.quiz-atoms').children.length > 0, '構造式が描画されていないサムネイルがある');
+        });
+        const selfCells = [...c.D.querySelectorAll('#learn-body svg[id^="iso-svg-"]')]
+            .map(s => s.parentElement)
+            .filter(cell => cell.style.borderColor.includes('color-cyan') ||
+                            cell.style.border.includes('color-cyan'));
+        assert(selfCells.length === 1, `「この分子」の強調枠が${selfCells.length}個（1を期待）`);
+        assert(c.D.getElementById('learn-body').textContent.includes('（この分子）'),
+            '「この分子」ラベルが出ない');
+
+        // レイアウトの健全性: 全サムネイルの分子で原子が重ならない（環テンプレート含む）
+        const layoutCheck = c.W.enumerateConstitutionalIsomers(['C', 'C', 'C', 'C'], 8); // 環を含むC₄H₈
+        layoutCheck.isomers.forEach(iso => {
+            c.W.layoutMolecule(iso);
+            for (let i = 0; i < iso.atoms.length; i++) {
+                for (let j = i + 1; j < iso.atoms.length; j++) {
+                    const d = Math.hypot(iso.atoms[i].x - iso.atoms[j].x, iso.atoms[i].y - iso.atoms[j].y);
+                    assert(d >= 24, `自動レイアウトで原子が重なった（${d.toFixed(1)}px）`);
+                }
+            }
+        });
         c.D.getElementById('btn-learn-close').click();
         assert(c.D.getElementById('learn-modal').classList.contains('hidden'), 'モーダルが閉じない');
 

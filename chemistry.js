@@ -497,6 +497,125 @@ function enumerateConstitutionalIsomers(elements, hCount, nodeLimit = 600000) {
     return { isomers, overflow };
 }
 
+/**
+ * 分子の自動レイアウト（P9-3b）。座標を持たない分子（異性体列挙の結果など）に、
+ * このアプリの直交作図コンセプトに沿ったグリッド座標を割り当てる純粋関数。
+ * - 環は長方形/家型のテンプレート（手描きの縮合環と同じ流儀）で配置
+ * - 鎖は親からの直進を優先し、塞がっていれば直交方向へ折れる
+ * 見た目専用であり、検証はトポロジーのみという方針（開発方針4章）は変わらない。
+ */
+function findAnyCycle(mol) {
+    const parent = new Map();
+    const visited = new Set();
+    let cycle = null;
+    const dfs = (id, from) => {
+        if (cycle) return;
+        visited.add(id);
+        for (const n of mol.getNeighbors(id)) {
+            if (cycle) return;
+            if (n.atom.id === from) continue;
+            if (visited.has(n.atom.id)) {
+                // 閉路発見: id から祖先 n.atom.id まで parent を遡って経路を作る
+                const path = [id];
+                let cur = id;
+                while (cur !== n.atom.id && parent.has(cur)) {
+                    cur = parent.get(cur);
+                    path.push(cur);
+                }
+                if (cur === n.atom.id) cycle = path;
+                return;
+            }
+            parent.set(n.atom.id, id);
+            dfs(n.atom.id, id);
+        }
+    };
+    for (const a of mol.atoms) {
+        if (!visited.has(a.id)) dfs(a.id, null);
+        if (cycle) break;
+    }
+    return cycle;
+}
+
+function layoutMolecule(mol) {
+    const G = 42;
+    if (mol.atoms.length === 0) return;
+    const placed = new Map();
+    const occupied = [];
+    const isFree = (x, y) => occupied.every(p => Math.hypot(p.x - x, p.y - y) >= G * 0.6);
+    const put = (id, x, y) => {
+        placed.set(id, { x, y });
+        occupied.push({ x, y });
+    };
+
+    // 1. 環があれば最初の環をテンプレートで置く（3員=直角三角形、5員=家型、6員=長方形）
+    const RING_TEMPLATES = {
+        3: [[0, 0], [G, 0], [G, G]],
+        4: [[0, 0], [G, 0], [G, G], [0, G]],
+        5: [[0, 0], [G, 0], [2 * G, 0], [2 * G, G], [0, G]],
+        6: [[0, 0], [G, 0], [2 * G, 0], [2 * G, G], [G, G], [0, G]],
+        7: [[0, 0], [G, 0], [2 * G, 0], [3 * G, 0], [3 * G, G], [G, G], [0, G]],
+        8: [[0, 0], [G, 0], [2 * G, 0], [3 * G, 0], [3 * G, G], [2 * G, G], [G, G], [0, G]]
+    };
+    const cycle = findAnyCycle(mol);
+    if (cycle && RING_TEMPLATES[cycle.length]) {
+        RING_TEMPLATES[cycle.length].forEach(([x, y], i) => put(cycle[i], x, y));
+    }
+
+    // 2. 残りをBFSで配置（直進優先 → 直交 → 距離2倍 → 周辺の螺旋探索）
+    if (placed.size === 0) {
+        const start = mol.atoms.find(a => mol.getNeighbors(a.id).length <= 1) || mol.atoms[0];
+        put(start.id, 0, 0);
+    }
+    const parentDir = new Map();
+    const queue = [...placed.keys()];
+    while (queue.length) {
+        const id = queue.shift();
+        const pos = placed.get(id);
+        const inDir = parentDir.get(id) || { dx: G, dy: 0 };
+        mol.getNeighbors(id).forEach(n => {
+            if (placed.has(n.atom.id)) return;
+            const prefs = [
+                [inDir.dx, inDir.dy], [inDir.dy, -inDir.dx],
+                [-inDir.dy, inDir.dx], [-inDir.dx, -inDir.dy]
+            ];
+            let spot = null;
+            for (const mult of [1, 2]) {
+                for (const [dx, dy] of prefs) {
+                    const x = pos.x + dx * mult;
+                    const y = pos.y + dy * mult;
+                    if (isFree(x, y)) {
+                        spot = { x, y, dx, dy };
+                        break;
+                    }
+                }
+                if (spot) break;
+            }
+            if (!spot) {
+                outer: for (let r = 1; r <= 5; r++) {
+                    for (let ax = -r; ax <= r; ax++) {
+                        for (let ay = -r; ay <= r; ay++) {
+                            const x = pos.x + ax * G;
+                            const y = pos.y + ay * G;
+                            if ((ax !== 0 || ay !== 0) && isFree(x, y)) {
+                                spot = { x, y, dx: G, dy: 0 };
+                                break outer;
+                            }
+                        }
+                    }
+                }
+            }
+            put(n.atom.id, spot.x, spot.y);
+            parentDir.set(n.atom.id, { dx: spot.dx, dy: spot.dy });
+            queue.push(n.atom.id);
+        });
+    }
+    mol.atoms.forEach(a => {
+        const p = placed.get(a.id);
+        a.x = p.x;
+        a.y = p.y;
+    });
+}
+
 // 官能基・特徴構造の検出（P9-1 M1）。プロパティ表示と反応ルールの適用判定に使う純粋関数。
 // 返り値: [{ type, label, atomIds }]（同種の基は複数エントリになる）
 function findFunctionalGroups(mol) {
@@ -1184,4 +1303,6 @@ if (typeof window !== 'undefined') {
     window.findFunctionalGroups = findFunctionalGroups;
     window.enumerateConstitutionalIsomers = enumerateConstitutionalIsomers;
     window.isValencyValid = isValencyValid;
+    window.layoutMolecule = layoutMolecule;
+    window.findAnyCycle = findAnyCycle;
 }

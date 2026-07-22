@@ -98,7 +98,8 @@ class LearnView {
             if (!byCategory.has(cat)) byCategory.set(cat, []);
             byCategory.get(cat).push({
                 name: g.lookupCompoundName(iso),
-                isSelf: canonicalCode(iso) === selfCode
+                isSelf: canonicalCode(iso) === selfCode,
+                mol: iso
             });
         });
 
@@ -118,23 +119,54 @@ class LearnView {
                 head.textContent = `${cat} … ${items.length} 種類`;
                 row.appendChild(head);
 
-                const named = items.filter(i => i.name);
-                const detail = document.createElement('div');
-                detail.style.cssText = 'font-size:12px; line-height:1.6; color:var(--text-primary);';
-                if (named.length > 0) {
-                    detail.textContent = '登録名: ' + named
-                        .map(i => i.name + (i.isSelf ? '（いま描いている分子）' : ''))
-                        .join('、');
-                    if (named.length < items.length) {
-                        detail.textContent += ` ／ ほか ${items.length - named.length} 種類は名称未登録`;
-                    }
-                } else {
-                    detail.textContent = 'ライブラリに登録名のあるものはありません。';
-                }
-                row.appendChild(detail);
+                // 構造式のギャラリー（P9-3b）: 各異性体を自動レイアウトしてサムネイル表示。
+                // いま描いている分子はシアンの枠で示す
+                const gallery = document.createElement('div');
+                gallery.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:6px; margin-top:6px;';
+                items.forEach(item => {
+                    const cell = document.createElement('div');
+                    cell.style.cssText = 'background:rgba(10,14,24,0.85); border:1px solid ' +
+                        (item.isSelf ? 'var(--color-cyan)' : 'rgba(255,255,255,0.14)') +
+                        '; border-radius:8px; padding:3px 3px 5px; text-align:center;';
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.id = 'iso-svg-' + (LearnView._svgSeq = (LearnView._svgSeq || 0) + 1);
+                    item.svgId = svg.id;
+                    svg.setAttribute('width', '100%');
+                    svg.setAttribute('height', '86');
+                    const bondsG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    bondsG.setAttribute('class', 'quiz-bonds');
+                    const atomsG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    atomsG.setAttribute('class', 'quiz-atoms');
+                    svg.appendChild(bondsG);
+                    svg.appendChild(atomsG);
+                    cell.appendChild(svg);
+                    const label = document.createElement('div');
+                    label.style.cssText = 'font-size:10px; color:var(--text-secondary); line-height:1.3; padding:0 2px;';
+                    label.textContent = item.name
+                        ? item.name + (item.isSelf ? '（この分子）' : '')
+                        : (item.isSelf ? '（この分子）' : '（名称未登録）');
+                    cell.appendChild(label);
+                    gallery.appendChild(cell);
+                });
+                row.appendChild(gallery);
                 list.appendChild(row);
             });
         this.bodyEl.appendChild(list);
+
+        // サムネイルはDOMに入った後に描画する（renderMoleculeIntoSvg は getElementById を使うため）
+        [...byCategory.values()].flat().forEach(item => {
+            layoutMolecule(item.mol);
+            const idx = new Map(item.mol.atoms.map((a, i) => [a.id, i]));
+            const target = {
+                atoms: item.mol.atoms.map(a => ({ element: a.element, x: a.x, y: a.y })),
+                bonds: item.mol.bonds.map(b => ({
+                    atom1Index: idx.get(b.atomId1),
+                    atom2Index: idx.get(b.atomId2),
+                    type: b.type
+                }))
+            };
+            renderMoleculeIntoSvg(g, item.svgId, target);
+        });
 
         this.bodyEl.appendChild(this.para(
             '【書き出し方のコツ】\n' +
