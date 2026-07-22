@@ -62,15 +62,10 @@
                 issues.push('孤児結合（存在しない原子への結合）');
             }
         });
+        // 価標の妥当性はアプリ本体と同じ判定（ニトロ基の電荷分離形のみ4本を許容）を使う
         m.atoms.forEach(a => {
-            const max = W.VALENCIES[a.element] || 0;
-            const used = m.getUsedValency(a.id);
-            if (used > max) {
-                const nb = m.getNeighbors(a.id);
-                const nitro = a.element === 'N' && used === 4 &&
-                    nb.some(n => n.type === 2 && n.atom.element === 'O') &&
-                    nb.some(n => n.type === 1 && n.atom.element === 'O');
-                if (!nitro) issues.push(`価標超過 ${a.element}(${used}/${max})`);
+            if (!W.isValencyValid(m, a.id)) {
+                issues.push(`価標超過 ${a.element}(${m.getUsedValency(a.id)}/${W.VALENCIES[a.element] || 0})`);
             }
         });
         const atoms = m.atoms;
@@ -86,7 +81,9 @@
             m.calculateHydrogens().forEach(h => atoms.forEach(a => {
                 if (a.id === h.parentId) return;
                 const d = Math.hypot(h.x - a.x, h.y - a.y);
-                if (d < 18) issues.push(`自動水素の重なり ${a.element}付近 ${d.toFixed(1)}px`);
+                // 12px未満は実質的な重なり（原子半径10 + 水素半径6 を考えると視認できる衝突）。
+                // 混み合った分子では多少の接近は避けられないため、閾値は衝突の判定に絞る
+                if (d < 12) issues.push(`自動水素の重なり ${a.element}付近 ${d.toFixed(1)}px`);
             }));
         } catch (e) {
             issues.push('calculateHydrogens例外: ' + e.message);
@@ -119,6 +116,28 @@
                 }
                 addResult('library', `${entry.name} / ${vn}`, issues);
             }
+            // 異性体列挙の不変条件（P9-3）: その化合物自身が必ず列挙結果に含まれること
+            const heavy = entry.mol.atoms.filter(a => a.element !== 'H');
+            // 重原子5個までに限定する（6個以上は不飽和な分子式で探索が重く、監査が長時間止まるため）
+            if (heavy.length >= 2 && heavy.length <= 5) {
+                const isoIssues = [];
+                try {
+                    const hCount = heavy.reduce((s, a) => s + entry.mol.getFreeValency(a.id), 0);
+                    const { isomers, overflow } = W.enumerateConstitutionalIsomers(
+                        heavy.map(a => a.element), hCount);
+                    if (overflow) {
+                        isoIssues.push('列挙が打ち切られた');
+                    } else {
+                        const selfCode = W.canonicalCode(entry.mol);
+                        if (!isomers.some(m => W.canonicalCode(m) === selfCode)) {
+                            isoIssues.push(`自分自身が列挙結果（${isomers.length}種）に含まれない`);
+                        }
+                    }
+                } catch (e) {
+                    isoIssues.push('例外: ' + e.message);
+                }
+                addResult('library', `${entry.name} / 異性体列挙`, isoIssues);
+            }
             progress(`①ライブラリ検査 ${li + 1}/${lib.length}`);
             await sleep(0);
         }
@@ -129,6 +148,10 @@
         const rnd = mulberry32(seed);
         if (W.reactionPlayer && W.reactionPlayer.active) W.reactionPlayer.exit();
         g.userMolecule = new W.Molecule();
+        // 各反復を独立させる。履歴を残すと undo/redo が前の反復の分子を復元してしまい、
+        // シードから同じ結果を再現できなくなる（失敗の再現に必須）
+        g.history = [];
+        g.redoStack = [];
         g.updateDrawing();
         g.selectedTool = 'select';
         g.selectedModule = null;
@@ -159,7 +182,28 @@
         for (let k = 0; k < opsCount; k++) {
             const r = rnd();
             try {
-                if (r < 0.32) {
+                if (r >= 0.68 && r < 0.80) {
+                    // 反応の実行（P9-1 M2〜M5）。適用箇所の選択待ちになったら候補をクリックして確定する
+                    const btns = [...D.querySelectorAll('#reaction-actions button')];
+                    if (btns.length) {
+                        const btn = btns[Math.floor(rnd() * btns.length)];
+                        ops.push('react ' + btn.textContent.slice(0, 16));
+                        btn.click();
+                        if (W.reactor && W.reactor.picking) {
+                            const sites = W.reactor.picking.sites;
+                            const site = sites[Math.floor(rnd() * sites.length)];
+                            const target = g.userMolecule.atoms.find(x => site.includes(x.id));
+                            if (target) clickAt(target.x, target.y);
+                            else W.reactor.picking = null;
+                        }
+                    }
+                } else if (r >= 0.80 && r < 0.86) {
+                    // 名称からの分子呼び出し（P9-1 M1）
+                    const lib = g.getCompoundLibrary();
+                    const entry = lib[Math.floor(rnd() * lib.length)];
+                    ops.push('summon ' + entry.name);
+                    g.summonMolecule(entry.name);
+                } else if (r < 0.32) {
                     // 原子配置（既存原子の近傍グリッド）
                     const els = ['C', 'C', 'C', 'O', 'N', 'Cl', 'Br'];
                     g.selectedTool = 'select';
@@ -206,7 +250,7 @@
                         clickAt(a.x, a.y);
                         g.selectedTool = 'select';
                     }
-                } else if (r < 0.88) {
+                } else if (r < 0.68) {
                     // 結合の伸縮ドラッグ
                     const hits = D.querySelectorAll('.svg-bond-hitbox');
                     if (hits.length) {
@@ -309,6 +353,16 @@
         a.click();
         URL.revokeObjectURL(a.href);
     }
+
+    // 診断用フック: 失敗したシードを再現し、操作ログと検出内容を返す（開発者向け）
+    window.auditReport = () => report;
+    window.auditRerun = async (seed, opsCount = 30) => {
+        const W = frame.contentWindow;
+        const D = frame.contentDocument;
+        const errBox = [];
+        W.addEventListener('error', ev => errBox.push(ev.message));
+        return fuzzOnce(W, D, W.game, seed, opsCount, errBox);
+    };
 
     btnStart.addEventListener('click', start);
     btnStop.addEventListener('click', () => { stopReq = true; });

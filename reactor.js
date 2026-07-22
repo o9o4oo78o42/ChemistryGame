@@ -128,11 +128,11 @@ function aromaticSites(mol) {
     return [...ids].filter(id => mol.getFreeValency(id) >= 1).map(id => [id]);
 }
 
-// 環の外向き（結合済みの隣接原子と反対方向）に、新しい原子を置ける位置を探す。
+// 環の外向き（結合済みの隣接原子と反対方向）に伸ばせる位置の候補を返す。
 // 直交に限らず環の角度に沿った方向も試すため、六角形の頂点からでも自然に外へ伸ばせる
-function outwardSpot(mol, atomId, reserved = []) {
+function outwardCandidates(mol, atomId) {
     const a = mol.atoms.find(x => x.id === atomId);
-    if (!a) return null;
+    if (!a) return [];
     const MIN_CLEARANCE = GRID_SIZE * 0.65;
     const nb = mol.getNeighbors(atomId).filter(n => n.atom.element !== 'H');
     let base = 0;
@@ -145,53 +145,64 @@ function outwardSpot(mol, atomId, reserved = []) {
         });
         base = Math.atan2(-sy, -sx);
     }
-    const candidates = [base, base + Math.PI / 6, base - Math.PI / 6,
-                        base + Math.PI / 3, base - Math.PI / 3, base + Math.PI / 2, base - Math.PI / 2];
-    for (const ang of candidates) {
+    const angles = [base, base + Math.PI / 6, base - Math.PI / 6,
+                    base + Math.PI / 3, base - Math.PI / 3, base + Math.PI / 2, base - Math.PI / 2];
+    const out = [];
+    angles.forEach(ang => {
         const x = a.x + GRID_SIZE * Math.cos(ang);
         const y = a.y + GRID_SIZE * Math.sin(ang);
         if (mol.atoms.some(o => o.id !== atomId && o.element !== 'H' &&
-            Math.hypot(o.x - x, o.y - y) < MIN_CLEARANCE)) continue;
-        if (reserved.some(p => Math.hypot(p.x - x, p.y - y) < MIN_CLEARANCE)) continue;
-        return { x, y, angle: ang };
-    }
-    return null;
+            Math.hypot(o.x - x, o.y - y) < MIN_CLEARANCE)) return;
+        out.push({ x, y, angle: ang });
+    });
+    return out;
 }
 
-// 置換基（ニトロ基・スルホ基・ハロゲン）を指定原子に取り付ける。追加した原子IDを返す
+// 置換基（ニトロ基・スルホ基・ハロゲン）を指定原子に取り付ける。追加した原子IDを返す。
+// 置換基を「かたまり」として扱い、酸素まで含めて重ならない向きを探す
+// （ニトロ基の酸素どうしが4pxまで接近する不具合の修正。P9-5監査で発見）
 function attachGroup(mol, cId, kind) {
-    const spot = outwardSpot(mol, cId);
-    if (!spot) throw new Error('置換基を置く空間がありません。まわりを空けてから実行してください');
-    const added = [];
-    const put = (element, ang, dist = GRID_SIZE, fromX = spot.x, fromY = spot.y) =>
-        mol.addAtom(element, fromX + dist * Math.cos(ang), fromY + dist * Math.sin(ang));
+    const MIN_CLEARANCE = GRID_SIZE * 0.65;
+    const anchorElement = kind === 'nitro' ? 'N' : (kind === 'sulfo' ? 'S' : kind);
+    // アンカー（N/S/ハロゲン）から見た枝の配置。ニトロは N(=O)(-O) の電荷分離形、
+    // スルホ基 -SO₃H は S を6価として扱う（開発方針 4章-2 / 硫黄の扱い）
+    const branchesOf = (angle) => {
+        if (kind === 'nitro') {
+            return [{ element: 'O', angle: angle + Math.PI / 2, type: 2 },
+                    { element: 'O', angle: angle - Math.PI / 2, type: 1 }];
+        }
+        if (kind === 'sulfo') {
+            return [{ element: 'O', angle: angle + Math.PI / 2, type: 2 },
+                    { element: 'O', angle: angle - Math.PI / 2, type: 2 },
+                    { element: 'O', angle: angle, type: 1 }];
+        }
+        return [];
+    };
 
-    if (kind === 'nitro') {
-        const n = mol.addAtom('N', spot.x, spot.y);
-        mol.addBond(cId, n.id, 1);
-        // ニトロ基は N(=O)(-O) の電荷分離形で構築する（開発方針 4章-2）
-        const o1 = put('O', spot.angle + Math.PI / 2);
-        const o2 = put('O', spot.angle - Math.PI / 2);
-        mol.addBond(n.id, o1.id, 2);
-        mol.addBond(n.id, o2.id, 1);
-        added.push(n.id, o1.id, o2.id);
-    } else if (kind === 'sulfo') {
-        const s = mol.addAtom('S', spot.x, spot.y);
-        mol.addBond(cId, s.id, 1);
-        // スルホ基 -SO₃H: Sは6価として扱う（開発方針の硫黄の扱い）
-        const o1 = put('O', spot.angle + Math.PI / 2);
-        const o2 = put('O', spot.angle - Math.PI / 2);
-        const o3 = put('O', spot.angle);
-        mol.addBond(s.id, o1.id, 2);
-        mol.addBond(s.id, o2.id, 2);
-        mol.addBond(s.id, o3.id, 1);
-        added.push(s.id, o1.id, o2.id, o3.id);
-    } else {
-        const x = mol.addAtom(kind, spot.x, spot.y); // 'Cl' / 'Br'
-        mol.addBond(cId, x.id, 1);
-        added.push(x.id);
+    for (const spot of outwardCandidates(mol, cId)) {
+        const branches = branchesOf(spot.angle).map(b => ({
+            ...b,
+            x: spot.x + GRID_SIZE * Math.cos(b.angle),
+            y: spot.y + GRID_SIZE * Math.sin(b.angle)
+        }));
+        const points = [{ x: spot.x, y: spot.y }, ...branches];
+        const hitsExisting = points.some(p => mol.atoms.some(o =>
+            o.id !== cId && o.element !== 'H' && Math.hypot(o.x - p.x, o.y - p.y) < MIN_CLEARANCE));
+        const hitsSelf = points.some((p, i) => points.some((q, j) =>
+            j > i && Math.hypot(p.x - q.x, p.y - q.y) < MIN_CLEARANCE));
+        if (hitsExisting || hitsSelf) continue;
+
+        const anchor = mol.addAtom(anchorElement, spot.x, spot.y);
+        mol.addBond(cId, anchor.id, 1);
+        const added = [anchor.id];
+        branches.forEach(b => {
+            const atom = mol.addAtom(b.element, b.x, b.y);
+            mol.addBond(anchor.id, atom.id, b.type);
+            added.push(atom.id);
+        });
+        return added;
     }
-    return added;
+    throw new Error('置換基を置く空間がありません。まわりを空けてから実行してください');
 }
 
 // 多重結合（非芳香族の C=C / C≡C）の一覧を [id1, id2] の配列で返す
@@ -284,18 +295,11 @@ const REACTION_RULES = [
         apply(game, site) {
             const cId = site[0];
             const mol = game.userMolecule;
-            const c = mol.atoms.find(a => a.id === cId);
-            // 空いている直交方向に -OH の O を追加（官能基モジュールと同じ方向決定）
-            const nb = mol.getNeighbors(cId).filter(n => n.atom.element !== 'H');
-            let sumX = 0, sumY = 0;
-            nb.forEach(n => {
-                const ang = Math.atan2(n.atom.y - c.y, n.atom.x - c.x);
-                sumX += Math.cos(ang);
-                sumY += Math.sin(ang);
-            });
-            let ang = Math.atan2(-sumY, -sumX);
-            ang = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
-            const o = mol.addAtom('O', c.x + GRID_SIZE * Math.cos(ang), c.y + GRID_SIZE * Math.sin(ang));
+            // 空き位置を確認して -OH の O を追加する。方向を計算するだけでは、
+            // その位置に既存原子があると完全に重なってしまう（P9-5監査で発見）
+            const spot = freeSpotAround(mol, cId);
+            if (!spot) throw new Error('-OH を置く空間がありません。まわりを空けてから実行してください');
+            const o = mol.addAtom('O', spot.x, spot.y);
             mol.addBond(cId, o.id, 1);
             return {
                 caption: 'アルデヒドが酸化されてカルボン酸になりました（R-CHO + [O] → R-COOH）。1級アルコールから2段階の酸化で到達する終点です。',

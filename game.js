@@ -1214,29 +1214,27 @@ class Game {
 
     // クリックされた原子を現在選択中の元素へ置換する（価標チェック付き）
     trySwapElement(atom) {
-        const relatedBonds = this.userMolecule.getBondsForAtom(atom.id);
-        let currentValencySum = 0;
-        relatedBonds.forEach(bond => {
-            currentValencySum += (Number(bond.type) || 1);
-        });
+        const prev = atom.element;
+        // 置換後の妥当性を、その原子だけでなく隣接原子についても確認する。
+        // 隣接まで見ないと、ニトロ基の -O を別の元素に置換したときに中心のNが
+        // 4本結合のまま取り残される（P9-5 監査で発見）
+        atom.element = this.selectedAtomType;
+        const targets = [atom.id, ...this.userMolecule.getNeighbors(atom.id).map(n => n.atom.id)];
+        const invalid = targets.find(id => !isValencyValid(this.userMolecule, id));
+        atom.element = prev;
 
-        const maxValency = VALENCIES[this.selectedAtomType] || 0;
-
-        if (currentValencySum <= maxValency) {
-            // 構造を破壊せずに置換可能な場合のみ許可
+        if (!invalid) {
             this.saveState();
             atom.element = this.selectedAtomType;
             this.updateDrawing();
-        } else {
-            // 置換不可のメッセージを表示
-            const resultDiv = document.getElementById('verify-result');
-            if (resultDiv) {
-                resultDiv.textContent = `結合数が多いため、${atom.element}を${this.selectedAtomType}に置換できません。（現在の結合数: ${currentValencySum}、${this.selectedAtomType}の最大結合数: ${maxValency}）`;
-                resultDiv.className = 'result-message error';
-                resultDiv.classList.remove('hidden');
-                setTimeout(() => resultDiv.classList.add('hidden'), 3500);
-            }
+            return;
         }
+
+        const used = this.userMolecule.getUsedValency(atom.id);
+        const maxValency = VALENCIES[this.selectedAtomType] || 0;
+        this.showToast(invalid === atom.id
+            ? `結合数が多いため、${prev}を${this.selectedAtomType}に置換できません。（現在の結合数: ${used}、${this.selectedAtomType}の最大結合数: ${maxValency}）`
+            : 'この置換をすると、隣の原子の結合数が正しくなくなるため実行できません（ニトロ基などの構造が壊れます）。');
     }
 
     // ===== 結合の伸縮（P6-2b）: 結合線を軸方向にドラッグして長さをグリッド倍数で変える =====

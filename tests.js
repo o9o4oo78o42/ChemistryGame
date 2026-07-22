@@ -1700,6 +1700,8 @@
         input.dispatchEvent(new c.W.Event('change', { bubbles: true }));
         c.D.getElementById('btn-isomers').click();
         assert(!c.D.getElementById('learn-modal').classList.contains('hidden'), '学習モーダルが開かない');
+        assert(c.D.getElementById('learn-body').textContent.includes('計算中'), '計算中の表示が出ない');
+        await c.tick(50); // 列挙は描画を譲ってから実行されるため待つ
         const body = c.D.getElementById('learn-body').textContent;
         assert(c.D.getElementById('learn-title').textContent.includes('C₄H₁₀O'),
             `タイトルが「${c.D.getElementById('learn-title').textContent}」`);
@@ -1720,6 +1722,64 @@
         c.D.getElementById('btn-isomers').click();
         assert(c.D.getElementById('learn-modal').classList.contains('hidden'), '複数分子でモーダルが開いた');
         assert(c.D.getElementById('verify-result').textContent.includes('1つだけ'), '案内トーストが出ない');
+
+        c.D.getElementById('verify-result').classList.add('hidden');
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
+    test('K4: 監査で発見した2件（ニトロ破壊置換の拒否・置換基の重なり回避）', async (c) => {
+        c.reset();
+        const g = c.game;
+
+        // (1) ニトロ基の -O を N に置換しようとすると拒否される（中心Nが4本結合のまま残るため）
+        g.placeModule('benzene', 420, 294, null);
+        const ringC = g.userMolecule.atoms.find(a => g.userMolecule.getFreeValency(a.id) >= 1);
+        g.placeModule('no2', ringC.x, ringC.y, ringC);
+        const nitroN = g.userMolecule.atoms.find(a => a.element === 'N');
+        const singleO = g.userMolecule.getNeighbors(nitroN.id)
+            .find(n => n.type === 1 && n.atom.element === 'O').atom;
+        g.selectedTool = 'select';
+        g.selectedAtomType = 'N';
+        c.clickAt(singleO.x, singleO.y);
+        assert(singleO.element === 'O', 'ニトロ基を壊す置換が拒否されない');
+        assert(c.D.getElementById('verify-result').textContent.includes('隣の原子'), '拒否の案内が出ない');
+        assert(c.W.isValencyValid(g.userMolecule, nitroN.id), 'ニトロNが不正な価標のまま');
+        // 正当な置換（ベンゼン環のC→N でピリジン）は従来どおり通る
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+        g.placeModule('benzene', 420, 294, null);
+        const c0 = g.userMolecule.atoms[0];
+        c.clickAt(c0.x, c0.y);
+        assert(c0.element === 'N', '正当な元素置換までブロックされた');
+
+        // (2) 芳香族置換を連続で行っても置換基の原子が重ならない
+        c.reset();
+        g.placeModule('benzene', 420, 294, null);
+        const react = (kw) => {
+            const btn = [...c.D.querySelectorAll('#reaction-actions button')]
+                .find(b => b.textContent.includes(kw));
+            assert(btn, `「${kw}」のボタンがない`);
+            btn.click();
+            if (c.W.reactor.picking) {
+                const sites = c.W.reactor.picking.sites;
+                const target = g.userMolecule.atoms.find(a => sites.some(s => s.includes(a.id)));
+                c.clickAt(target.x, target.y);
+            }
+        };
+        react('ニトロ化');
+        react('ニトロ化');
+        react('スルホン化');
+        const atoms = g.userMolecule.atoms;
+        let worst = Infinity;
+        for (let i = 0; i < atoms.length; i++) {
+            for (let j = i + 1; j < atoms.length; j++) {
+                worst = Math.min(worst, Math.hypot(atoms[i].x - atoms[j].x, atoms[i].y - atoms[j].y));
+            }
+        }
+        assert(worst >= 24, `置換基の原子が重なった（最小間隔 ${worst.toFixed(1)}px）`);
+        atoms.forEach(a => assert(c.W.isValencyValid(g.userMolecule, a.id),
+            `${a.element} の価標が不正`));
 
         c.D.getElementById('verify-result').classList.add('hidden');
         g.userMolecule = new c.W.Molecule();

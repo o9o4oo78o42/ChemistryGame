@@ -376,11 +376,33 @@ class Molecule {
  * 検証時にこの集合に含まれる結合の次数差を吸収するために使います（開発方針 4章-3）。
  */
 /**
+ * その原子の使用価標が許容範囲かを判定する（P9-5 監査で発見した不整合の修正）。
+ * ニトロ基の N は電荷分離形 N(=O)(-O) として4本を許容する慣例（開発方針 4章-2）だが、
+ * その根拠となる「=O と -O の両方を持つ」パターンが崩れた場合は不正として扱う。
+ */
+function isValencyValid(mol, atomId) {
+    const atom = mol.atoms.find(a => a.id === atomId);
+    if (!atom) return true;
+    const max = VALENCIES[atom.element] || 0;
+    const used = mol.getUsedValency(atomId);
+    if (used <= max) return true;
+    if (atom.element === 'N' && used === 4) {
+        const nb = mol.getNeighbors(atomId);
+        return nb.some(n => n.type === 2 && n.atom.element === 'O') &&
+               nb.some(n => n.type === 1 && n.atom.element === 'O');
+    }
+    return false;
+}
+
+/**
  * 構造異性体の全列挙（P9-3）。重原子の組成と水素数を与えると、その分子式を満たす
  * 連結グラフをすべて生成し、正準コードで重複を除いて返す純粋関数。
  * 高校範囲の分子式（重原子7個程度まで）を想定し、それを超える場合は overflow を返す。
  */
-function enumerateConstitutionalIsomers(elements, hCount, nodeLimit = 3000000) {
+// nodeLimit は探索ノード数の上限。不飽和度の高い分子式（例: C₆H₆ は217種）は
+// 組み合わせが急増するため、UIが固まらない範囲（実測で約1秒）で打ち切って overflow を返す。
+// ノード数での打ち切りにすることで、同じ入力なら常に同じ結果になる（再現性を確保）
+function enumerateConstitutionalIsomers(elements, hCount, nodeLimit = 600000) {
     const n = elements.length;
     if (n === 0 || n > 8) return { isomers: [], overflow: n > 8 };
 
@@ -1157,4 +1179,5 @@ if (typeof window !== 'undefined') {
     window.fragmentFormula = fragmentFormula;
     window.findFunctionalGroups = findFunctionalGroups;
     window.enumerateConstitutionalIsomers = enumerateConstitutionalIsomers;
+    window.isValencyValid = isValencyValid;
 }

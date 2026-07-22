@@ -59,20 +59,32 @@ class LearnView {
             g.showToast('分子が複数あります。1つだけにしてから調べてください。');
             return;
         }
-        if (heavy.length > 8) {
-            g.showToast('重原子が多すぎるため、異性体の全列挙は省略します（8個までが対象です）。');
+        if (heavy.length > 6) {
+            g.showToast('炭素などの原子が多すぎるため、異性体の全列挙は省略します（水素を除いて6個までが対象です）。');
             return;
         }
 
         const elements = heavy.map(a => a.element);
         const hCount = heavy.reduce((s, a) => s + mol.getFreeValency(a.id), 0);
         const formula = g.computeMolecularFormula();
-        const { isomers, overflow } = enumerateConstitutionalIsomers(elements, hCount);
 
+        // 列挙は分子式によっては数秒かかる（不飽和度が高いほど組み合わせが増える）。
+        // 先にモーダルを開いて「計算中」を出し、描画を1フレーム譲ってから実行する
         this.titleEl.textContent = `${formula} の構造異性体`;
         this.bodyEl.innerHTML = '';
+        this.bodyEl.appendChild(this.para('計算中です…', 'font-size:13px; color:var(--text-secondary);'));
+        this.modal.classList.remove('hidden');
+        setTimeout(() => this.renderIsomers(elements, hCount, mol), 0);
+    }
+
+    renderIsomers(elements, hCount, mol) {
+        const g = this.game;
+        const { isomers, overflow } = enumerateConstitutionalIsomers(elements, hCount);
+        this.bodyEl.innerHTML = '';
         if (overflow) {
-            this.bodyEl.appendChild(this.para('この分子式は組み合わせが多すぎるため、全列挙を打ち切りました。'));
+            this.bodyEl.appendChild(this.para(
+                'この分子式は異性体が非常に多いため、全列挙を打ち切りました。' +
+                '二重結合や環を含む（水素の少ない）分子式では、異性体の数が急激に増えます。'));
             this.modal.classList.remove('hidden');
             return;
         }
