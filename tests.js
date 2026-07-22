@@ -1593,6 +1593,72 @@
         g.updateDrawing();
     });
 
+    test('L5: 反応実行M5（芳香族置換: ニトロ化・スルホン化・塩素化）', async (c) => {
+        c.reset();
+        const g = c.game;
+        const summon = (name) => {
+            g.userMolecule = new c.W.Molecule();
+            g.updateDrawing();
+            const input = c.D.getElementById('summon-input');
+            input.value = name;
+            input.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        };
+        const clickRule = (kw) => {
+            const btn = [...c.D.querySelectorAll('#reaction-actions button')]
+                .find(b => b.textContent.includes(kw));
+            assert(btn, `「${kw}」の反応ボタンがない`);
+            btn.click();
+        };
+        const nameShown = () => c.D.getElementById('compound-name').textContent;
+        // 環炭素が6箇所とも候補になるため、ハイライト後に1つクリックして確定する
+        const substitute = (kw) => {
+            clickRule(kw);
+            assert(c.W.reactor.picking, '置換位置の選択モードにならない');
+            const ring = g.userMolecule.atoms.find(a =>
+                a.element === 'C' && g.userMolecule.getFreeValency(a.id) >= 1);
+            c.clickAt(ring.x, ring.y);
+            assert(!c.W.reactor.picking, '選択モードが解除されない');
+        };
+
+        summon('ベンゼン');
+        substitute('ニトロ化');
+        assert(nameShown().includes('ニトロベンゼン'), `ニトロ化後が「${nameShown()}」`);
+        assert(g.computeMolecularFormula() === 'C₆H₅NO₂', `分子式が${g.computeMolecularFormula()}`);
+
+        summon('ベンゼン');
+        substitute('スルホン化');
+        assert(nameShown().includes('ベンゼンスルホン酸'), `スルホン化後が「${nameShown()}」`);
+
+        summon('ベンゼン');
+        substitute('塩素化');
+        assert(nameShown().includes('クロロベンゼン'), `塩素化後が「${nameShown()}」`);
+
+        // 価標超過や原子の重なりが起きていない
+        const m = g.userMolecule;
+        m.atoms.forEach(a => assert(m.getUsedValency(a.id) <= (c.W.VALENCIES[a.element] || 0),
+            `${a.element}の価標超過`));
+        const atoms = m.atoms;
+        for (let i = 0; i < atoms.length; i++) {
+            for (let j = i + 1; j < atoms.length; j++) {
+                assert(Math.hypot(atoms[i].x - atoms[j].x, atoms[i].y - atoms[j].y) >= 24,
+                    '芳香族置換で原子が重なった');
+            }
+        }
+        g.undo();
+        assert(nameShown().includes('ベンゼン') && !nameShown().includes('クロロ'),
+            'Undoでベンゼンに戻らない');
+
+        // 非芳香族（シクロヘキサン）には芳香族置換を提示しない
+        summon('シクロヘキサン');
+        const labels = [...c.D.querySelectorAll('#reaction-actions button')].map(b => b.textContent);
+        assert(!labels.some(t => t.includes('芳香族置換')),
+            `非芳香族で芳香族置換が提示された（${labels.join(' / ')}）`);
+
+        c.D.getElementById('verify-result').classList.add('hidden');
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

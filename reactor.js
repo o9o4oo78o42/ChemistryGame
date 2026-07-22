@@ -114,6 +114,86 @@ function separateComponent(mol, movingIds) {
     return null;
 }
 
+// 芳香環の置換可能な炭素（空き価標のある環炭素）を [id] の配列で返す
+function aromaticSites(mol) {
+    const keys = findAromaticBondKeys(mol);
+    const ids = new Set();
+    mol.bonds.forEach(b => {
+        const k = b.atomId1 < b.atomId2 ? `${b.atomId1}_${b.atomId2}` : `${b.atomId2}_${b.atomId1}`;
+        if (keys.has(k)) {
+            ids.add(b.atomId1);
+            ids.add(b.atomId2);
+        }
+    });
+    return [...ids].filter(id => mol.getFreeValency(id) >= 1).map(id => [id]);
+}
+
+// 環の外向き（結合済みの隣接原子と反対方向）に、新しい原子を置ける位置を探す。
+// 直交に限らず環の角度に沿った方向も試すため、六角形の頂点からでも自然に外へ伸ばせる
+function outwardSpot(mol, atomId, reserved = []) {
+    const a = mol.atoms.find(x => x.id === atomId);
+    if (!a) return null;
+    const MIN_CLEARANCE = GRID_SIZE * 0.65;
+    const nb = mol.getNeighbors(atomId).filter(n => n.atom.element !== 'H');
+    let base = 0;
+    if (nb.length > 0) {
+        let sx = 0, sy = 0;
+        nb.forEach(n => {
+            const t = Math.atan2(n.atom.y - a.y, n.atom.x - a.x);
+            sx += Math.cos(t);
+            sy += Math.sin(t);
+        });
+        base = Math.atan2(-sy, -sx);
+    }
+    const candidates = [base, base + Math.PI / 6, base - Math.PI / 6,
+                        base + Math.PI / 3, base - Math.PI / 3, base + Math.PI / 2, base - Math.PI / 2];
+    for (const ang of candidates) {
+        const x = a.x + GRID_SIZE * Math.cos(ang);
+        const y = a.y + GRID_SIZE * Math.sin(ang);
+        if (mol.atoms.some(o => o.id !== atomId && o.element !== 'H' &&
+            Math.hypot(o.x - x, o.y - y) < MIN_CLEARANCE)) continue;
+        if (reserved.some(p => Math.hypot(p.x - x, p.y - y) < MIN_CLEARANCE)) continue;
+        return { x, y, angle: ang };
+    }
+    return null;
+}
+
+// 置換基（ニトロ基・スルホ基・ハロゲン）を指定原子に取り付ける。追加した原子IDを返す
+function attachGroup(mol, cId, kind) {
+    const spot = outwardSpot(mol, cId);
+    if (!spot) throw new Error('置換基を置く空間がありません。まわりを空けてから実行してください');
+    const added = [];
+    const put = (element, ang, dist = GRID_SIZE, fromX = spot.x, fromY = spot.y) =>
+        mol.addAtom(element, fromX + dist * Math.cos(ang), fromY + dist * Math.sin(ang));
+
+    if (kind === 'nitro') {
+        const n = mol.addAtom('N', spot.x, spot.y);
+        mol.addBond(cId, n.id, 1);
+        // ニトロ基は N(=O)(-O) の電荷分離形で構築する（開発方針 4章-2）
+        const o1 = put('O', spot.angle + Math.PI / 2);
+        const o2 = put('O', spot.angle - Math.PI / 2);
+        mol.addBond(n.id, o1.id, 2);
+        mol.addBond(n.id, o2.id, 1);
+        added.push(n.id, o1.id, o2.id);
+    } else if (kind === 'sulfo') {
+        const s = mol.addAtom('S', spot.x, spot.y);
+        mol.addBond(cId, s.id, 1);
+        // スルホ基 -SO₃H: Sは6価として扱う（開発方針の硫黄の扱い）
+        const o1 = put('O', spot.angle + Math.PI / 2);
+        const o2 = put('O', spot.angle - Math.PI / 2);
+        const o3 = put('O', spot.angle);
+        mol.addBond(s.id, o1.id, 2);
+        mol.addBond(s.id, o2.id, 2);
+        mol.addBond(s.id, o3.id, 1);
+        added.push(s.id, o1.id, o2.id, o3.id);
+    } else {
+        const x = mol.addAtom(kind, spot.x, spot.y); // 'Cl' / 'Br'
+        mol.addBond(cId, x.id, 1);
+        added.push(x.id);
+    }
+    return added;
+}
+
 // 多重結合（非芳香族の C=C / C≡C）の一覧を [id1, id2] の配列で返す
 function multipleBondSites(mol) {
     return findFunctionalGroups(mol)
@@ -378,6 +458,42 @@ const REACTION_RULES = [
         apply(game, site) {
             return addAcrossMultipleBond(game, site, 'O', null,
                 '水 H₂O が付加してアルコールになりました（リン酸などの酸触媒）。エテンからエタノールを作る工業的製法がこの反応です。非対称アルケンではマルコフニコフ則に従う主生成物を示しています。');
+        }
+    },
+    {
+        id: 'aromatic_nitration',
+        label: '芳香族置換: ニトロ化（濃硝酸＋濃硫酸）',
+        detect: aromaticSites,
+        apply(game, site) {
+            const added = attachGroup(game.userMolecule, site[0], 'nitro');
+            return {
+                caption: 'ベンゼン環がニトロ化されました。濃硝酸と濃硫酸の混酸から生じたニトロニウムイオン NO₂⁺ が環を攻撃する求電子置換反応です。付加ではなく置換になるのは、芳香族性を保つ方が安定なためです。',
+                changed: [site[0], ...added]
+            };
+        }
+    },
+    {
+        id: 'aromatic_sulfonation',
+        label: '芳香族置換: スルホン化（濃硫酸）',
+        detect: aromaticSites,
+        apply(game, site) {
+            const added = attachGroup(game.userMolecule, site[0], 'sulfo');
+            return {
+                caption: 'ベンゼン環がスルホン化され、スルホ基 -SO₃H が付きました（濃硫酸と加熱）。生成物のベンゼンスルホン酸は強酸で、水に溶けやすくなります。',
+                changed: [site[0], ...added]
+            };
+        }
+    },
+    {
+        id: 'aromatic_halogenation',
+        label: '芳香族置換: 塩素化（Cl₂・鉄触媒）',
+        detect: aromaticSites,
+        apply(game, site) {
+            const added = attachGroup(game.userMolecule, site[0], 'Cl');
+            return {
+                caption: 'ベンゼン環が塩素化されました（鉄または塩化鉄(III)を触媒に Cl₂ と反応）。触媒が Cl-Cl 結合を分極させ、塩素が求電子剤として働きます。同時に塩化水素 HCl が発生します。',
+                changed: [site[0], ...added]
+            };
         }
     },
     {
