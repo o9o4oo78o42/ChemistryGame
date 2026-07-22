@@ -10,6 +10,15 @@ const SPECIES = {
   "Ca(OH)2": { disp: "Ca(OH)₂", name: "水酸化カルシウム",   atoms: { Ca: 1, O: 2, H: 2 }, charge: 0 },
   "AgNO3":   { disp: "AgNO₃",   name: "硝酸銀",             atoms: { Ag: 1, N: 1, O: 3 }, charge: 0 },
   "BaCl2":   { disp: "BaCl₂",   name: "塩化バリウム",       atoms: { Ba: 1, Cl: 2 },      charge: 0 },
+  "HNO3":    { disp: "HNO₃",    name: "硝酸",               atoms: { H: 1, N: 1, O: 3 },  charge: 0 },
+  "KOH":     { disp: "KOH",      name: "水酸化カリウム",     atoms: { K: 1, O: 1, H: 1 },  charge: 0 },
+  "KNO3":    { disp: "KNO₃",    name: "硝酸カリウム",       atoms: { K: 1, N: 1, O: 3 },  charge: 0 },
+  "Ba(OH)2": { disp: "Ba(OH)₂", name: "水酸化バリウム",     atoms: { Ba: 1, O: 2, H: 2 }, charge: 0 },
+  "CuSO4":   { disp: "CuSO₄",   name: "硫酸銅(Ⅱ)",         atoms: { Cu: 1, S: 1, O: 4 }, charge: 0 },
+  "Cu(OH)2": { disp: "Cu(OH)₂", name: "水酸化銅(Ⅱ)（青白色の沈殿）", atoms: { Cu: 1, O: 2, H: 2 }, charge: 0 },
+  "Na2SO3":  { disp: "Na₂SO₃", name: "亜硫酸ナトリウム",   atoms: { Na: 2, S: 1, O: 3 }, charge: 0 },
+  "H2SO3":   { disp: "H₂SO₃",  name: "亜硫酸（不安定）",   atoms: { H: 2, S: 1, O: 3 },  charge: 0 },
+  "SO2":     { disp: "SO₂",     name: "二酸化硫黄",         atoms: { S: 1, O: 2 },        charge: 0 },
   "Na2CO3":  { disp: "Na₂CO₃", name: "炭酸ナトリウム",     atoms: { Na: 2, C: 1, O: 3 }, charge: 0 },
   "H2CO3":   { disp: "H₂CO₃",  name: "炭酸（不安定な中間体）", atoms: { H: 2, C: 1, O: 3 }, charge: 0 },
   "CO2":     { disp: "CO₂",     name: "二酸化炭素",         atoms: { C: 1, O: 2 },        charge: 0 },
@@ -30,8 +39,16 @@ const SPECIES = {
   "Ag+":     { disp: "Ag⁺",   name: "銀イオン",           atoms: { Ag: 1 },        charge: 1 },
   "NO3-":    { disp: "NO₃⁻",  name: "硝酸イオン",         atoms: { N: 1, O: 3 },   charge: -1 },
   "Ba^2+":   { disp: "Ba²⁺",  name: "バリウムイオン",     atoms: { Ba: 1 },        charge: 2 },
+  "K+":      { disp: "K⁺",    name: "カリウムイオン",     atoms: { K: 1 },         charge: 1 },
+  "SO3^2-":  { disp: "SO₃²⁻", name: "亜硫酸イオン",       atoms: { S: 1, O: 3 },   charge: -2 },
   "CO3^2-":  { disp: "CO₃²⁻", name: "炭酸イオン",         atoms: { C: 1, O: 3 },   charge: -2 },
   // 酸化還元モード用
+  "Mg":      { disp: "Mg",     name: "マグネシウム（原子）", atoms: { Mg: 1 },      charge: 0 },
+  "Mg^2+":   { disp: "Mg²⁺",  name: "マグネシウムイオン", atoms: { Mg: 1 },        charge: 2 },
+  "Fe":      { disp: "Fe",     name: "鉄（原子）",         atoms: { Fe: 1 },        charge: 0 },
+  "Fe^2+":   { disp: "Fe²⁺",  name: "鉄(Ⅱ)イオン",       atoms: { Fe: 1 },        charge: 2 },
+  "Al":      { disp: "Al",     name: "アルミニウム（原子）", atoms: { Al: 1 },      charge: 0 },
+  "Al^3+":   { disp: "Al³⁺",  name: "アルミニウムイオン", atoms: { Al: 1 },        charge: 3 },
   "Zn":      { disp: "Zn",     name: "亜鉛（原子）",       atoms: { Zn: 1 },        charge: 0 },
   "Zn^2+":   { disp: "Zn²⁺",  name: "亜鉛イオン",         atoms: { Zn: 1 },        charge: 2 },
   "Cu":      { disp: "Cu",     name: "銅（原子）",         atoms: { Cu: 1 },        charge: 0 },
@@ -53,6 +70,12 @@ const DISSOCIATION = {
   "AgNO3":   ["Ag+", "NO3-"],
   "NaNO3":   ["Na+", "NO3-"],
   "BaCl2":   ["Ba^2+", "Cl-", "Cl-"],
+  "HNO3":    ["H+", "NO3-"],
+  "KOH":     ["K+", "OH-"],
+  "KNO3":    ["K+", "NO3-"],
+  "Ba(OH)2": ["Ba^2+", "OH-", "OH-"],
+  "CuSO4":   ["Cu^2+", "SO4^2-"],
+  "Na2SO3":  ["Na+", "Na+", "SO3^2-"],
   "Na2CO3":  ["Na+", "Na+", "CO3^2-"],
 };
 
@@ -65,6 +88,9 @@ const PARTS = Object.assign({
   "BaSO4": ["Ba^2+", "SO4^2-"],
   "H2CO3": ["H+", "H+", "CO3^2-"],
   "CO2":   ["CO2"],  // イオンに分解できない分子はそれ自身（gasGroup 経由で H₂CO₃ として扱う）
+  "Cu(OH)2": ["Cu^2+", "OH-", "OH-"],
+  "H2SO3": ["H+", "H+", "SO3^2-"],
+  "SO2":   ["SO2"],
 }, DISSOCIATION);
 
 /* rules: ビーカー内の反応ルール（find の2イオンが出会うと make になる）。
@@ -99,9 +125,22 @@ const STRUCTURE = {
     { el: "H", x: -17, y: 14, r: 5 }, { el: "H", x: 17, y: 14, r: 5 }] },
   "H2":     { atoms: [
     { el: "H", x: -6, y: 0, r: 7 }, { el: "H", x: 6, y: 0, r: 7 }] },
+  "SO3^2-": { env: 22, atoms: [
+    { el: "S", x: 0, y: 0, r: 8 },
+    { el: "O", x: 0, y: -13, r: 7 }, { el: "O", x: 11, y: 7, r: 7 }, { el: "O", x: -11, y: 7, r: 7 }] },
+  "H2SO3":  { atoms: [
+    { el: "S", x: 0, y: 3, r: 8 }, { el: "O", x: 0, y: -10, r: 7 },
+    { el: "O", x: -11, y: 10, r: 7 }, { el: "O", x: 11, y: 10, r: 7 },
+    { el: "H", x: -17, y: 14, r: 5 }, { el: "H", x: 17, y: 14, r: 5 }] },
+  "SO2":    { atoms: [
+    { el: "O", x: -13, y: -3, r: 8 }, { el: "S", x: 0, y: 3, r: 8 }, { el: "O", x: 13, y: -3, r: 8 }] },
   // 沈殿（イオンがくっついて固まった姿）
   "AgCl":   { atoms: [
     { el: "Ag", x: -8, y: 0, r: 9 }, { el: "Cl", x: 8, y: 2, r: 9 }] },
+  "Cu(OH)2": { atoms: [
+    { el: "Cu", x: 0, y: 2, r: 9 },
+    { el: "O", x: -13, y: -6, r: 7 }, { el: "H", x: -18, y: -11, r: 5 },
+    { el: "O", x: 13, y: -6, r: 7 }, { el: "H", x: 18, y: -11, r: 5 }] },
   "BaSO4":  { atoms: [
     { el: "Ba", x: -13, y: -2, r: 9 }, { el: "S", x: 7, y: 2, r: 7 },
     { el: "O", x: 7, y: -10, r: 6 }, { el: "O", x: 7, y: 14, r: 6 },
@@ -129,6 +168,23 @@ const STRUCTURE = {
     { el: "O", x: 5, y: -11, r: 6.5 }, { el: "O", x: 14, y: 7, r: 6.5 }, { el: "O", x: -4, y: 8, r: 6.5 }] },
   "BaCl2":  { atoms: [
     { el: "Ba", x: 0, y: -2, r: 9 }, { el: "Cl", x: -14, y: 7, r: 8 }, { el: "Cl", x: 14, y: 7, r: 8 }] },
+  "HNO3":   { atoms: [
+    { el: "H", x: -19, y: 10, r: 5 }, { el: "N", x: 2, y: 0, r: 7 },
+    { el: "O", x: 2, y: -12, r: 6.5 }, { el: "O", x: 12, y: 7, r: 6.5 }, { el: "O", x: -8, y: 7, r: 6.5 }] },
+  "KOH":    { atoms: [
+    { el: "K", x: -9, y: 2, r: 9 }, { el: "O", x: 6, y: -2, r: 8 }, { el: "H", x: 15, y: -8, r: 5 }] },
+  "Ba(OH)2": { atoms: [
+    { el: "Ba", x: 0, y: 2, r: 9 },
+    { el: "O", x: -13, y: -6, r: 7 }, { el: "H", x: -18, y: -11, r: 5 },
+    { el: "O", x: 13, y: -6, r: 7 }, { el: "H", x: 18, y: -11, r: 5 }] },
+  "CuSO4":  { atoms: [
+    { el: "Cu", x: -16, y: 0, r: 9 }, { el: "S", x: 6, y: 0, r: 7 },
+    { el: "O", x: 6, y: -12, r: 6.5 }, { el: "O", x: 6, y: 12, r: 6.5 },
+    { el: "O", x: 16, y: 4, r: 6.5 }, { el: "O", x: -4, y: -8, r: 6.5 }] },
+  "Na2SO3": { atoms: [
+    { el: "Na", x: -17, y: -7, r: 8 }, { el: "Na", x: 17, y: -7, r: 8 },
+    { el: "S", x: 0, y: 5, r: 7 }, { el: "O", x: 0, y: -7, r: 7 },
+    { el: "O", x: -9, y: 12, r: 6.5 }, { el: "O", x: 9, y: 12, r: 6.5 }] },
 };
 
 const STAGES = [
@@ -200,6 +256,54 @@ const STAGES = [
     intro: "Na₂CO₃ に塩酸を注ぐとシュワッと泡が出る。泡の正体を確かめよう。H⁺ は何個必要？",
     doneNote: "H⁺2個と CO₃²⁻ が組んで H₂CO₃（炭酸）になり、不安定なのですぐ H₂O と CO₂ に分かれる。CO₂ は泡になって空気中へ逃げる。",
   },
+  {
+    id: "s7",
+    title: "ステージ7：硝酸 × 水酸化カリウム",
+    reactants: ["HNO3", "KOH"],
+    products: ["KNO3", "H2O"],
+    answer: [1, 1, 1, 1],
+    rules: [{ find: ["H+", "OH-"], make: "H2O", kind: "combine" }],
+    netIon: "H⁺ ＋ OH⁻ → H₂O",
+    intro: "酸と塩基が変わっても、中和の本質は同じだろうか？ 傍観イオンの顔ぶれに注目。",
+    doneNote: "K⁺ と NO₃⁻ は傍観イオン。酸と塩基が変わっても、中和の本質は H⁺＋OH⁻→H₂O のまま。",
+  },
+  {
+    id: "s8",
+    title: "ステージ8：硫酸 × 水酸化バリウム（中和＋沈殿）",
+    reactants: ["H2SO4", "Ba(OH)2"],
+    products: ["BaSO4", "H2O"],
+    answer: [1, 1, 1, 2],
+    rules: [
+      { find: ["H+", "OH-"], make: "H2O", kind: "combine" },
+      { find: ["Ba^2+", "SO4^2-"], make: "BaSO4", kind: "precipitate" },
+    ],
+    netIon: "H⁺＋OH⁻→H₂O と Ba²⁺＋SO₄²⁻→BaSO₄↓ が同時に起こる",
+    intro: "この反応では2つの組み変わりが同時に起こる。反応のあと、水に残るイオンはあるだろうか？",
+    doneNote: "中和と沈殿が同時に起こり、傍観イオンが1つも残らない珍しい反応。溶液はほぼ純水になる。",
+  },
+  {
+    id: "s9",
+    title: "ステージ9：硫酸銅 × 水酸化ナトリウム（青白色の沈殿）",
+    reactants: ["CuSO4", "NaOH"],
+    products: ["Cu(OH)2", "Na2SO4"],
+    answer: [1, 2, 1, 1],
+    rules: [{ find: ["Cu^2+", "OH-", "OH-"], make: "Cu(OH)2", kind: "precipitate" }],
+    netIon: "Cu²⁺ ＋ 2OH⁻ → Cu(OH)₂↓（青白色）",
+    intro: "青い水溶液に塩基を加えると、青白色の沈殿ができる。Cu²⁺ は OH⁻ を何個つかまえる？",
+    doneNote: "Cu²⁺ 1個が OH⁻ 2個と組んで Cu(OH)₂ の沈殿になる。沈殿の色は無機化学の重要な手がかり。",
+  },
+  {
+    id: "s10",
+    title: "ステージ10：亜硫酸ナトリウム × 塩酸（気体発生）",
+    reactants: ["Na2SO3", "HCl"],
+    products: ["NaCl", "H2O", "SO2"],
+    answer: [1, 2, 2, 1, 1],
+    rules: [{ find: ["H+", "H+", "SO3^2-"], via: "H2SO3", make: ["H2O", "SO2"], kind: "gas" }],
+    gasGroup: { terms: ["H2O", "SO2"], via: "H2SO3" },
+    netIon: "2H⁺ ＋ SO₃²⁻ → H₂O ＋ SO₂↑",
+    intro: "炭酸塩のときと同じパターンが使えるだろうか？ 今度の泡は刺激臭のある SO₂。",
+    doneNote: "H⁺2個と SO₃²⁻ が組んで H₂SO₃（亜硫酸）になり、すぐ H₂O と SO₂ に分かれる。弱酸の塩＋強酸→弱酸の遊離、の典型パターン。",
+  },
 ];
 
 /* 表示時の元素の並び順（金属 → H → その他） */
@@ -219,6 +323,12 @@ const HALF_REACTIONS = {
               left: [{ sp: "Ag+", n: 1 }, { sp: "e-", n: 1 }], right: [{ sp: "Ag", n: 1 }] },
   "H_red":  { disp: "2H⁺ ＋ 2e⁻ → H₂", kind: "reduction",
               left: [{ sp: "H+", n: 2 }, { sp: "e-", n: 2 }], right: [{ sp: "H2", n: 1 }] },
+  "Mg_ox":  { disp: "Mg → Mg²⁺ ＋ 2e⁻", kind: "oxidation",
+              left: [{ sp: "Mg", n: 1 }], right: [{ sp: "Mg^2+", n: 1 }, { sp: "e-", n: 2 }] },
+  "Fe_ox":  { disp: "Fe → Fe²⁺ ＋ 2e⁻", kind: "oxidation",
+              left: [{ sp: "Fe", n: 1 }], right: [{ sp: "Fe^2+", n: 1 }, { sp: "e-", n: 2 }] },
+  "Al_ox":  { disp: "Al → Al³⁺ ＋ 3e⁻", kind: "oxidation",
+              left: [{ sp: "Al", n: 1 }], right: [{ sp: "Al^3+", n: 1 }, { sp: "e-", n: 3 }] },
 };
 
 /* 半反応式の e⁻ の数（酸化なら出す数、還元なら受け取る数） */
@@ -237,6 +347,12 @@ const OXIDATION = {
   "Ag+":   { Ag: 1 },
   "H+":    { H: 1 },
   "H2":    { H: 0 },
+  "Mg":    { Mg: 0 },
+  "Mg^2+": { Mg: 2 },
+  "Fe":    { Fe: 0 },
+  "Fe^2+": { Fe: 2 },
+  "Al":    { Al: 0 },
+  "Al^3+": { Al: 3 },
 };
 
 /* 半反応式の中で酸化数が変化する元素と前後の値を返す。
@@ -275,6 +391,11 @@ const REDOX_STAGES = [
     id: "r3", title: "ステージ3：亜鉛 × 塩酸（水素発生）",
     ox: "Zn_ox", red: "H_red", answer: [1, 1],
     intro: "亜鉛に塩酸を注ぐと H₂ の泡が出る。e⁻ を受け取るのは H⁺ が2個で1組。",
+  },
+  {
+    id: "r4", title: "ステージ4：アルミニウム × 銅(Ⅱ)イオン（2:3）",
+    ox: "Al_ox", red: "Cu_red", answer: [2, 3],
+    intro: "Al は e⁻ を3個出し、Cu²⁺ は2個ずつ受け取る。3と2の最小公倍数、e⁻ 6個でそろえよう。",
   },
 ];
 

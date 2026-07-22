@@ -31,6 +31,12 @@ const RSTYLE = {
   "H+":    { color: "#d95757", r: 14 },
   "H2":    { color: "#e4f2f7", r: 15, darkText: true },
   "e-":    { color: "#f2c14e", r: 8, darkText: true },
+  "Mg":    { color: "#9bb08f", r: 16 },
+  "Mg^2+": { color: "#7d947f", r: 16 },
+  "Fe":    { color: "#8a6d5a", r: 16 },
+  "Fe^2+": { color: "#a98467", r: 16 },
+  "Al":    { color: "#b8c4d2", r: 16, darkText: true },
+  "Al^3+": { color: "#7189a6", r: 16 },
 };
 
 let stageIdx = 0;

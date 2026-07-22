@@ -30,6 +30,9 @@ const STYLE = {
   "Cl-":    { color: "#3f9fc9", r: 17 },
   "SO4^2-": { color: "#7a68d8", r: 21 },
   "NO3-":   { color: "#4f9fae", r: 20 },
+  "K+":     { color: "#a86bc9", r: 17 },
+  "Cu^2+":  { color: "#4a90d9", r: 17 },
+  "SO3^2-": { color: "#8a5fd0", r: 20 },
   "CO3^2-": { color: "#9268c8", r: 21 },
   "H2O":    { color: "#c2e2f4", r: 15, darkText: true },
   "H2CO3":  { color: "#c9d6a3", r: 22, darkText: true },
@@ -42,6 +45,8 @@ const MOLECULE_STYLE = { color: "#8a8f98", r: 20 };
 /* 房表示の原子の元素色（全モード共通の見た目ルール）。dark はラベルを濃色にする */
 const ELEMENT_STYLE = {
   H:  { color: "#eceff1", dark: true, stroke: "#90a0ab" },
+  K:  { color: "#a86bc9" },
+  Cu: { color: "#c47a3c" },
   O:  { color: "#e06055" },
   C:  { color: "#565c64" },
   N:  { color: "#5b8def" },
@@ -60,7 +65,7 @@ function structExtent(struct) {
 }
 const CHIP_ORDER = ["H+", "OH-", "Ag+", "Ba^2+", "Na+", "Ca^2+", "Cl-", "NO3-", "SO4^2-", "CO3^2-", "H2O", "H2CO3", "CO2", "AgCl", "BaSO4"];
 /* 生成後に泡となって水面へ逃げる気体 */
-const BUBBLE_SPECIES = new Set(["CO2"]);
+const BUBBLE_SPECIES = new Set(["CO2", "SO2"]);
 
 let stageIdx = 0;
 let particles = [];
@@ -479,14 +484,20 @@ function refreshHUD() {
     counts[p.sp] = (counts[p.sp] || 0) + 1;
   }
   ionCountsEl.innerHTML = "";
-  for (const sp of CHIP_ORDER) {
-    if (!counts[sp]) continue;
+  const addChip = (sp) => {
     const chip = document.createElement("span");
     chip.className = "chip";
     const st = STYLE[sp];
-    chip.style.borderColor = st.color;
+    if (st) chip.style.borderColor = st.color;
     chip.textContent = `${SPECIES[sp].disp} ×${counts[sp]}`;
     ionCountsEl.appendChild(chip);
+  };
+  for (const sp of CHIP_ORDER) {
+    if (counts[sp]) addChip(sp);
+  }
+  // CHIP_ORDER 未登録の種も落とさず末尾に表示する（種の追加漏れ対策）
+  for (const sp of Object.keys(counts)) {
+    if (!CHIP_ORDER.includes(sp)) addChip(sp);
   }
   for (const sp of Object.keys(escaped)) {
     const chip = document.createElement("span");

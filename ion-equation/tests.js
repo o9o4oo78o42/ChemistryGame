@@ -347,6 +347,29 @@ async function runUITests(iframe) {
     assert(s.reactionDone, "反応完了にならない");
   });
 
+  await t("UI: 全ステージ総なめ - 模範比で投入→反応→係数→数合わせ→クリア", async () => {
+    for (let i = 0; i < STAGES.length; i++) {
+      const st = STAGES[i];
+      const nL = st.reactants.length;
+      stageBtn(i).click();
+      for (let j = 0; j < nL; j++) {
+        for (let k = 0; k < st.answer[j]; k++) addBtn(j).click();
+      }
+      adv(5000);
+      reactBtn().click();
+      adv(20000);
+      assert(state().reactionDone, st.id + ": 反応が完了しない");
+      st.answer.forEach((n, idx) => { for (let k = 0; k < n; k++) ups()[idx].click(); });
+      const s = state();
+      assert(s.coeffOk, st.id + ": 模範係数が正解にならない");
+      assert(s.cleared, st.id + ": クリアにならない");
+      recombineBtn().click();
+      adv(15000);
+      const r = state().recombine;
+      assert(r && r.fit, st.id + ": 数合わせが fit しない: " + JSON.stringify(r));
+    }
+  });
+
   await t("UI: ステージ6の数合わせ - H₂O と CO₂ は H₂CO₃ 経由で同数できる", async () => {
     stageBtn(5).click();
     ups()[0].click(); ups()[1].click(); ups()[1].click(); // 左辺 1,2
@@ -428,7 +451,21 @@ async function runRedoxUITests(iframe) {
     assert(s.deposited === 0 && !s.cleared, "還元まで起きてしまった");
   });
 
+  await t("REDOX: 全ステージ総なめ - 模範倍率で再生するとクリアできる", async () => {
+    for (let i = 0; i < REDOX_STAGES.length; i++) {
+      const st = REDOX_STAGES[i];
+      stageBtn(i).click();
+      for (let k = 1; k < st.answer[0]; k++) upBtns()[0].click();
+      for (let k = 1; k < st.answer[1]; k++) upBtns()[1].click();
+      playBtn().click();
+      adv(45000);
+      const s = state();
+      assert(s.cleared, st.id + ": クリアにならない: " + JSON.stringify(s));
+    }
+  });
+
   await t("REDOX: 還元の半反応を単体再生できる（e⁻ ストックから受け取る）", async () => {
+    stageBtn(0).click(); // r1（還元側が析出する Cu_red）を明示
     doc.querySelectorAll(".halfRow .solo")[1].click();
     adv(12000);
     const s = state();
