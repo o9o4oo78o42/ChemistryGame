@@ -2439,6 +2439,42 @@
         assert(hasRule, 'モバイル用のシート表示ルールが読み込まれていない');
     });
 
+    test('O2: スルホ基モジュールと、まとめON中の後追い官能基の自動カード化', async (c) => {
+        c.reset();
+        const g = c.game;
+        // スルホ基モジュール: ベンゼンに付けてベンゼンスルホン酸（S=6価）
+        g.placeModule('benzene', 420, 294, null);
+        const ring = g.userMolecule.atoms.filter(a => a.element === 'C');
+        g.placeModule('so3h', ring[0].x, ring[0].y, ring[0]);
+        assert(g.computeMolecularFormula() === 'C₆H₆O₃S',
+            `スルホ化後の分子式が${g.computeMolecularFormula()}`);
+        assert(c.D.getElementById('compound-name').textContent.includes('ベンゼンスルホン酸'),
+            'ベンゼンスルホン酸と判定されない');
+        g.userMolecule.atoms.filter(a => a.element === 'S').forEach(a =>
+            assert(c.W.isValencyValid(g.userMolecule, a.id), 'Sの価標が不正'));
+        // カード化でも SO₃H として1枚にまとまる
+        c.D.getElementById('btn-condense').click();
+        assert([...c.D.querySelectorAll('.svg-group-card text')].some(t => t.textContent === 'SO₃H'),
+            'スルホ基がカード化されない');
+        c.D.getElementById('btn-condense').click();
+
+        // まとめON中に後から官能基を足すと、自動でカード化される（一貫性）
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+        g.summonMolecule('エタノール');
+        c.D.getElementById('btn-condense').click();
+        assert(c.D.querySelectorAll('.svg-group-card').length === 0, 'エタノールにまとめ対象があってはならない');
+        const term = g.userMolecule.atoms.find(a => a.element === 'C' &&
+            g.userMolecule.getNeighbors(a.id).filter(n => n.atom.element === 'C').length === 1);
+        g.placeModule('cooh', term.x, term.y, term);
+        assert([...c.D.querySelectorAll('.svg-group-card text')].some(t => t.textContent === 'COOH'),
+            'まとめON中に追加したCOOHが自動でカード化されない');
+        c.D.getElementById('btn-condense').click();
+
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

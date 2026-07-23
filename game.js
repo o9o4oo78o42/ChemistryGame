@@ -1976,6 +1976,17 @@ class Game {
                 bonds.push({ from: 0, to: 1, type: 2 });
                 atoms.push({ element: 'O', x: nx + GRID_SIZE * Math.cos(ang - Math.PI / 2), y: ny + GRID_SIZE * Math.sin(ang - Math.PI / 2) });
                 bonds.push({ from: 0, to: 2, type: 1 });
+            } else if (moduleType === 'so3h') {
+                // スルホ基 -SO₃H は S(=O)(=O)(-OH)。硫黄は6価として扱う（開発方針5章）
+                const sx = baseAtom.x + dx, sy = baseAtom.y + dy;
+                atoms.push({ element: 'S', x: sx, y: sy });
+                bonds.push({ from: -1, to: 0, type: 1 });
+                atoms.push({ element: 'O', x: sx + GRID_SIZE * Math.cos(ang + Math.PI / 2), y: sy + GRID_SIZE * Math.sin(ang + Math.PI / 2) });
+                bonds.push({ from: 0, to: 1, type: 2 });
+                atoms.push({ element: 'O', x: sx + GRID_SIZE * Math.cos(ang - Math.PI / 2), y: sy + GRID_SIZE * Math.sin(ang - Math.PI / 2) });
+                bonds.push({ from: 0, to: 2, type: 2 });
+                atoms.push({ element: 'O', x: sx + GRID_SIZE * Math.cos(ang), y: sy + GRID_SIZE * Math.sin(ang) });
+                bonds.push({ from: 0, to: 3, type: 1 }); // -OH（Hは自動補完）
             }
             return { atoms, bonds };
         };

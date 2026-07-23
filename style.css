@@ -599,30 +599,44 @@ button:hover {
     .canvas-header { flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
     .canvas-header .view-btn, .canvas-header .danger-btn { padding: 6px 8px; font-size: 11px; }
 
-    /* 左パレット（道具）＝下部の横スクロールバー */
+    /* 左パレット（道具）＝下部の横スクロールバー。各グループのボタンは1行に並べ、
+       バー全体を横スクロールして到達する（縦に折り返して隠れないようにする） */
     #left-panel {
         order: 2;
         width: auto;
         flex: 0 0 auto;
-        max-height: 132px;
+        max-height: 104px;
         flex-direction: row;
         align-items: flex-start;
-        gap: 12px;
+        gap: 14px;
         overflow-x: auto;
         overflow-y: hidden;
         padding: 8px 10px;
         -webkit-overflow-scrolling: touch;
     }
     #left-panel > h2 { display: none; }
-    #left-panel .tool-group { min-width: max-content; gap: 4px; }
-    #left-panel .tool-group h3 { font-size: 10px; margin: 0 0 2px; white-space: nowrap; }
-    #left-panel .grid-buttons { display: flex; flex-direction: column; gap: 4px; }
+    #left-panel .tool-group { min-width: max-content; gap: 3px; }
+    #left-panel .tool-group h3 { font-size: 10px; margin: 0 0 3px; white-space: nowrap; }
+    /* 各グループのボタン列はすべて横1列（折り返さない） */
+    #left-panel .grid-buttons,
     #left-panel .atom-palette,
-    #left-panel .module-palette { display: flex; flex-wrap: wrap; gap: 4px; max-width: 210px; }
+    #left-panel .module-palette {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 5px;
+        max-width: none;
+    }
     #left-panel .tool-btn,
-    #left-panel .bond-btn { padding: 8px 10px; font-size: 11px; white-space: nowrap; min-height: 40px; }
+    #left-panel .bond-btn,
     #left-panel .atom-btn,
-    #left-panel .mod-btn { padding: 8px 8px; font-size: 11px; min-height: 40px; }
+    #left-panel .mod-btn {
+        padding: 8px 10px;
+        font-size: 11px;
+        white-space: nowrap;
+        min-height: 42px;
+        flex: 0 0 auto;
+    }
 
     /* 右パネル（お題・設定・反応など）＝下からせり上がるシート */
     #right-panel {
