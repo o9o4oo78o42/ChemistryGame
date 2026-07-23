@@ -35,6 +35,13 @@
     padding: 0;
 }
 
+/* モバイルブラウザの自動文字拡大（font boosting / 横向き時の拡大）を無効化。
+   指定サイズどおりに描画させる（P11 M2） */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 body {
     background-color: var(--bg-main);
     color: var(--text-primary);
@@ -572,10 +579,11 @@ button:hover {
     cursor: default;
 }
 
-/* ===== スマホ対応（P11 M1）: 縦=キャンバス最大化＋下ツールバー＋右パネルは下シート ===== */
+/* ===== スマホ対応（P11）: 899px以下は向き別レイアウト（M1=縦 / M2=横） ===== */
 /* デフォルトではモバイル専用要素を隠す（PC非干渉） */
 .mobile-only { display: none; }
 
+/* --- 縦横共通 --- */
 @media (max-width: 899px) {
     /* モバイル専用要素を表示 */
     .mobile-only { display: block; }
@@ -588,71 +596,26 @@ button:hover {
     /* 動的ビューポート高さでアドレスバー増減に追従 */
     #app-container { height: 100dvh; }
     main {
-        flex-direction: column;
         height: calc(100dvh - 44px);
         padding: 6px;
         gap: 6px;
     }
 
-    /* キャンバスを最大化（上・可変） */
-    #canvas-container { order: 1; flex: 1 1 auto; min-height: 0; }
+    /* キャンバスを最大化（残り領域をすべて使う） */
+    #canvas-container { flex: 1 1 auto; min-width: 0; min-height: 0; }
     .canvas-header { flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
     .canvas-header .view-btn, .canvas-header .danger-btn { padding: 6px 8px; font-size: 11px; }
 
-    /* 左パレット（道具）＝下部の横スクロールバー。各グループのボタンは1行に並べ、
-       バー全体を横スクロールして到達する（縦に折り返して隠れないようにする） */
-    #left-panel {
-        order: 2;
-        width: auto;
-        flex: 0 0 auto;
-        max-height: 104px;
-        flex-direction: row;
-        align-items: flex-start;
-        gap: 14px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: 8px 10px;
-        -webkit-overflow-scrolling: touch;
-    }
     #left-panel > h2 { display: none; }
-    #left-panel .tool-group { min-width: max-content; gap: 3px; }
     #left-panel .tool-group h3 { font-size: 10px; margin: 0 0 3px; white-space: nowrap; }
-    /* 各グループのボタン列はすべて横1列（折り返さない） */
-    #left-panel .grid-buttons,
-    #left-panel .atom-palette,
-    #left-panel .module-palette {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        gap: 5px;
-        max-width: none;
-    }
-    #left-panel .tool-btn,
-    #left-panel .bond-btn,
-    #left-panel .atom-btn,
-    #left-panel .mod-btn {
-        padding: 8px 10px;
-        font-size: 11px;
-        white-space: nowrap;
-        min-height: 42px;
-        flex: 0 0 auto;
-    }
 
-    /* 右パネル（お題・設定・反応など）＝下からせり上がるシート */
+    /* 右パネルはドロワー/シート化（スライド方向・位置は向き別ブロックで指定） */
     #right-panel {
         position: fixed;
-        left: 0; right: 0; bottom: 0;
-        width: auto;
-        max-height: 82dvh;
         overflow-y: auto;
-        transform: translateY(105%);
         transition: transform 0.25s ease;
         z-index: 600;
-        border-radius: 16px 16px 0 0;
-        padding: 14px 16px 24px;
-        gap: 12px;
     }
-    body.sheet-open #right-panel { transform: translateY(0); }
 
     #sheet-backdrop {
         position: fixed; inset: 0;
@@ -663,10 +626,10 @@ button:hover {
     }
     body.sheet-open #sheet-backdrop { opacity: 1; pointer-events: auto; }
 
-    /* シートを開くトグル（キャンバス右下に浮かせる） */
+    /* シートを開くトグル（浮動ボタン。縦では下ツールバーの上へ持ち上げる） */
     #mobile-sheet-toggle {
         position: fixed;
-        right: 12px; bottom: 148px;
+        right: 12px; bottom: 12px;
         z-index: 500;
         padding: 10px 14px;
         font-size: 13px;
@@ -692,4 +655,123 @@ button:hover {
 
     /* モーダルが小画面で溢れないように */
     .modal-content { max-height: 90dvh; overflow-y: auto; max-width: 94vw; }
+}
+
+/* --- モバイル縦（M1）: キャンバス上・下ツールバー・右パネルは下シート --- */
+@media (max-width: 899px) and (orientation: portrait) {
+    main { flex-direction: column; }
+    #canvas-container { order: 1; }
+
+    /* 左パレット（道具）＝下部の横スクロールバー。各グループのボタンは1行に並べ、
+       バー全体を横スクロールして到達する（縦に折り返して隠れないようにする） */
+    #left-panel {
+        order: 2;
+        width: auto;
+        flex: 0 0 auto;
+        max-height: 104px;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 14px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 8px 10px;
+        -webkit-overflow-scrolling: touch;
+    }
+    #left-panel .tool-group { min-width: max-content; gap: 3px; }
+    /* 各グループのボタン列はすべて横1列（折り返さない） */
+    #left-panel .grid-buttons,
+    #left-panel .atom-palette,
+    #left-panel .module-palette {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 5px;
+        max-width: none;
+    }
+    #left-panel .tool-btn,
+    #left-panel .bond-btn,
+    #left-panel .atom-btn,
+    #left-panel .mod-btn {
+        padding: 8px 10px;
+        font-size: 11px;
+        white-space: nowrap;
+        min-height: 42px;
+        flex: 0 0 auto;
+    }
+
+    /* 右パネル（お題・設定・反応など）＝下からせり上がるシート */
+    #right-panel {
+        left: 0; right: 0; bottom: 0;
+        width: auto;
+        max-height: 82dvh;
+        transform: translateY(105%);
+        border-radius: 16px 16px 0 0;
+        padding: 14px 16px 24px;
+        gap: 12px;
+    }
+    body.sheet-open #right-panel { transform: translateY(0); }
+
+    /* トグルは下ツールバーの上に浮かせる */
+    #mobile-sheet-toggle { bottom: 148px; }
+}
+
+/* --- モバイル横（M2）: 圧縮3カラム（細い左ツール列・キャンバス中央・右パネルは右ドロワー） --- */
+@media (max-width: 899px) and (orientation: landscape) {
+    main { flex-direction: row; }
+
+    /* 左パレット＝細い縦列（縦スクロール）。ボタンはコンパクト表示 */
+    #left-panel {
+        width: 148px;
+        flex: 0 0 auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 10px 8px;
+        gap: 10px;
+        -webkit-overflow-scrolling: touch;
+    }
+    #left-panel .tool-group { gap: 3px; }
+    #left-panel .grid-buttons,
+    #left-panel .module-palette {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    #left-panel .tool-btn,
+    #left-panel .bond-btn,
+    #left-panel .mod-btn {
+        padding: 7px 8px;
+        font-size: 10.5px;
+        min-height: 38px;
+        white-space: normal;
+        line-height: 1.25;
+        text-align: left;
+    }
+    /* 原子ボタンは記号の丸だけを3列表示（和名ラベルは font-size:0 で隠し、丸内の記号だけ戻す） */
+    #left-panel .atom-palette {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    #left-panel .atom-btn {
+        font-size: 0;
+        gap: 0;
+        padding: 5px;
+        min-height: 38px;
+        min-width: 40px;
+        justify-content: center;
+        flex: 0 0 auto;
+    }
+    #left-panel .atom-btn span { font-size: 14px; width: 26px; height: 26px; }
+
+    /* 右パネル＝右からスライドするドロワー */
+    #right-panel {
+        top: 44px; right: 0; bottom: 0; left: auto;
+        width: min(320px, 62vw);
+        max-height: none;
+        transform: translateX(105%);
+        border-radius: 12px 0 0 12px;
+        padding: 12px 14px 20px;
+        gap: 10px;
+    }
+    body.sheet-open #right-panel { transform: translateX(0); }
 }

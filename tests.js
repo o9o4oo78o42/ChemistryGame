@@ -2439,6 +2439,36 @@
         assert(hasRule, 'モバイル用のシート表示ルールが読み込まれていない');
     });
 
+    test('R2: モバイル横レイアウトのCSSルール（P11 M2・向き別メディアクエリ）', async (c) => {
+        const D = c.D;
+        // 縦（portrait）と横（landscape）のブロックがそれぞれ存在し、
+        // 右パネルの開閉ルール（縦=translateY / 横=translateX）が定義されている。
+        // iframe のビューポートに依存しない CSSOM 検査。
+        let portraitSheet = false, landscapeDrawer = false, landscapeLeftCol = false;
+        for (const sheet of D.styleSheets) {
+            let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
+            for (const r of rules) {
+                if (r.type !== 4 /* MEDIA_RULE */) continue;
+                const cond = r.conditionText || '';
+                if (!/max-width:\s*899px/.test(cond)) continue;
+                const isPortrait = /orientation:\s*portrait/.test(cond);
+                const isLandscape = /orientation:\s*landscape/.test(cond);
+                for (const rr of r.cssRules) {
+                    if (rr.selectorText === 'body.sheet-open #right-panel') {
+                        if (isPortrait && /translateY\(0/.test(rr.style.transform)) portraitSheet = true;
+                        if (isLandscape && /translateX\(0/.test(rr.style.transform)) landscapeDrawer = true;
+                    }
+                    if (isLandscape && rr.selectorText === '#left-panel' && rr.style.width) {
+                        landscapeLeftCol = true;
+                    }
+                }
+            }
+        }
+        assert(portraitSheet, '縦向きの下シート表示ルールがない');
+        assert(landscapeDrawer, '横向きの右ドロワー表示ルールがない');
+        assert(landscapeLeftCol, '横向きの左ツール列（幅指定）ルールがない');
+    });
+
     test('O2: スルホ基モジュールと、まとめON中の後追い官能基の自動カード化', async (c) => {
         c.reset();
         const g = c.game;
