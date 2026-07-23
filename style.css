@@ -778,19 +778,23 @@ button:hover {
         width: auto;
         height: auto;
         flex-direction: column;
+        flex-wrap: nowrap; /* 共通ブロックのwrapを打ち消す。高さ不足で2列目ができないよう1列固定 */
         align-items: stretch;
         justify-content: flex-start; /* 基本CSSのspace-betweenで縦に散らばるのを防ぐ */
-        gap: 6px;
+        gap: 4px;
         padding: 0;
         background: transparent;
         border-bottom: none;
-        overflow-y: auto; /* レーンが足りない極端に低い画面ではリボン側をスクロール */
+        overflow-y: auto; /* レーンが足りない低い画面ではリボン側をスクロール（1列のまま） */
         pointer-events: none; /* 隙間はキャンバス操作を透過。ボタンだけ受ける */
         z-index: 300;
     }
     .canvas-header > * { pointer-events: auto; }
+    /* スリム表示（実機の縦不足対応。44px基準より操作頻度を優先して圧縮） */
     .canvas-header .view-btn, .canvas-header .danger-btn {
         width: 108px;
+        min-height: 34px;
+        padding: 5px 8px;
         background: rgba(10, 14, 20, 0.62);
         white-space: normal;
         word-break: keep-all; /* 折返しは <wbr> の位置のみ（「官能基を/まとめる」で固定） */
@@ -805,7 +809,8 @@ button:hover {
     #mobile-sheet-toggle {
         right: 10px; bottom: 8px;
         width: 108px;
-        padding: 10px 8px;
+        min-height: 38px;
+        padding: 8px;
         font-size: 12px;
         border-radius: 10px;
         white-space: nowrap;
