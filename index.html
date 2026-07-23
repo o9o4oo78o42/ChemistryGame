@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=128">
+    <link rel="stylesheet" href="style.css?v=130">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -26,7 +26,7 @@
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
             <button id="btn-help" class="view-btn" style="margin-left:auto; margin-right:10px; font-size:12px; padding:5px 12px;" title="操作ガイド（デモ再生）">❓ ヘルプ</button>
-            <div class="version">v128</div>
+            <div class="version">v130</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -40,6 +40,7 @@
                         <button id="btn-tool-select" class="tool-btn active" data-tool="select" data-tutorial="place-atom">Select / Move</button>
                         <button id="btn-tool-bond" class="tool-btn" data-tool="bond">Draw Bond (結合)</button>
                         <button id="btn-tool-erase" class="tool-btn" data-tool="erase" data-tutorial="bond-edit">Eraser (消しゴム)</button>
+                        <button id="btn-asym-mark" class="tool-btn" title="ONにして不斉炭素（C）をクリックすると * を付けます">✳ 不斉炭素マーク</button>
                     </div>
                 </div>
 
@@ -150,12 +151,17 @@
                     <div class="action-box" style="display:flex; flex-direction:column; gap:10px;">
                         <button id="btn-verify" class="primary-btn">構造判定 (Submit)</button>
                         <button id="btn-show-target" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); text-shadow:0 0 5px var(--color-cyan); cursor:pointer;">お手本を見る</button>
-                        <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; margin-top:6px; padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
-                            <span style="font-size:0.9rem; color:#fff;">不斉炭素マークモード</span>
-                            <label class="switch" style="position:relative; display:inline-block; width:50px; height:24px;">
-                                <input type="checkbox" id="check-asymmetric-mode" style="opacity:0; width:0; height:0;">
-                                <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:34px;"></span>
-                            </label>
+                        <!-- 判定オプション（P10 M2） -->
+                        <div style="margin-top:6px; padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
+                            <div style="font-size:11px; color:var(--text-secondary); margin-bottom:6px;">判定オプション</div>
+                            <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between;">
+                                <span style="font-size:0.88rem; color:#fff;">不斉炭素（*）の指定も判定する</span>
+                                <label class="switch" style="position:relative; display:inline-block; width:50px; height:24px; flex-shrink:0;">
+                                    <input type="checkbox" id="check-judge-asymmetric" style="opacity:0; width:0; height:0;">
+                                    <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:34px;"></span>
+                                </label>
+                            </div>
+                            <div style="font-size:10.5px; color:var(--text-muted); margin-top:5px; line-height:1.5;">左の「✳不斉炭素マーク」で炭素に * を付けてから使います。</div>
                         </div>
                     </div>
                 </div>
@@ -383,13 +389,13 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=128"></script>
-    <script src="game.js?v=128"></script>
-    <script src="reaction.js?v=128"></script>
-    <script src="quiz.js?v=128"></script>
-    <script src="stereo.js?v=128"></script>
-    <script src="reactor.js?v=128"></script>
-    <script src="learn.js?v=128"></script>
-    <script src="tutorial.js?v=128"></script>
+    <script src="chemistry.js?v=130"></script>
+    <script src="game.js?v=130"></script>
+    <script src="reaction.js?v=130"></script>
+    <script src="quiz.js?v=130"></script>
+    <script src="stereo.js?v=130"></script>
+    <script src="reactor.js?v=130"></script>
+    <script src="learn.js?v=130"></script>
+    <script src="tutorial.js?v=130"></script>
 </body>
 </html>

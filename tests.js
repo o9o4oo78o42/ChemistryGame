@@ -39,10 +39,12 @@
         const reset = () => {
             const g = W.game;
             if (W.reactionPlayer && W.reactionPlayer.active) W.reactionPlayer.exit();
+            if (g.setMode) g.setMode('puzzle');
             g.loadStage(0);
             g.selectedTool = 'select';
             g.selectedAtomType = 'C';
             g.asymmetricMode = false;
+            g.judgeAsymmetric = false;
             g.userMolecule = new W.Molecule();
             g.updateDrawing();
             D.getElementById('verify-result').classList.add('hidden');
@@ -1010,14 +1012,14 @@
         c.game.loadStage(idx);
         c.game.userMolecule = c.game.createTargetFromData(c.W.STAGES[idx]);
         c.game.updateDrawing();
-        c.game.asymmetricMode = true; // 不斉炭素があるのにマーク無しのまま判定
+        c.game.judgeAsymmetric = true; // 判定オプションON。不斉炭素があるのにマーク無しのまま判定（P10 M2）
         c.game.verifyCurrentStructure();
         await c.tick(1100);
         const txt = c.D.getElementById('verify-result').textContent;
         assert(txt.includes('ハイライト'), 'ハイライト案内が表示されない');
         assert(!txt.includes('X:'), '座標文字列が残っている');
         assert(c.D.querySelectorAll('#ui-group circle').length >= 1, 'ハイライト円が描画されない');
-        c.game.asymmetricMode = false;
+        c.game.judgeAsymmetric = false;
         c.game.clearUIOverlay();
         c.game.loadStage(0);
     });
@@ -2237,23 +2239,21 @@
         g.updateDrawing();
         assert(!g.getFunctionalGroupPlan('oh', c2).valid, '完全に塞がれても置けてしまう');
 
-        // (3) 官能基モジュールと不斉モードは排他（どちらを選んでも他方が解除される）
+        // (3) 官能基モジュールと不斉マーク編集モードは排他（左パレットのボタンで切替。P10 M2）
         c.reset();
-        const asymCheck = c.D.getElementById('check-asymmetric-mode');
-        asymCheck.checked = true;
-        asymCheck.dispatchEvent(new c.W.Event('change', { bubbles: true }));
-        assert(g.asymmetricMode, '不斉モードがONにならない');
+        const markBtn = c.D.getElementById('btn-asym-mark');
+        markBtn.click();
+        assert(g.asymmetricMode && markBtn.classList.contains('active'), '不斉マーク編集がONにならない');
         c.D.querySelector('.mod-btn[data-module="cooh"]').click();
         assert(g.selectedModule === 'cooh', 'モジュールが選択されない');
-        assert(!g.asymmetricMode && !asymCheck.checked, 'モジュール選択で不斉モードが解除されない');
+        assert(!g.asymmetricMode && !markBtn.classList.contains('active'), 'モジュール選択で不斉マーク編集が解除されない');
         // 逆方向
         c.D.querySelector('.mod-btn[data-module="oh"]').click();
         assert(g.selectedModule === 'oh', 'モジュール（oh）が選択されない');
-        asymCheck.checked = true;
-        asymCheck.dispatchEvent(new c.W.Event('change', { bubbles: true }));
-        assert(g.asymmetricMode && g.selectedModule === null, '不斉モードONでモジュールが解除されない');
+        markBtn.click();
+        assert(g.asymmetricMode && g.selectedModule === null, '不斉マーク編集ONでモジュールが解除されない');
 
-        // (4) 不斉モード中のホバーでプレビューリングが出る
+        // (4) 不斉マーク編集モード中のホバーでプレビューリングが出る
         g.userMolecule = new c.W.Molecule();
         g.updateDrawing();
         g.summonMolecule('2-ブタノール');
@@ -2264,8 +2264,7 @@
         assert([...c.D.querySelectorAll('#ui-group text')].some(t => t.textContent === '*'),
             '不斉プレビューの * が出ない');
 
-        asymCheck.checked = false;
-        asymCheck.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        if (g.asymmetricMode) markBtn.click();
         g.userMolecule = new c.W.Molecule();
         g.updateDrawing();
     });
@@ -2299,6 +2298,54 @@
 
         g.userMolecule = new c.W.Molecule();
         g.updateDrawing();
+    });
+
+    test('P3: 不斉マーク編集（左パレット）と判定オプション（右）の分離', async (c) => {
+        c.reset();
+        const g = c.game;
+        const markBtn = c.D.getElementById('btn-asym-mark');
+        const judgeSwitch = c.D.getElementById('check-judge-asymmetric');
+        assert(markBtn, '左パレットに不斉マークボタンがない');
+        assert(judgeSwitch, 'パズルに不斉判定スイッチがない');
+
+        // マークボタンは編集モード（asymmetricMode）だけを操作し、判定オプションは変えない
+        markBtn.click();
+        assert(g.asymmetricMode === true && g.judgeAsymmetric === false,
+            'マークボタンが判定オプションまで変えている');
+        // マーク編集モード中は通常ツールが非アクティブ（排他）
+        assert(!c.D.getElementById('btn-tool-select').classList.contains('active'),
+            'マーク編集中もSelectツールがアクティブ');
+        // 通常ツールを選ぶとマーク編集は解除
+        c.D.getElementById('btn-tool-select').click();
+        assert(g.asymmetricMode === false && !markBtn.classList.contains('active'),
+            'ツール選択でマーク編集が解除されない');
+
+        // 判定スイッチは判定だけを制御（編集モードは変えない）
+        judgeSwitch.checked = true;
+        judgeSwitch.dispatchEvent(new c.W.Event('change', { bubbles: true }));
+        assert(g.judgeAsymmetric === true && g.asymmetricMode === false,
+            '判定スイッチが編集モードまで変えている');
+
+        // 判定オプションONで、正しくマークしたアラニンが不斉込みで正解になる
+        const idx = c.W.STAGES.findIndex(s => s.name === 'アラニン');
+        if (idx >= 0) {
+            c.game.loadStage(idx);
+            const ala = c.game.createTargetFromData(c.W.STAGES[idx]);
+            // 実際の不斉炭素に正しくマークを付ける
+            ala.atoms.forEach(a => {
+                if (a.element === 'C') a.isAsymmetricMarked = ala.isAsymmetricCarbon(a.id);
+            });
+            c.game.userMolecule = ala;
+            c.game.judgeAsymmetric = true;
+            c.game.updateDrawing();
+            c.game.verifyCurrentStructure();
+            await c.tick(1100);
+            const txt = c.D.getElementById('verify-result').textContent;
+            assert(txt.includes('不斉炭素') && txt.includes('正解'),
+                `不斉込み判定の成功メッセージが出ない（「${txt}」）`);
+        }
+        c.game.judgeAsymmetric = false;
+        c.game.loadStage(0);
     });
 
     // ===== Q. モード切替（P10 M1） =====

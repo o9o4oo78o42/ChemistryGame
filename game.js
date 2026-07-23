@@ -15,7 +15,8 @@ class Game {
         this.selectedBondType = 1;     // 1, 2, 3
         this.selectedAtomType = 'C';   // 'C', 'O', 'N', 'Cl'
         this.selectedModule = null;    // 'benzene', 'oh', 'cooh', 'nh2'
-        this.asymmetricMode = false;   // 不斉炭素マークモードが ON かどうか
+        this.asymmetricMode = false;   // 不斉炭素マークの編集モード（左パレットのボタン。P10 M2）
+        this.judgeAsymmetric = false;  // 構造判定で不斉炭素マークも採点するか（パズルの判定オプション。P10 M2）
         this.condensedMode = false;    // 官能基の縮約表示（P9-2）が ON かどうか（表示のみ）
         
         // ドラッグ状態
@@ -69,7 +70,7 @@ class Game {
         this.btnShowTarget = document.getElementById('btn-show-target');
         this.btnCloseTarget = document.getElementById('btn-close-target');
         this.targetModal = document.getElementById('target-modal');
-        this.checkAsymmetricMode = document.getElementById('check-asymmetric-mode');
+        this.checkJudgeAsymmetric = document.getElementById('check-judge-asymmetric');
         this.targetBonds = document.getElementById('target-bonds');
         this.targetAtoms = document.getElementById('target-atoms');
         this.winMolDetails = document.getElementById('win-mol-details');
@@ -263,14 +264,18 @@ class Game {
         window.addEventListener('pointercancel', onPointerEnd);
         this.svg.addEventListener('pointerleave', () => this.clearUIOverlay());
 
-        // ツール切替
-        document.querySelectorAll('.tool-btn').forEach(btn => {
+        // ツール切替（data-tool を持つ Select/Bond/Erase のみ。btn-asym-mark は別扱い）
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 this.selectedTool = btn.dataset.tool;
                 this.selectedModule = null; // モジュール選択を解除
                 document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
+                // 不斉マーク編集モードを解除（通常ツールとは排他）
+                this.asymmetricMode = false;
+                const bam = document.getElementById('btn-asym-mark');
+                if (bam) bam.classList.remove('active');
             });
         });
 
@@ -316,7 +321,8 @@ class Game {
                     // クリックが不斉マークに奪われてモジュールが置けなくなるため）
                     if (this.asymmetricMode) {
                         this.asymmetricMode = false;
-                        if (this.checkAsymmetricMode) this.checkAsymmetricMode.checked = false;
+                        const bam = document.getElementById('btn-asym-mark');
+                        if (bam) bam.classList.remove('active');
                         this.updateDrawing();
                     }
                 } else {
@@ -403,17 +409,33 @@ class Game {
             this.loadStage(nextIdx);
         });
 
-        // 不斉炭素マークモードのON/OFF切り替え
-        this.checkAsymmetricMode.addEventListener('change', (e) => {
-            this.asymmetricMode = e.target.checked;
-            if (this.asymmetricMode && this.selectedModule) {
-                // モジュール選択を解除する（官能基配置と不斉マークの競合を防ぐ）
-                this.selectedModule = null;
-                document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
-            }
-            this.clearUIOverlay();
-            this.updateDrawing();
-        });
+        // 判定オプション: 不斉炭素マークも採点するか（パズル。P10 M2）
+        if (this.checkJudgeAsymmetric) {
+            this.checkJudgeAsymmetric.addEventListener('change', (e) => {
+                this.judgeAsymmetric = e.target.checked;
+            });
+        }
+
+        // 不斉炭素マークの編集モード（左パレットのトグルボタン。P10 M2）
+        const btnAsymMark = document.getElementById('btn-asym-mark');
+        if (btnAsymMark) {
+            btnAsymMark.addEventListener('click', () => {
+                this.asymmetricMode = !this.asymmetricMode;
+                btnAsymMark.classList.toggle('active', this.asymmetricMode);
+                if (this.asymmetricMode) {
+                    // 通常ツール・モジュール選択を解除する（マーク編集は排他モード）
+                    this.selectedModule = null;
+                    document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+                } else {
+                    // 解除時は選択ツールに戻す
+                    document.getElementById('btn-tool-select').classList.add('active');
+                    this.selectedTool = 'select';
+                }
+                this.clearUIOverlay();
+                this.updateDrawing();
+            });
+        }
 
         // お手本モーダルの表示
         this.btnShowTarget.addEventListener('click', () => {
@@ -545,11 +567,10 @@ class Game {
             }
         }
         
-        // 不斉炭素モードを解除し、チェックボックスをOFFに初期化
+        // ステージ切替時は不斉マーク編集モードを解除（判定オプションは維持）
         this.asymmetricMode = false;
-        if (this.checkAsymmetricMode) {
-            this.checkAsymmetricMode.checked = false;
-        }
+        const bam = document.getElementById('btn-asym-mark');
+        if (bam) bam.classList.remove('active');
 
         const stage = STAGES[index];
         this.targetName.textContent = stage.name;
@@ -2704,8 +2725,8 @@ class Game {
                 return;
             }
 
-            // 2. 不斉炭素マークモード (ON) 時の不斉炭素マーク判定
-            if (this.asymmetricMode) {
+            // 2. 判定オプション「不斉炭素も判定する」がON時の不斉炭素マーク判定（P10 M2）
+            if (this.judgeAsymmetric) {
                 // ユーザーの全炭素(C)について、本当に不斉炭素であるかとマーク状態が一致しているか走査
                 const carbonAtoms = this.userMolecule.atoms.filter(a => a.element === 'C');
                 
@@ -2725,7 +2746,7 @@ class Game {
 
             // 3. すべて合格！（メッセージは実際に検証した内容だけを述べる: 開発方針 5章）
             this.verifyResult.className = "result-message success";
-            this.verifyResult.textContent = this.asymmetricMode
+            this.verifyResult.textContent = this.judgeAsymmetric
                 ? "正解です！構造および不斉炭素の位置が完全に一致しました！"
                 : "正解です！分子構造が完全に一致しました！";
             
