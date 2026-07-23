@@ -220,28 +220,28 @@ class Game {
                 this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
             }
 
-            // 2本指ピンチズーム
+            // 2本指ジェスチャ: ピンチズーム＋ドラッグでパン（P11-M2d）
+            // 開始時に中点の下にあった論理座標(anchor)を常に現在の中点の真下に保つ。
+            // 指の間隔の変化=ズーム、中点の移動=パン として同時に効く
             if (this.pinch && this.activePointers.size >= 2) {
                 e.preventDefault();
                 const pts = [...this.activePointers.values()];
                 const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-                if (this.pinch.startDist > 0 && dist > 0) {
+                if (this.pinch.startDist > 0 && dist > 0 && this.pinch.anchor) {
                     const ratio = this.pinch.startDist / dist;
                     const viewBox = this.svg.viewBox.baseVal;
-                    // ピンチ中心の論理座標を軸にviewBoxを拡縮する
-                    const p = this.clientToSvg((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
-                    if (!p) return;
 
                     const newWidth = this.pinch.startWidth * ratio;
                     const newHeight = this.pinch.startHeight * ratio;
                     if (newWidth < 150 || newWidth > 5000) return;
-
-                    const scaleX = newWidth / viewBox.width;
-                    const scaleY = newHeight / viewBox.height;
-                    viewBox.x = p.x - (p.x - viewBox.x) * scaleX;
-                    viewBox.y = p.y - (p.y - viewBox.y) * scaleY;
                     viewBox.width = newWidth;
                     viewBox.height = newHeight;
+
+                    // 新しい倍率のCTMで現在の中点の論理座標を取り、anchorとのずれ分だけ平行移動
+                    const p = this.clientToSvg((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+                    if (!p) return;
+                    viewBox.x += this.pinch.anchor.x - p.x;
+                    viewBox.y += this.pinch.anchor.y - p.y;
                 }
                 return;
             }
@@ -937,7 +937,10 @@ class Game {
             this.pinch = {
                 startDist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
                 startWidth: viewBox.width,
-                startHeight: viewBox.height
+                startHeight: viewBox.height,
+                // 開始時に2本指の中点の下にあった論理座標。移動中はこの点を常に
+                // 中点の真下に保つことで、ズームと同時に2本指ドラッグのパンが効く
+                anchor: this.clientToSvg((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2)
             };
             this.isDragging = false;
             this.draggedAtom = null;

@@ -1185,6 +1185,40 @@
 
     // ===== J. 環モジュールの縮合スナップ（P7-8） =====
 
+    test('I2: 2本指ドラッグでキャンバスをパン（ピンチズームと同時併用。P11-M2d）', async (c) => {
+        c.reset();
+        const tpe = (type, cl, id) => new c.W.PointerEvent(type, {
+            bubbles: true, cancelable: true, pointerId: id, pointerType: 'touch',
+            isPrimary: id === 10, button: type === 'pointermove' ? -1 : 0,
+            clientX: cl.clientX, clientY: cl.clientY
+        });
+        const vb = c.svg.viewBox.baseVal;
+        const x0 = vb.x, y0 = vb.y, w0 = vb.width;
+
+        // 2本指を置き、間隔を保ったまま両指を右下へ動かす → 純パン（倍率は不変）
+        const p1 = c.toClient(358, 300), p2 = c.toClient(442, 300);
+        c.svg.dispatchEvent(tpe('pointerdown', p1, 10));
+        c.svg.dispatchEvent(tpe('pointerdown', p2, 11));
+        const shift = cl => ({ clientX: cl.clientX + 50, clientY: cl.clientY + 30 });
+        c.svg.dispatchEvent(tpe('pointermove', shift(p1), 10));
+        c.svg.dispatchEvent(tpe('pointermove', shift(p2), 11));
+        assert(Math.abs(vb.width - w0) < 1, `平行移動で倍率が変わった（${w0}→${vb.width}）`);
+        assert(vb.x < x0 - 1 && vb.y < y0 - 1,
+            `右下への2本指ドラッグでviewBoxが左上へ動かない（x:${x0}→${vb.x}, y:${y0}→${vb.y}）`);
+
+        // 続けて間隔を広げる → パン位置を保ったままズームイン（幅が縮む）
+        const s1 = { clientX: p1.clientX + 50 - 40, clientY: p1.clientY + 30 };
+        const s2 = { clientX: p2.clientX + 50 + 40, clientY: p2.clientY + 30 };
+        c.svg.dispatchEvent(tpe('pointermove', s1, 10));
+        c.svg.dispatchEvent(tpe('pointermove', s2, 11));
+        assert(vb.width < w0 - 1, 'ピンチアウトでズームインしない');
+
+        c.W.dispatchEvent(tpe('pointerup', s1, 10));
+        c.W.dispatchEvent(tpe('pointerup', s2, 11));
+        assert(c.game.userMolecule.atoms.length === 0, 'パン操作で原子が置かれた');
+        c.D.getElementById('btn-reset-view').click(); // 後続テストのため視野を戻す
+    });
+
     test('J1: 縮合スナップでナフタレン・デカリン、重なりは拒否', async (c) => {
         c.reset();
         const g = c.game;
