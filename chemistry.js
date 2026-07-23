@@ -207,11 +207,15 @@ class Molecule {
                 // 残りのHは結合の反対側（180°）に配置する（手書きの H–C≡C–H と同じ描き方。開発方針1.1章）
                 hAngles.push(bondedAngles[0] + Math.PI);
             } else if (hasDoubleBond) {
-                // 二重結合（C=C）の端にある炭素は、化学的に正しい120度（平面三角形型）で水素を配置
+                // 二重結合（C=C）の端にある原子は、化学的に正しい120度（平面三角形型）で水素を配置。
+                // 配置数は空き結合手の数まで（C=C端の炭素は2個だが、C=N端の窒素は1個。
+                // 固定で2個描くとイミンの N が NH₂ のまま表示される不具合があった）
                 if (neighbors.length === 1) {
                     const baseAngle = bondedAngles[0];
-                    hAngles.push(baseAngle + (2 * Math.PI) / 3);
-                    hAngles.push(baseAngle - (2 * Math.PI) / 3);
+                    const cands = [baseAngle + (2 * Math.PI) / 3, baseAngle - (2 * Math.PI) / 3];
+                    for (let i = 0; i < Math.min(freeVal, cands.length); i++) {
+                        hAngles.push(cands[i]);
+                    }
                 } else if (neighbors.length === 2 && freeVal === 1) {
                     // 二重結合と単結合が1つずつある場合、残りの1つのHは空き方向に伸ばす
                     let diff = bondedAngles[1] - bondedAngles[0];

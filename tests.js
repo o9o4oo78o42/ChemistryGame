@@ -213,6 +213,36 @@
         assert(h1 && h1.x < c1.x && Math.abs(h1.y - 300) < 1, 'プロピン末端CのHが直線上にない');
     });
 
+    test('B8: 二重結合の端の自動Hは空き結合手の数まで（イミンのNがNH₂表示になる不具合）', async (c) => {
+        // CH₂=NH（メタンイミン）: C-N を二重結合にしたとき、N のHは1個（2026-07-24 ユーザー報告）
+        const m = new c.W.Molecule();
+        const cAtom = m.addAtom('C', 400, 300);
+        const nAtom = m.addAtom('N', 442, 300);
+        m.addBond(cAtom.id, nAtom.id, 2);
+        const hs = m.calculateHydrogens();
+        const cH = hs.filter(h => h.parentId === cAtom.id).length;
+        const nH = hs.filter(h => h.parentId === nAtom.id).length;
+        assert(cH === 2, `C=N端のCのH数が ${cH}（2を期待）`);
+        assert(nH === 1, `C=N端のNのH数が ${nH}（1を期待。NH₂表示の再発）`);
+        // 描画のH数と分子式のH数が一致する（CH₃N）
+        assert(cH + nH === 3, `描画H合計 ${cH + nH} が分子式CH₃Nと不一致`);
+
+        // 回帰確認: C=C 端の炭素は従来どおり2個（エテンのH合計4）
+        const e = new c.W.Molecule();
+        const e1 = e.addAtom('C', 400, 300);
+        const e2 = e.addAtom('C', 442, 300);
+        e.addBond(e1.id, e2.id, 2);
+        assert(e.calculateHydrogens().length === 4, 'エテンの自動Hが4個でない');
+
+        // ケトンの O（空き手0）にHが付かないことも確認（C=O）
+        const k = new c.W.Molecule();
+        const k1 = k.addAtom('C', 400, 300);
+        const k2 = k.addAtom('O', 442, 300);
+        k.addBond(k1.id, k2.id, 2);
+        assert(k.calculateHydrogens().filter(h => h.parentId === k2.id).length === 0,
+            'C=OのOにHが付いている');
+    });
+
     // ===== C. 編集操作 =====
 
     test('C1: プレビュー＝実結合（2原子隣接の交点で2本）', async (c) => {
