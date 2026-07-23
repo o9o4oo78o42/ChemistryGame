@@ -110,6 +110,36 @@ main {
     overflow-y: auto;
 }
 
+/* モード切替タブ（P10 M1） */
+#mode-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+.mode-tab {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.mode-tab:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: #fff;
+}
+.mode-tab.active {
+    color: #061018;
+    background: var(--color-cyan, #00f2fe);
+    border-color: var(--color-cyan, #00f2fe);
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+}
+
 #canvas-container {
     flex: 1;
     display: flex;

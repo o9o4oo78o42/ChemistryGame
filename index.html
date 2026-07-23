@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chem-Assembler | 有機化学構造パズル</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=127">
+    <link rel="stylesheet" href="style.css?v=128">
     <script>
         // 予期しないJSエラーはUIをブロックするalertではなく、画面内トーストとconsoleに出す（開発方針 3.4章）
         window.onerror = function(message, source, lineno, colno, error) {
@@ -26,7 +26,7 @@
         <header>
             <div class="logo">CHEM-ASSEMBLER</div>
             <button id="btn-help" class="view-btn" style="margin-left:auto; margin-right:10px; font-size:12px; padding:5px 12px;" title="操作ガイド（デモ再生）">❓ ヘルプ</button>
-            <div class="version">v127</div>
+            <div class="version">v128</div>
         </header>
 
         <!-- メインコンテンツ領域 -->
@@ -119,71 +119,58 @@
                 </div>
             </section>
 
-            <!-- 右パネル: ステージとお題情報 -->
+            <!-- 右パネル: モード別のお題・道具（P10 M1） -->
             <section id="right-panel" class="glass-panel">
-                <h2>STAGE</h2>
-                <div class="stage-select-box" style="display:flex; flex-direction:column; gap:8px;">
-                    <div>
-                        <label for="select-series">シリーズを選択:</label>
-                        <select id="select-series" style="width:100%; margin-top:4px;">
-                            <!-- 動的にJavaScriptで挿入 -->
-                        </select>
+                <!-- モード切替タブ -->
+                <div id="mode-tabs">
+                    <button class="mode-tab active" data-mode="puzzle" title="お題の分子を組んで正誤判定">🧩 パズル</button>
+                    <button class="mode-tab" data-mode="learn" title="反応機構・チュートリアル・クイズで学ぶ">📚 学習</button>
+                    <button class="mode-tab" data-mode="free" title="お題なしで自由に組んで反応・分析">🧪 自由</button>
+                </div>
+
+                <!-- ===== 🧩 パズルモード ===== -->
+                <div data-modes="puzzle">
+                    <div class="stage-select-box" style="display:flex; flex-direction:column; gap:8px;">
+                        <div>
+                            <label for="select-series">シリーズを選択:</label>
+                            <select id="select-series" style="width:100%; margin-top:4px;"></select>
+                        </div>
+                        <div>
+                            <label for="select-stage">問題を選択:</label>
+                            <select id="select-stage" style="width:100%; margin-top:4px;"></select>
+                        </div>
                     </div>
-                    <div>
-                        <label for="select-stage">問題を選択:</label>
-                        <select id="select-stage" style="width:100%; margin-top:4px;">
-                            <!-- 動的にJavaScriptで挿入 -->
-                        </select>
+
+                    <div id="target-info" class="card">
+                        <h3 id="target-name">酢酸</h3>
+                        <div class="formula-badge" id="target-formula">CH₃COOH</div>
+                        <p id="target-desc">お酢の主成分であり、ツンとする酸っぱい臭いの原因物質です。弱酸性を示します。</p>
+                    </div>
+
+                    <div class="action-box" style="display:flex; flex-direction:column; gap:10px;">
+                        <button id="btn-verify" class="primary-btn">構造判定 (Submit)</button>
+                        <button id="btn-show-target" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); text-shadow:0 0 5px var(--color-cyan); cursor:pointer;">お手本を見る</button>
+                        <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; margin-top:6px; padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
+                            <span style="font-size:0.9rem; color:#fff;">不斉炭素マークモード</span>
+                            <label class="switch" style="position:relative; display:inline-block; width:50px; height:24px;">
+                                <input type="checkbox" id="check-asymmetric-mode" style="opacity:0; width:0; height:0;">
+                                <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:34px;"></span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
-                <div id="target-info" class="card">
-                    <h3 id="target-name">酢酸</h3>
-                    <div class="formula-badge" id="target-formula">CH₃COOH</div>
-                    <p id="target-desc">お酢の主成分であり、ツンとする酸っぱい臭いの原因物質です。弱酸性を示します。</p>
-                </div>
+                <!-- 判定結果・トースト表示（全モード共通） -->
+                <div id="verify-result" class="result-message hidden"></div>
 
-                <div class="action-box" style="display:flex; flex-direction:column; gap:10px;">
-                    <button id="btn-verify" class="primary-btn">構造判定 (Submit)</button>
-                    <button id="btn-show-target" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); text-shadow:0 0 5px var(--color-cyan); cursor:pointer;">お手本を見る</button>
-                    <button id="btn-quiz" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">🎓 同じ化合物？クイズ</button>
-                    <button id="btn-naming" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">📝 命名クイズ</button>
-                    <button id="btn-stereo" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--color-cyan); color:var(--color-cyan); cursor:pointer;">🧊 立体で見る</button>
-                    <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding:10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
-                        <span style="font-size:0.9rem; color:#fff;">不斉炭素マークモード</span>
-                        <label class="switch" style="position:relative; display:inline-block; width:50px; height:24px;">
-                            <input type="checkbox" id="check-asymmetric-mode" style="opacity:0; width:0; height:0;">
-                            <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:34px;"></span>
-                        </label>
+                <!-- ===== 📚 学習モード ===== -->
+                <div data-modes="learn">
+                    <div class="action-box" style="display:flex; flex-direction:column; gap:10px;">
+                        <button id="btn-quiz" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">🎓 同じ化合物？クイズ</button>
+                        <button id="btn-naming" class="secondary-btn" style="background:var(--color-bg); border:1px solid var(--neon-purple); color:#e0b0ff; cursor:pointer;">📝 命名クイズ</button>
                     </div>
-                </div>
-
-                <div id="verify-result" class="result-message hidden">
-                    <!-- 判定結果を表示 -->
-                </div>
-
-                <!-- 化合物名・分子式のライブ表示（P7-6） -->
-                <div id="compound-info" class="card" style="gap:6px;">
-                    <h3 style="font-size:12px; color:var(--text-secondary);">🔍 いま描いている分子</h3>
-                    <div id="compound-name" style="font-size:15px; color:#fff; font-weight:bold;">—</div>
-                    <div id="compound-formula" class="formula-badge">—</div>
-                </div>
-
-                <!-- この分子の反応（P9-1 M1: プロパティ表示＋名称呼び出し） -->
-                <div id="reaction-card" class="card" style="gap:6px;">
-                    <h3 style="font-size:12px; color:var(--text-secondary);">⚗ この分子の反応</h3>
-                    <div id="molecule-props" style="font-size:12px; line-height:1.5; color:var(--text-primary);">分子を作図するか、下の検索から呼び出すと分類が表示されます。</div>
-                    <div id="reaction-actions" style="display:flex; flex-direction:column; gap:5px;"></div>
-                    <button id="btn-isomers" class="view-btn" style="font-size:12px; padding:6px 8px;">📚 同じ分子式の異性体を調べる</button>
-                    <label style="font-size:11px; color:var(--text-secondary);">名称から分子を呼び出す:
-                        <input id="summon-input" list="summon-list" data-tutorial="reaction" placeholder="例: エタノール"
-                               style="width:100%; margin-top:4px; padding:5px; background:rgba(0,0,0,0.3); color:var(--text-primary); border:1px solid var(--border-color); border-radius:4px;">
-                        <datalist id="summon-list"></datalist>
-                    </label>
-                </div>
-
-                <!-- 反応機構ビューア（DESIGN_reaction_mechanism.md） -->
-                <div id="reaction-box" class="card">
+                    <!-- 反応機構ビューア（DESIGN_reaction_mechanism.md） -->
+                    <div id="reaction-box" class="card">
                     <h3 style="font-size:13px; color:var(--text-secondary);">⚗️ 反応機構ビューア</h3>
                     <div class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(0,0,0,0.2);">
                         <span style="font-size:0.9rem; color:#fff;">反応機構モード</span>
@@ -204,6 +191,31 @@
                     <button id="btn-rx-predict" class="primary-btn" style="padding:8px; font-size:13px;">🎯 生成物を予測する</button>
                     <button id="btn-rx-judge" class="primary-btn hidden" style="padding:8px; font-size:13px;">予測を判定</button>
                     <button id="btn-rx-cancel-predict" class="view-btn hidden" style="width:100%;">予測をやめて再生に戻る</button>
+                    </div>
+                </div>
+
+                <!-- 化合物名・分子式のライブ表示（P7-6。パズル＝補助 / 自由＝主役） -->
+                <div id="compound-info" class="card" data-modes="puzzle free" style="gap:6px;">
+                    <h3 style="font-size:12px; color:var(--text-secondary);">🔍 いま描いている分子</h3>
+                    <div id="compound-name" style="font-size:15px; color:#fff; font-weight:bold;">—</div>
+                    <div id="compound-formula" class="formula-badge">—</div>
+                </div>
+
+                <!-- ===== 🧪 自由モード ===== -->
+                <div data-modes="free">
+                    <!-- この分子の反応（P9-1: プロパティ表示・反応実行・名称呼び出し） -->
+                    <div id="reaction-card" class="card" style="gap:6px;">
+                        <h3 style="font-size:12px; color:var(--text-secondary);">⚗ この分子の反応</h3>
+                        <div id="molecule-props" style="font-size:12px; line-height:1.5; color:var(--text-primary);">分子を作図するか、下の検索から呼び出すと分類が表示されます。</div>
+                        <div id="reaction-actions" style="display:flex; flex-direction:column; gap:5px;"></div>
+                        <button id="btn-isomers" class="view-btn" style="font-size:12px; padding:6px 8px;">📚 同じ分子式の異性体を調べる</button>
+                        <button id="btn-stereo" class="view-btn" style="font-size:12px; padding:6px 8px;">🧊 立体で見る（くさび図）</button>
+                        <label style="font-size:11px; color:var(--text-secondary);">名称から分子を呼び出す:
+                            <input id="summon-input" list="summon-list" data-tutorial="reaction" placeholder="例: エタノール"
+                                   style="width:100%; margin-top:4px; padding:5px; background:rgba(0,0,0,0.3); color:var(--text-primary); border:1px solid var(--border-color); border-radius:4px;">
+                            <datalist id="summon-list"></datalist>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="hint-box" style="margin-top: 15px; font-size: 0.85rem; line-height: 1.5; color: var(--text-secondary);">
@@ -371,13 +383,13 @@
     </div>
 
     <!-- スクリプトの読み込み -->
-    <script src="chemistry.js?v=127"></script>
-    <script src="game.js?v=127"></script>
-    <script src="reaction.js?v=127"></script>
-    <script src="quiz.js?v=127"></script>
-    <script src="stereo.js?v=127"></script>
-    <script src="reactor.js?v=127"></script>
-    <script src="learn.js?v=127"></script>
-    <script src="tutorial.js?v=127"></script>
+    <script src="chemistry.js?v=128"></script>
+    <script src="game.js?v=128"></script>
+    <script src="reaction.js?v=128"></script>
+    <script src="quiz.js?v=128"></script>
+    <script src="stereo.js?v=128"></script>
+    <script src="reactor.js?v=128"></script>
+    <script src="learn.js?v=128"></script>
+    <script src="tutorial.js?v=128"></script>
 </body>
 </html>

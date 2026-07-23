@@ -425,6 +425,11 @@ class Game {
             this.targetModal.classList.add('hidden');
         });
 
+        // モード切替タブ（P10 M1）: 右パネルの内容をモードごとに出し分ける
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', () => this.setMode(tab.dataset.mode));
+        });
+
         // SVGキャンバス上でのインタラクション
         // キャンバス上の入力はPointer Eventsに統一済み（本メソッド冒頭のpointerdown/move/up参照）
         
@@ -2414,6 +2419,28 @@ class Game {
         this.atomsGroup.appendChild(g);
     }
 
+    // モード切替（P10 M1）: 右パネルの data-modes 要素を出し分ける。
+    // 作図中の分子は保持し、表示だけを切り替える（判定・反応・エクスポートには影響しない）
+    setMode(mode) {
+        if (!['puzzle', 'learn', 'free'].includes(mode)) mode = 'puzzle';
+        this.currentMode = mode;
+        document.querySelectorAll('.mode-tab').forEach(t =>
+            t.classList.toggle('active', t.dataset.mode === mode));
+        document.querySelectorAll('#right-panel [data-modes]').forEach(el => {
+            el.style.display = el.dataset.modes.split(' ').includes(mode) ? '' : 'none';
+        });
+        // 学習モードを離れるときは反応機構モードを終了する
+        if (mode !== 'learn' && window.reactionPlayer && window.reactionPlayer.active) {
+            window.reactionPlayer.exit();
+        }
+        // パズル以外へ移ると判定結果表示は消す（トーストの残りが紛らわしいため）
+        if (mode !== 'puzzle') {
+            const vr = document.getElementById('verify-result');
+            if (vr && vr.classList.contains('result-message')) vr.classList.add('hidden');
+        }
+        try { localStorage.setItem('chemAssembler.mode', mode); } catch (e) { /* privateモード等 */ }
+    }
+
     // 「⚗ この分子の反応」カード: 官能基・特徴構造の分類を表示する（P9-1 M1）
     updateReactionCard() {
         // 実行可能な反応のボタン列も同時に再構築する（P9-1 M2）
@@ -2985,6 +3012,11 @@ window.addEventListener('DOMContentLoaded', async () => {
         window.learnView = new LearnView(window.game);
         // チュートリアル（P9-6）
         window.tutorialPlayer = new TutorialPlayer(window.game);
+
+        // モード初期化（P10 M1）: 前回のモードを復元。既定は🧩パズル
+        let savedMode = 'puzzle';
+        try { savedMode = localStorage.getItem('chemAssembler.mode') || 'puzzle'; } catch (e) { /* noop */ }
+        window.game.setMode(savedMode);
         window.game.updateReactionCard();
 
         // 全データのロードと初期化が完了したことを示すフラグ（test.htmlの起動待ちに使用）

@@ -2301,6 +2301,60 @@
         g.updateDrawing();
     });
 
+    // ===== Q. モード切替（P10 M1） =====
+
+    test('Q1: 3モードで右パネルの内容が正しく出し分けられる', async (c) => {
+        c.reset();
+        const g = c.game;
+        const D = c.D;
+        // 既定はパズル。localStorage汚染を避けるため最後にパズルへ戻す
+        const rendered = (sel) => { const e = D.querySelector(sel); return !!(e && e.offsetParent !== null); };
+        const wrapperHidden = (modes) => {
+            const el = [...D.querySelectorAll('#right-panel [data-modes]')].find(w => w.dataset.modes === modes);
+            return el && el.style.display === 'none';
+        };
+        assert(D.querySelectorAll('.mode-tab').length === 3, 'モードタブが3つない');
+
+        g.setMode('puzzle');
+        assert(g.currentMode === 'puzzle', 'モードがpuzzleにならない');
+        assert(rendered('#btn-verify'), 'パズルで判定ボタンが出ない');
+        assert(wrapperHidden('learn') && wrapperHidden('free'), 'パズルで学習/自由が隠れていない');
+        assert([...D.querySelectorAll('.mode-tab')].find(t => t.classList.contains('active')).dataset.mode === 'puzzle',
+            'アクティブタブがpuzzleでない');
+
+        g.setMode('learn');
+        assert(rendered('#btn-quiz') && rendered('#reaction-box'), '学習でクイズ/機構が出ない');
+        assert(wrapperHidden('puzzle') && wrapperHidden('free'), '学習でパズル/自由が隠れていない');
+        // verify-result（トースト表示先）は全モードで存在し続ける
+        assert(D.getElementById('verify-result'), '学習でverify-resultが消えた');
+
+        g.setMode('free');
+        assert(rendered('#reaction-card') && rendered('#compound-info'), '自由で反応カード/分子情報が出ない');
+        assert(wrapperHidden('puzzle') && wrapperHidden('learn'), '自由でパズル/学習が隠れていない');
+
+        // モード切替でも作図中の分子は保持される
+        g.setMode('puzzle');
+        const c1 = g.userMolecule.addAtom('C', 336, 294);
+        const c2 = g.userMolecule.addAtom('C', 378, 294);
+        g.userMolecule.addBond(c1.id, c2.id, 1);
+        g.updateDrawing();
+        g.setMode('free');
+        assert(g.userMolecule.atoms.length === 2, 'モード切替で分子が消えた');
+        g.setMode('learn');
+        assert(g.userMolecule.atoms.length === 2, 'モード切替で分子が消えた(2)');
+
+        // 学習を離れると反応機構モードが終了する
+        c.W.reactionPlayer.checkMode.checked = true;
+        c.W.reactionPlayer.enter(0);
+        assert(c.W.reactionPlayer.active, '反応機構モードに入れない');
+        g.setMode('free');
+        assert(!c.W.reactionPlayer.active, '学習を離れても反応機構モードが残っている');
+
+        g.setMode('puzzle');
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {
