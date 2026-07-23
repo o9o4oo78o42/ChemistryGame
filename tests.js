@@ -2562,6 +2562,28 @@
         g.updateDrawing();
     });
 
+    test('R4: Undo/Redoボタン（キーボードなしのスマホ向け・キャンバス上部に常設）', async (c) => {
+        c.reset();
+        const g = c.game;
+        const D = c.D;
+        assert(D.getElementById('btn-undo') && D.getElementById('btn-redo'), 'Undo/Redoボタンがない');
+
+        // 原子を1つ置いて ↩ で消え、↪ で復活する
+        c.clickAt(420, 294);
+        assert(g.userMolecule.atoms.length === 1, '原子が置けていない');
+        D.getElementById('btn-undo').click();
+        assert(g.userMolecule.atoms.length === 0, '↩ ボタンでUndoされない');
+        D.getElementById('btn-redo').click();
+        assert(g.userMolecule.atoms.length === 1, '↪ ボタンでRedoされない');
+
+        // 空履歴でのクリックは何も起きない（エラーにならない）
+        D.getElementById('btn-redo').click();
+        assert(g.userMolecule.atoms.length === 1, '空のRedoで状態が変わった');
+
+        g.userMolecule = new c.W.Molecule();
+        g.updateDrawing();
+    });
+
     test('O2: スルホ基モジュールと、まとめON中の後追い官能基の自動カード化', async (c) => {
         c.reset();
         const g = c.game;

@@ -601,9 +601,13 @@ button:hover {
         gap: 6px;
     }
 
-    /* キャンバスを最大化（残り領域をすべて使う） */
+    /* キャンバスを最大化（残り領域をすべて使う）。
+       svg-wrapper の min-height:0 は、SVGの縦横比由来の固有高さ（812px幅で483px）が
+       min-height:auto として効いてキャンバス下部がクリップされるのを防ぐ */
     #canvas-container { flex: 1 1 auto; min-width: 0; min-height: 0; }
-    .canvas-header { flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
+    #svg-wrapper { min-height: 0; }
+    /* 折り返し時に2行目がキャンバスへはみ出さないよう高さは内容に合わせる（基本CSSは40px固定） */
+    .canvas-header { flex-wrap: wrap; gap: 6px; padding: 6px 8px; height: auto; }
     .canvas-header .view-btn, .canvas-header .danger-btn { padding: 6px 8px; font-size: 11px; }
 
     #left-panel > h2 { display: none; }

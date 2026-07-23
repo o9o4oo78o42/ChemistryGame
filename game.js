@@ -464,6 +464,12 @@ class Game {
         // SVGキャンバス上でのインタラクション
         // キャンバス上の入力はPointer Eventsに統一済み（本メソッド冒頭のpointerdown/move/up参照）
         
+        // Undo/Redoボタン（キーボードのないスマホ向け。PCでも視認できる場所に常設。P11-M2c）
+        const btnUndo = document.getElementById('btn-undo');
+        if (btnUndo) btnUndo.addEventListener('click', () => this.undo());
+        const btnRedo = document.getElementById('btn-redo');
+        if (btnRedo) btnRedo.addEventListener('click', () => this.redo());
+
         // キーボードショートカット (Undo, 全消去など)
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -1194,7 +1200,7 @@ class Game {
         this.userMolecule.removeAtom(atomId);
         const after = this.countMolecules();
         if (after > before) {
-            this.showToast(`原子の削除で分子が${after}個に分かれました。意図しない場合は Ctrl+Z で戻せます。`, 3500, 'success');
+            this.showToast(`原子の削除で分子が${after}個に分かれました。意図しない場合は ↩ 戻す（Ctrl+Z）で戻せます。`, 3500, 'success');
         }
     }
 
