@@ -1219,6 +1219,34 @@
         c.D.getElementById('btn-reset-view').click(); // 後続テストのため視野を戻す
     });
 
+    test('R5: チュートリアルのシート連動（P11 M3）— 右パネル対象で開き・キャンバス操作で閉じる', async (c) => {
+        c.reset();
+        const p = c.W.tutorialPlayer;
+        assert(p && typeof p.setSheetOpen === 'function' && typeof p.syncSheetFor === 'function',
+            'シート連動APIがない');
+        const orig = p.isMobileLayout;
+        p.isMobileLayout = () => true; // モバイル判定を強制（iframeは広幅のため）
+        try {
+            c.W.document.body.classList.remove('sheet-open');
+            // 右パネル内の要素を対象にすると開く
+            await p.syncSheetFor(c.D.getElementById('mode-tabs'), true);
+            assert(c.W.document.body.classList.contains('sheet-open'), '右パネル対象でシートが開かない');
+            // キャンバス系アクション（hover）の前処理で閉じる
+            await p.doAction({ type: 'hover', x: 400, y: 300 }, true);
+            assert(!c.W.document.body.classList.contains('sheet-open'), 'キャンバス操作でシートが閉じない');
+            // 右パネル外の要素（左パレット）を対象にした場合も閉じたまま
+            await p.syncSheetFor(c.D.getElementById('btn-tool-bond'), true);
+            assert(!c.W.document.body.classList.contains('sheet-open'), '左パレット対象でシートが開いた');
+            // PC判定では何もしない
+            p.isMobileLayout = () => false;
+            await p.syncSheetFor(c.D.getElementById('mode-tabs'), true);
+            assert(!c.W.document.body.classList.contains('sheet-open'), 'PCでシートが誤って開いた');
+        } finally {
+            p.isMobileLayout = orig;
+            c.W.document.body.classList.remove('sheet-open');
+        }
+    });
+
     test('J1: 縮合スナップでナフタレン・デカリン、重なりは拒否', async (c) => {
         c.reset();
         const g = c.game;

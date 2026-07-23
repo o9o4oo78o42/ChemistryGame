@@ -591,7 +591,6 @@ button:hover {
     header { height: 44px; padding: 6px 12px; }
     .logo { font-size: 15px; letter-spacing: 1px; }
     .version { display: none; }
-    #btn-help { padding: 4px 8px !important; font-size: 11px !important; }
 
     /* 動的ビューポート高さでアドレスバー増減に追従 */
     #app-container { height: 100dvh; }
@@ -608,7 +607,14 @@ button:hover {
     #svg-wrapper { min-height: 0; }
     /* 折り返し時に2行目がキャンバスへはみ出さないよう高さは内容に合わせる（基本CSSは40px固定） */
     .canvas-header { flex-wrap: wrap; gap: 6px; padding: 6px 8px; height: auto; }
-    .canvas-header .view-btn, .canvas-header .danger-btn { padding: 6px 8px; font-size: 11px; }
+    /* タップ領域の確保（P11-M3）: 指で押す操作系は42px以上に */
+    .canvas-header .view-btn, .canvas-header .danger-btn {
+        padding: 8px 10px; font-size: 11px; min-height: 42px;
+    }
+    /* JSONエクスポートはコンテンツ制作用のためモバイルでは隠す（行数節約） */
+    #btn-export-json { display: none; }
+    #btn-help { padding: 8px 12px !important; font-size: 11px !important; }
+    .mode-tab { padding: 12px 4px; }
 
     #left-panel > h2 { display: none; }
     #left-panel .tool-group h3 { font-size: 10px; margin: 0 0 3px; white-space: nowrap; }
@@ -640,7 +646,8 @@ button:hover {
         position: fixed;
         right: 12px; bottom: 12px;
         z-index: 500;
-        padding: 10px 14px;
+        padding: 13px 16px;
+        min-height: 44px;
         font-size: 13px;
         color: #061018;
         background: var(--color-cyan, #00f2fe);
@@ -653,7 +660,8 @@ button:hover {
 
     #sheet-close {
         align-self: flex-end;
-        padding: 6px 12px;
+        padding: 12px 18px;
+        min-height: 44px;
         font-size: 12px;
         color: #fff;
         background: rgba(255, 255, 255, 0.1);
@@ -662,8 +670,10 @@ button:hover {
         cursor: pointer;
     }
 
-    /* モーダルが小画面で溢れないように */
-    .modal-content { max-height: 90dvh; overflow-y: auto; max-width: 94vw; }
+    /* モーダルが小画面で溢れないように。余白も詰めて内容の幅を確保する */
+    .modal-content { max-height: 90dvh; overflow-y: auto; max-width: 94vw; padding: 18px; gap: 14px; }
+    /* FAQの検索欄: flexのmin-width:autoで縮まずデバイス選択がはみ出すのを防ぐ */
+    #tutorial-search { min-width: 0; }
 }
 
 /* --- モバイル縦（M1）: キャンバス上・下ツールバー・右パネルは下シート --- */
@@ -704,7 +714,7 @@ button:hover {
         padding: 8px 10px;
         font-size: 11px;
         white-space: nowrap;
-        min-height: 42px;
+        min-height: 44px;
         flex: 0 0 auto;
     }
 
@@ -750,7 +760,7 @@ button:hover {
     #left-panel .mod-btn {
         padding: 7px 8px;
         font-size: 10.5px;
-        min-height: 38px;
+        min-height: 44px;
         white-space: normal;
         line-height: 1.25;
         text-align: left;
@@ -765,8 +775,8 @@ button:hover {
         font-size: 0;
         gap: 0;
         padding: 5px;
-        min-height: 38px;
-        min-width: 40px;
+        min-height: 44px;
+        min-width: 44px;
         justify-content: center;
         flex: 0 0 auto;
     }

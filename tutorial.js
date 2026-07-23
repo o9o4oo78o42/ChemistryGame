@@ -187,6 +187,8 @@ class TutorialPlayer {
         } finally {
             // 反応機構モードやモーダルを開いたままにしない
             if (window.reactionPlayer && window.reactionPlayer.active) window.reactionPlayer.exit();
+            // デモ中に開いたモバイルの右パネルシートも閉じる（P11-M3）
+            document.body.classList.remove('sheet-open');
             document.querySelectorAll('.modal-overlay').forEach(m => {
                 if (m.id !== 'tutorial-modal') m.classList.add('hidden');
             });
@@ -239,9 +241,34 @@ class TutorialPlayer {
         return best;
     }
 
+    // ---------- モバイルのシート連動（P11-M3） ----------
+    // スマホでは右パネルがシート/ドロワーになるため、デモが右パネル内の要素を
+    // 操作する前にシートを開き、キャンバス操作の前に閉じる。PC（≥900px）では何もしない。
+
+    isMobileLayout() {
+        return window.matchMedia('(max-width: 899px)').matches;
+    }
+
+    async setSheetOpen(open, fast) {
+        if (!this.isMobileLayout()) return;
+        if (document.body.classList.contains('sheet-open') === open) return;
+        document.body.classList.toggle('sheet-open', open);
+        await this.sleep(fast ? 0 : 350); // 開閉アニメ（0.25s）の完了を待つ
+    }
+
+    // 対象要素が右パネル内ならシートを開き、それ以外（キャンバス・左パレット等）なら閉じる
+    async syncSheetFor(el, fast) {
+        const inSheet = !!(el && el.closest && el.closest('#right-panel'));
+        await this.setSheetOpen(inSheet, fast);
+    }
+
     async doAction(a, fast) {
         const g = this.game;
         const svg = g.svg;
+        // キャンバス上で行うアクションの前はシートを閉じる（描画が見えるように）
+        if (['click', 'hover', 'clickBond', 'cutBond', 'wheel', 'pan', 'drag'].includes(a.type)) {
+            await this.setSheetOpen(false, fast);
+        }
         switch (a.type) {
             case 'wait':
                 await this.sleep(fast ? 0 : a.ms);
@@ -253,6 +280,7 @@ class TutorialPlayer {
             case 'button': {
                 const el = document.querySelector(a.selector);
                 if (!el) throw new Error('ボタンが見つかりません: ' + a.selector);
+                await this.syncSheetFor(el, fast);
                 const r = el.getBoundingClientRect();
                 // モバイルでは一部ボタンを非表示にしている（P11-M2b）。
                 // 隠れたボタン（rect=0）はカーソル演出を省いてクリックだけ実行する
@@ -305,6 +333,7 @@ class TutorialPlayer {
                 // チェックボックス（反応機構モードの切替など）を操作する
                 const el = document.querySelector(a.selector);
                 if (!el) throw new Error('要素が見つかりません: ' + a.selector);
+                await this.syncSheetFor(el, fast);
                 const r = el.getBoundingClientRect();
                 const label = el.closest('label') || el.parentElement;
                 const lr = (r.width > 0 ? r : (label ? label.getBoundingClientRect() : r));
@@ -319,6 +348,7 @@ class TutorialPlayer {
                 // ドロップダウンから項目を選ぶ
                 const el = document.querySelector(a.selector);
                 if (!el) throw new Error('要素が見つかりません: ' + a.selector);
+                await this.syncSheetFor(el, fast);
                 const r = el.getBoundingClientRect();
                 await this.moveCursor({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, fast);
                 this.pulse();
@@ -332,6 +362,7 @@ class TutorialPlayer {
             case 'summon': {
                 // 名称から分子を呼び出す（反応デモの準備）
                 const input = document.getElementById('summon-input');
+                await this.syncSheetFor(input, fast);
                 const r = input.getBoundingClientRect();
                 await this.moveCursor({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, fast);
                 this.pulse();
@@ -344,6 +375,7 @@ class TutorialPlayer {
                 const btn = [...document.querySelectorAll('#reaction-actions button')]
                     .find(b => b.textContent.includes(a.contains));
                 if (!btn) throw new Error('反応ボタンが見つかりません: ' + a.contains);
+                await this.syncSheetFor(btn, fast);
                 const r = btn.getBoundingClientRect();
                 await this.moveCursor({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, fast);
                 this.pulse();
@@ -353,6 +385,8 @@ class TutorialPlayer {
                     const sites = window.reactor.picking.sites;
                     const target = g.userMolecule.atoms.find(at => sites.some(s => s.includes(at.id)));
                     if (target) {
+                        // 適用箇所はキャンバス上なので、シートを閉じてから指す
+                        await this.setSheetOpen(false, fast);
                         const cl = this.svgPoint(target.x, target.y);
                         await this.moveCursor(cl, fast);
                         this.pulse();
