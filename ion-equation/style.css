@@ -74,12 +74,18 @@ main {
 .goal {
   margin-top: 4px;
   font-size: 14px;
-  color: #b5480f;
-  background: #fff3e6;
-  border: 1px solid #f0c89a;
+  color: #235c7d;
+  background: #e9f3fa;
+  border: 1px solid #b7d6ea;
   border-radius: 6px;
   padding: 4px 10px;
   display: inline-block;
+}
+/* 酸性塩の目標は暖色で「ふつうの中和とは違う」と際立たせる */
+.goal.acid {
+  color: #b5480f;
+  background: #fff3e6;
+  border-color: #f0c89a;
 }
 .goal b { font-size: 16px; }
 

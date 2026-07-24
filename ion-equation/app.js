@@ -1143,6 +1143,25 @@ function buildToolbar() {
   toolbarEl.append(react, reset);
 }
 
+/* ステージの「目標」文をステージ種別から自動生成する（全ステージを「目標の○をつくる」枠に統一）。
+   酸性塩→saltGoal、沈殿→その沈殿、気体→その気体、それ以外→中和して正塩。 */
+function stageGoalText(stage) {
+  if (stage.saltGoal) return `酸性塩 ${SPECIES[stage.saltGoal.label].disp} をつくる`;
+  const precip = stage.rules.find((r) => r.kind === "precipitate");
+  if (precip) {
+    const p = Array.isArray(precip.make) ? precip.make[0] : precip.make;
+    return `沈殿 ${SPECIES[p].disp}↓ をつくる`;
+  }
+  const gasRule = stage.rules.find((r) => r.kind === "gas");
+  if (gasRule) {
+    const makes = Array.isArray(gasRule.make) ? gasRule.make : [gasRule.make];
+    const gas = makes.find((sp) => BUBBLE_SPECIES.has(sp)) || makes[0];
+    return `気体 ${SPECIES[gas].disp}↑ を発生させる`;
+  }
+  const salt = stage.products.find((sp) => sp !== "H2O");
+  return `ちょうど中和して 塩 ${SPECIES[salt].disp} をつくる`;
+}
+
 function initStage() {
   for (const p of particles) if (p.el) p.el.remove();
   particles = [];
@@ -1159,7 +1178,7 @@ function initStage() {
   buildToolbar();
   const stage = STAGES[stageIdx];
   stageTitleEl.innerHTML = `<strong>${stage.title}</strong>` +
-    (stage.saltGoal ? `<div class="goal">🎯 目標: <b>${SPECIES[stage.saltGoal.label].disp}</b>（酸性塩）をつくる</div>` : "");
+    `<div class="goal${stage.saltGoal ? " acid" : ""}">🎯 目標: ${stageGoalText(stage)}</div>`;
   buildEquationUI();
   renderTally();
   buildRecombine();
