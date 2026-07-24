@@ -85,11 +85,19 @@ vanilla JS + SVG、ビルドツールなし・静的配信（GitHub Pages 互換
 - [~] Phase 4: `redox-solution` — MnO₄⁻×Fe²⁺ を溶液中アニメで実装（v27 モデル→v29 アニメ本体：
   板なし・両者溶液中・e⁻ 溶液内授受・H⁺参加・**溶液色 紫→無色**・酸化数表示）。redox.html の
   ステージ5（rs1）で遊べ、**インデックスの KMnO₄ から「▶酸化還元モードで見る」で直接飛べる**（v30）。
-  残りは Cr₂O₇/oxalate/H₂O₂ の溶液ステージ追加
+  v31 で Cr₂O₇²⁻×Fe²⁺（rs2・橙→緑）を追加し、溶液色を有色種の重み付けブレンドに一般化
+  （MnO₄⁻→無色・Cr₂O₇²⁻→緑）。残りは oxalate/H₂O₂ など（半反応式の追加が必要）
 - [ ] Phase 5+: 錯イオン生成・弱酸弱塩基（M4）・分子反応（C群）
 
 ## 作業記録
 
+- v31（2026-07-24・溶液中酸化還元 第2弾 Cr₂O₇²⁻＋色の一般化）: REDOX_STAGES に rs2「Cr₂O₇²⁻×Fe²⁺
+  （6:1）」を追加（既存の Cr2O7_red 半反応式・OXIDATION・色を流用＝データ追加のみ）。溶液色を
+  「残る酸化剤だけ」から「有色種の重み付けブレンド」に一般化（SOLUTION_TINT：MnO₄⁻紫・Cr₂O₇²⁻橙・
+  Cr³⁺緑。Fe/Mn²⁺ は淡色として除外）→ MnO₄⁻ は紫→無色、Cr₂O₇²⁻ は橙→緑 が自然に出る。
+  reactions.json の Cr₂O₇ 参照エントリを redoxStage:"rs2" で playable 化。rs2 の UIテスト追加
+  （6:1で緑・生成物一致）＋総なめに自動編入。実機で #e3a465→#6fb687（橙→緑）を確認。全PASS
+  （酸化還元 9→10）。
 - v30（2026-07-24・Phase 4 ステージ3: インデックス↔酸化還元モードの連携）: redox.js に ?rxn ディープリンク
   受けを追加（app.js と同型）。reactions.json の KMnO₄ 参照エントリに redoxStage:"rs1" を付けて playable 化。
   library-ui は redoxStage を持つ反応の「▶遊ぶ」を redox.html?rxn=<stage> へ振り分け（それ以外は index.html）。

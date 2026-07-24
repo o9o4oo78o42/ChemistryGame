@@ -129,17 +129,35 @@ function drawBeakerStatic() {
   }
 }
 
-/* 溶液全体の色を、残っている有色の酸化剤（MnO₄⁻・Cr₂O₇²⁻）の量で更新する。
-   反応が進むほど淡くなり、終点で無色に戻る（滴定の色変化）。 */
+/* 溶液全体の色を、いま溶けている有色種の量で重み付けブレンドして更新する。
+   反応が進むと酸化剤の色（MnO₄⁻紫・Cr₂O₇²⁻橙）が消え、有色の生成物（Cr³⁺緑）の色に移る。
+   MnO₄⁻→Mn²⁺ はほぼ無色に、Cr₂O₇²⁻→Cr³⁺ は橙→緑、が自然に出る。 */
+/* 溶液を強く着色する種のみ（Fe²⁺/Fe³⁺・Mn²⁺ は淡いので溶液色には数えない）。
+   これで MnO₄⁻→Mn²⁺ は紫→無色、Cr₂O₇²⁻→Cr³⁺ は橙→緑、が自然に出る。 */
+const SOLUTION_TINT = {
+  "MnO4-":    ["#7b2fb0", 1.0],
+  "Cr2O7^2-": ["#e0842a", 1.0],
+  "Cr^3+":    ["#3f9d5a", 0.7],
+};
+function hexRGB(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
 function updateSolutionColor() {
   if (!solutionRect || !isSolution()) return;
-  const oxSp = redHR().left.find((t) => t.sp !== "e-" && t.sp !== "H+");
-  const tint = oxSp && SPECIES_COLOR[oxSp.sp];
-  if (!tint) return;
-  const total = mult[1]; // 初期の酸化剤単位数
-  const remain = particles.filter((p) => p.sp === oxSp.sp && !p.dead).length;
-  const frac = total > 0 ? remain / total : 0;
-  solutionRect.setAttribute("fill", frac > 0 ? mixColor("#eaf5fc", tint, 0.15 + 0.55 * frac) : "#eaf5fc");
+  const counts = {};
+  for (const p of particles) if (!p.dead) counts[p.sp] = (counts[p.sp] || 0) + 1;
+  let r = 0, g = 0, b = 0, wsum = 0;
+  for (const sp of Object.keys(SOLUTION_TINT)) {
+    const n = counts[sp] || 0;
+    if (!n) continue;
+    const [hex, wt] = SOLUTION_TINT[sp];
+    const w = wt * n;
+    const [cr, cg, cb] = hexRGB(hex);
+    r += cr * w; g += cg * w; b += cb * w; wsum += w;
+  }
+  if (wsum <= 0) { solutionRect.setAttribute("fill", "#eaf5fc"); return; }
+  const avg = "#" + [r, g, b].map((v) => Math.round(v / wsum).toString(16).padStart(2, "0")).join("");
+  // 濃さ: 溶けている有色種の重み合計で 0.25〜0.72 に（初期の酸化剤単位数で正規化）
+  const frac = Math.min(1, wsum / Math.max(1, mult[1]));
+  solutionRect.setAttribute("fill", mixColor("#eaf5fc", avg, 0.25 + 0.47 * frac));
 }
 
 /* 2色を t の割合で混ぜる（0=c1, 1=c2） */

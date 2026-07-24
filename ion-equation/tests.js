@@ -658,6 +658,22 @@ async function runRedoxUITests(iframe) {
     assert(s.counts["MnO4-"] === 1, "MnO₄⁻ が残っていない（紫が残るはず）: " + JSON.stringify(s.counts));
   });
 
+  await t("REDOX: 溶液中(rs2) 6:1 で Cr₂O₇²⁻×Fe²⁺ が反応し、橙が緑に変わる", async () => {
+    const rs2 = REDOX_STAGES.findIndex((s) => s.id === "rs2");
+    assert(rs2 >= 0, "rs2 が無い");
+    stageBtn(rs2).click();
+    for (let k = 1; k < 6; k++) upBtns()[0].click(); // 酸化側 ×6
+    playBtn().click();
+    adv(32000);
+    const s = state();
+    assert(s.cleared, "6:1 でクリアにならない: " + JSON.stringify(s));
+    assert(s.counts["Cr^3+"] === 2 && s.counts["Fe^3+"] === 6 && s.counts["H2O"] === 7,
+      "生成物が Cr₂O₇²⁻+6Fe²⁺+14H⁺→2Cr³⁺+6Fe³⁺+7H₂O と合わない: " + JSON.stringify(s.counts));
+    const color = doc.querySelector("#beaker rect").getAttribute("fill");
+    const rr = parseInt(color.slice(1, 3), 16), gg = parseInt(color.slice(3, 5), 16), bb = parseInt(color.slice(5, 7), 16);
+    assert(color !== "#eaf5fc" && gg > rr && gg > bb, "溶液が緑（Cr³⁺）にならない: " + color);
+  });
+
   return results;
 }
 

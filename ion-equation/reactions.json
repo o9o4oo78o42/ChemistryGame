@@ -221,9 +221,10 @@
       "units": ["酸化還元", "酸化還元滴定"],
       "species": ["K2Cr2O7", "FeSO4", "H2SO4", "Cr2(SO4)3", "Fe2(SO4)3", "K2SO4", "H2O", "K+", "Cr2O7^2-", "Fe^2+", "SO4^2-", "H+", "Cr^3+", "Fe^3+", "OH-"],
       "animationType": "redox-solution",
-      "note": "酸性下で Cr₂O₇²⁻（橙）が Fe²⁺ を酸化して Cr³⁺（緑）になる。Cr: +6→+3（1原子あたり3電子×2）、Fe: +2→+3。橙から緑への色変化が目印。（アニメは準備中）",
+      "redoxStage": "rs2",
+      "note": "酸性下で Cr₂O₇²⁻（橙）が Fe²⁺ を酸化して Cr³⁺（緑）になる。Cr: +6→+3（1原子あたり3電子×2）、Fe: +2→+3。橙から緑への色変化が目印。酸化還元モードで遊べる。",
       "difficulty": 5,
-      "playable": false
+      "playable": true
     }
   ]
 }

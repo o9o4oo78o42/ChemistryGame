@@ -523,6 +523,11 @@ const REDOX_STAGES = [
     ox: "Fe2_ox", red: "MnO4_red", answer: [5, 1], mode: "solution",
     intro: "板は無し。溶液中で Fe²⁺ が e⁻ を出して Fe³⁺ に、MnO₄⁻ が H⁺ と e⁻ を受け取って Mn²⁺ になる。赤紫が消えるまで。",
   },
+  {
+    id: "rs2", title: "ステージ6：二クロム酸カリウム × 鉄(Ⅱ)（溶液中）",
+    ox: "Fe2_ox", red: "Cr2O7_red", answer: [6, 1], mode: "solution",
+    intro: "Cr₂O₇²⁻ は Cr が2個で e⁻ を6個受け取る。Fe²⁺ を何個そろえる？ 橙色が緑色に変わる。",
+  },
 ];
 
 /* 倍率 a（酸化側）・b（還元側）の判定: e⁻ の授受が等しく、最簡整数比であること */
