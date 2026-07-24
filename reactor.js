@@ -356,6 +356,7 @@ const REACTION_RULES = [
     },
     {
         id: 'dehydration_intra',
+        mechanismId: 'ethanol_e1',
         label: '分子内脱水（-H₂O） → アルケン',
         detect(mol) {
             const sites = [];
@@ -395,6 +396,7 @@ const REACTION_RULES = [
     },
     {
         id: 'esterification',
+        mechanismId: 'esterification',
         label: 'エステル化（カルボン酸＋アルコール, -H₂O）',
         detect(mol) {
             const groups = findFunctionalGroups(mol);
@@ -505,6 +507,7 @@ const REACTION_RULES = [
     },
     {
         id: 'add_br2',
+        mechanismId: 'ethene_br2',
         label: '付加: Br₂（臭素水の脱色）',
         detect: multipleBondSites,
         apply(game, site) {
@@ -532,6 +535,7 @@ const REACTION_RULES = [
     },
     {
         id: 'add_water',
+        mechanismId: 'ethene_h2o',
         label: '付加: H₂O（酸触媒・水和）',
         detect: multipleBondSites,
         apply(game, site) {
@@ -561,6 +565,7 @@ const REACTION_RULES = [
     },
     {
         id: 'aromatic_nitration',
+        mechanismId: 'benzene_nitration',
         label: '芳香族置換: ニトロ化（濃硝酸＋濃硫酸）',
         detect: aromaticSites,
         apply(game, site) {
@@ -573,6 +578,7 @@ const REACTION_RULES = [
     },
     {
         id: 'aromatic_sulfonation',
+        mechanismId: 'benzene_sulfonation',
         label: '芳香族置換: スルホン化（濃硫酸）',
         detect: aromaticSites,
         apply(game, site) {
@@ -585,6 +591,7 @@ const REACTION_RULES = [
     },
     {
         id: 'aromatic_halogenation',
+        mechanismId: 'benzene_chlorination',
         label: '芳香族置換: 塩素化（Cl₂・鉄触媒）',
         detect: aromaticSites,
         apply(game, site) {
@@ -597,6 +604,7 @@ const REACTION_RULES = [
     },
     {
         id: 'hydrolysis_ester',
+        mechanismId: 'saponification',
         label: 'けん化・加水分解（エステル + H₂O）',
         detect(mol) {
             return findFunctionalGroups(mol)
@@ -733,4 +741,10 @@ class Reactor {
         }
         g.showToast(result.caption, 6500, 'success');
     }
+}
+
+// テスト（test.html）・コンソールデバッグ用にグローバル公開する。
+// const はトップレベルでも window のプロパティにならないため明示が必要（chemistry.js と同じ流儀）。
+if (typeof window !== 'undefined') {
+    window.REACTION_RULES = REACTION_RULES;
 }

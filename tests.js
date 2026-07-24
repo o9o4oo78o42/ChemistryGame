@@ -2147,6 +2147,27 @@
         g.updateDrawing();
     });
 
+    // ===== RX. 反応の前後比較・機構ジャンプ（P12-5 第1弾） =====
+
+    test('RX3: reactor の mechanismId が reactions.json の id に実在し・id は重複しない（P12-5）', async (c) => {
+        const W = c.W;
+        const reactions = W.reactionPlayer.reactions;
+        assert(reactions.length > 0, 'reactions.json がロードされていない');
+        // (1) 各機構に安定 id があり、重複しない
+        const ids = reactions.map(r => r.id);
+        ids.forEach((id, i) => assert(typeof id === 'string' && id.length > 0,
+            `reactions[${i}]（${reactions[i].name}）に id がない`));
+        assert(new Set(ids).size === ids.length,
+            `reactions.json の id が重複している（${ids.join(', ')}）`);
+        // (2) reactor ルールの mechanismId は必ず reactions.json の id に実在する
+        assert(W.REACTION_RULES, 'REACTION_RULES が公開されていない');
+        const idSet = new Set(ids);
+        const withMech = W.REACTION_RULES.filter(r => r.mechanismId);
+        assert(withMech.length >= 8, `mechanismId 付きルールが${withMech.length}件（8以上を期待）`);
+        withMech.forEach(r => assert(idSet.has(r.mechanismId),
+            `ルール ${r.id} の mechanismId「${r.mechanismId}」が reactions.json に存在しない`));
+    });
+
     // ===== N. チュートリアル（P9-6） =====
 
     test('N1: チュートリアル（FAQ・検索・3パート高速再生・完全復元）', async (c) => {
