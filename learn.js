@@ -785,6 +785,30 @@ class IsomerPractice {
         headRow.appendChild(sizeWrap);
         this.overlay.appendChild(headRow);
 
+        // モード切替（常時・上部に目立たせる）: 確認 ⇄ 答え合わせ
+        const modeRow = document.createElement('div');
+        modeRow.style.cssText = 'display:flex; gap:6px; align-items:center; margin-bottom:10px; flex-wrap:wrap;';
+        const mLab = document.createElement('span');
+        mLab.style.cssText = 'font-size:11px; color:var(--text-secondary);';
+        mLab.textContent = '表示:';
+        modeRow.appendChild(mLab);
+        [['progress', '確認（自分の図だけ）'], ['answer', '答え合わせ（名前・同一判定）']].forEach(([key, lab]) => {
+            const b = document.createElement('button');
+            b.className = 'view-btn';
+            const on = this._reviewMode === key;
+            b.style.cssText = 'font-size:12px; padding:6px 12px;' +
+                (on ? ' background:var(--color-cyan); color:#04121a; border-color:var(--color-cyan);' : '');
+            b.textContent = lab;
+            b.addEventListener('click', () => {
+                if (this._reviewMode === key) return;
+                this._reviewMode = key;
+                this.overlay.scrollTop = 0;
+                this.renderReview();
+            });
+            modeRow.appendChild(b);
+        });
+        this.overlay.appendChild(modeRow);
+
         const summary = document.createElement('div');
         summary.style.cssText = 'font-size:13px; color:var(--text-secondary); margin-bottom:10px; line-height:1.6;';
         // 命名・同一判定は答え合わせでのみ。確認モードは図の枚数だけ（自己判断の材料）
@@ -874,17 +898,6 @@ class IsomerPractice {
         back.textContent = '← 描画に戻る';
         back.addEventListener('click', () => { this.closeReview(); this.renderSession(); });
         btnRow.appendChild(back);
-        // モード切替: 確認 ⇄ 答え合わせ（名前・同一判定の表示を切り替える）
-        const toggle = document.createElement('button');
-        toggle.className = 'primary-btn';
-        toggle.style.cssText = 'flex:1 1 0; padding:9px; font-size:13px; background:var(--color-cyan); color:#04121a;';
-        toggle.textContent = answerMode ? '名前を隠す（確認に戻る）' : '答えを見る（名前・同一判定）';
-        toggle.addEventListener('click', () => {
-            this._reviewMode = answerMode ? 'progress' : 'answer';
-            this.overlay.scrollTop = 0;
-            this.renderReview();
-        });
-        btnRow.appendChild(toggle);
         const quit = document.createElement('button');
         quit.className = 'view-btn';
         quit.style.cssText = 'flex:1 1 0; padding:9px; font-size:13px;';
