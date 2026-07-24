@@ -195,6 +195,34 @@
         "ions": { "Na+": 2, "HCO3-": 1, "Cl-": 1 },
         "overNote": "比がずれると NaHCO₃ にならない。Na₂CO₃ と HCl を同数（1:1）に。酸が多いと HCO₃⁻ がもう1個 H⁺ を受け取り CO₂ になってしまう。"
       }
+    },
+    {
+      "id": "redox-kmno4-fe2",
+      "reactants": ["KMnO4", "FeSO4", "H2SO4"],
+      "products": ["MnSO4", "Fe2(SO4)3", "K2SO4", "H2O"],
+      "coeffs": [2, 10, 8, 2, 5, 1, 8],
+      "netIonic": "MnO₄⁻ ＋ 5Fe²⁺ ＋ 8H⁺ → Mn²⁺ ＋ 5Fe³⁺ ＋ 4H₂O",
+      "classes": { "type": "酸化還元", "saltType": null, "redox": "溶液中の酸化剤還元剤" },
+      "units": ["酸化還元", "酸化還元滴定"],
+      "species": ["KMnO4", "FeSO4", "H2SO4", "MnSO4", "Fe2(SO4)3", "K2SO4", "H2O", "K+", "MnO4-", "Fe^2+", "SO4^2-", "H+", "Mn^2+", "Fe^3+", "OH-"],
+      "animationType": "redox-solution",
+      "note": "酸性下で MnO₄⁻（赤紫）が Fe²⁺ を酸化して Mn²⁺（ほぼ無色）になる。Mn: +7→+2（5電子を受け取る）、Fe: +2→+3。滴定では加えた紫色が消えなくなる点が終点。（アニメは準備中：溶液中の電子授受＋色変化）",
+      "difficulty": 4,
+      "playable": false
+    },
+    {
+      "id": "redox-k2cr2o7-fe2",
+      "reactants": ["K2Cr2O7", "FeSO4", "H2SO4"],
+      "products": ["Cr2(SO4)3", "Fe2(SO4)3", "K2SO4", "H2O"],
+      "coeffs": [1, 6, 7, 1, 3, 1, 7],
+      "netIonic": "Cr₂O₇²⁻ ＋ 6Fe²⁺ ＋ 14H⁺ → 2Cr³⁺ ＋ 6Fe³⁺ ＋ 7H₂O",
+      "classes": { "type": "酸化還元", "saltType": null, "redox": "溶液中の酸化剤還元剤" },
+      "units": ["酸化還元", "酸化還元滴定"],
+      "species": ["K2Cr2O7", "FeSO4", "H2SO4", "Cr2(SO4)3", "Fe2(SO4)3", "K2SO4", "H2O", "K+", "Cr2O7^2-", "Fe^2+", "SO4^2-", "H+", "Cr^3+", "Fe^3+", "OH-"],
+      "animationType": "redox-solution",
+      "note": "酸性下で Cr₂O₇²⁻（橙）が Fe²⁺ を酸化して Cr³⁺（緑）になる。Cr: +6→+3（1原子あたり3電子×2）、Fe: +2→+3。橙から緑への色変化が目印。（アニメは準備中）",
+      "difficulty": 5,
+      "playable": false
     }
   ]
 }

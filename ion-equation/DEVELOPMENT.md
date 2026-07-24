@@ -87,6 +87,13 @@ vanilla JS + SVG、ビルドツールなし・静的配信（GitHub Pages 互換
 
 ## 作業記録
 
+- v26（2026-07-24・網羅拡大: 溶液中酸化還元を参照エントリで先行）: reactions.json に KMnO₄×FeSO₄×H₂SO₄
+  と K₂Cr₂O₇×FeSO₄×H₂SO₄ を追加（animationType=redox-solution・playable:false＝参照のみ）。
+  アニメ未実装でも分子反応式・イオン反応式・酸化数・色変化の解説が index に載り、「kmno4」等で検索可能に
+  （設計の「参照先行」を実証）。SPECIES/DISSOCIATION に Mn/Cr/Fe(Ⅲ) 系（MnO₄⁻・Mn²⁺・Cr₂O₇²⁻・
+  Cr³⁺・KMnO₄・K₂Cr₂O₇・FeSO₄・MnSO₄・K₂SO₄・Fe₂(SO₄)₃・Cr₂(SO₄)₃）を追加。既存の電離表保存テストと
+  反応ライブラリ検証（原子/電荷保存・species逆引き）で自動担保。実機で「kmno4」検索・準備中表示・
+  酸化還元/酸化還元滴定フィルタを確認。全PASS。次は Phase 4（redox-solution アニメ本体）の設計＋実装。
 - v25（2026-07-24・Phase 2 仕上げ・難易度/単元フィルタ）: 反応インデックスに難易度（★1〜5・件数つき）と
   単元（byUnit・多い順）のフィルタ群を追加。型/塩/難易度/単元＋物質検索の AND 絞り込みに。
   単元「中和」(7) と 型「中和」(6) の差（s8=型は沈殿・単元に中和）で、軸が交差する設計が見える。全PASS。

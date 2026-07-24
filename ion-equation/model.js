@@ -59,6 +59,19 @@ const SPECIES = {
   "Ag":      { disp: "Ag",     name: "銀（原子）",         atoms: { Ag: 1 },        charge: 0 },
   "H2":      { disp: "H₂",    name: "水素",               atoms: { H: 2 },         charge: 0 },
   "e-":      { disp: "e⁻",    name: "電子",               atoms: {},               charge: -1 },
+  // 溶液中の酸化還元（KMnO₄・K₂Cr₂O₇ 系。参照エントリ用。房・アニメは未実装）
+  "KMnO4":     { disp: "KMnO₄",      name: "過マンガン酸カリウム", atoms: { K: 1, Mn: 1, O: 4 }, charge: 0 },
+  "MnO4-":     { disp: "MnO₄⁻",      name: "過マンガン酸イオン（赤紫）", atoms: { Mn: 1, O: 4 }, charge: -1 },
+  "Mn^2+":     { disp: "Mn²⁺",       name: "マンガン(Ⅱ)イオン（ほぼ無色）", atoms: { Mn: 1 }, charge: 2 },
+  "MnSO4":     { disp: "MnSO₄",      name: "硫酸マンガン(Ⅱ)",     atoms: { Mn: 1, S: 1, O: 4 }, charge: 0 },
+  "FeSO4":     { disp: "FeSO₄",      name: "硫酸鉄(Ⅱ)",           atoms: { Fe: 1, S: 1, O: 4 }, charge: 0 },
+  "Fe^3+":     { disp: "Fe³⁺",       name: "鉄(Ⅲ)イオン",         atoms: { Fe: 1 }, charge: 3 },
+  "Fe2(SO4)3": { disp: "Fe₂(SO₄)₃", name: "硫酸鉄(Ⅲ)",           atoms: { Fe: 2, S: 3, O: 12 }, charge: 0 },
+  "K2SO4":     { disp: "K₂SO₄",      name: "硫酸カリウム",         atoms: { K: 2, S: 1, O: 4 }, charge: 0 },
+  "K2Cr2O7":   { disp: "K₂Cr₂O₇",   name: "二クロム酸カリウム",   atoms: { K: 2, Cr: 2, O: 7 }, charge: 0 },
+  "Cr2O7^2-":  { disp: "Cr₂O₇²⁻",   name: "二クロム酸イオン（橙）", atoms: { Cr: 2, O: 7 }, charge: -2 },
+  "Cr^3+":     { disp: "Cr³⁺",       name: "クロム(Ⅲ)イオン（緑）", atoms: { Cr: 1 }, charge: 3 },
+  "Cr2(SO4)3": { disp: "Cr₂(SO₄)₃", name: "硫酸クロム(Ⅲ)",       atoms: { Cr: 2, S: 3, O: 12 }, charge: 0 },
 };
 
 /* 強電解質の電離表（v1 は完全電離のみ扱う） */
@@ -80,6 +93,14 @@ const DISSOCIATION = {
   "CuSO4":   ["Cu^2+", "SO4^2-"],
   "Na2SO3":  ["Na+", "Na+", "SO3^2-"],
   "Na2CO3":  ["Na+", "Na+", "CO3^2-"],
+  // 溶液中の酸化還元 系（参照エントリの物質検索・分解表示用）
+  "KMnO4":     ["K+", "MnO4-"],
+  "FeSO4":     ["Fe^2+", "SO4^2-"],
+  "MnSO4":     ["Mn^2+", "SO4^2-"],
+  "K2SO4":     ["K+", "K+", "SO4^2-"],
+  "Fe2(SO4)3": ["Fe^3+", "Fe^3+", "SO4^2-", "SO4^2-", "SO4^2-"],
+  "K2Cr2O7":   ["K+", "K+", "Cr2O7^2-"],
+  "Cr2(SO4)3": ["Cr^3+", "Cr^3+", "SO4^2-", "SO4^2-", "SO4^2-"],
 };
 
 /* 数合わせビューで「式の項」を粒に分解する表。
