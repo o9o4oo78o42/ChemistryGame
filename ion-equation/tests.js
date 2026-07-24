@@ -709,6 +709,24 @@ async function runReactionLibraryTests() {
     for (const s of all) assert(lib.bySpecies[s] && lib.bySpecies[s].length > 0, "bySpecies に " + s + " が無い");
   });
 
+  await t("検索・整形: matchesQuery と formatEquation（インデックスUIの純ロジック）", () => {
+    assert(typeof matchesQuery === "function" && typeof formatEquation === "function", "library.js の検索関数が無い");
+    const byId = {};
+    data.reactions.forEach((r) => (byId[r.id] = r));
+    // 物質検索: "h2so4" は H₂SO₄ を含む反応にマッチ、Ca(OH)2 のみの s3 にはしない
+    assert(matchesQuery(byId["s2"], "h2so4"), "s2 が h2so4 にマッチしない");
+    assert(matchesQuery(byId["s2"], "H2SO4"), "大小無視でマッチしない");
+    assert(!matchesQuery(byId["s1"], "so4"), "s1（SO4なし）が so4 にマッチしてしまう");
+    assert(matchesQuery(byId["s2"], "so4"), "s2 が so4（SO4^2-）にマッチしない");
+    // イオンの ^ を無視: "co3" は CO3^2- にマッチ
+    assert(matchesQuery(byId["s6"], "co3"), "s6 が co3 にマッチしない");
+    // 空クエリは全マッチ
+    assert(matchesQuery(byId["s1"], ""), "空クエリで落ちる");
+    // 反応式整形（係数1は省略）
+    const eq = formatEquation(byId["s2"], (sp) => SPECIES[sp].disp);
+    assert(eq === "H₂SO₄ ＋ 2 NaOH → Na₂SO₄ ＋ 2 H₂O", "整形が想定外: " + eq);
+  });
+
   await t("移行の同一性: 既存 STAGES と reactions.json が一致（両立期間の担保）", () => {
     for (const st of STAGES) {
       const rx = data.reactions.find((r) => r.id === st.id);

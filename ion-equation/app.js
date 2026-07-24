@@ -1240,6 +1240,13 @@ if (howtoEl) {
   });
 }
 
+/* 反応インデックスからのディープリンク（index.html?rxn=<id>）。該当ステージを開く */
+const rxnParam = new URLSearchParams(location.search).get("rxn");
+if (rxnParam) {
+  const i = STAGES.findIndex((s) => s.id === rxnParam);
+  if (i >= 0) stageIdx = i;
+}
+
 initStage();
 requestAnimationFrame(frame);
 

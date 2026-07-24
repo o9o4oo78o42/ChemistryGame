@@ -79,13 +79,20 @@ vanilla JS + SVG、ビルドツールなし・静的配信（GitHub Pages 互換
 「反応式を網羅し、分類・登場物質から検索」。ライブラリ層（データ）とアニメ層（実装）を分離。
 - [ ] Phase 1: reactions.json へ移行＋機械検証（原子/電荷保存・分類 enum・species 逆引き・animationType 実在）。
   **fetch 導入で file:// 直開き不可＝サーバー必須化**（本設計原則の記述を移行時に更新すること）
-- [ ] Phase 2: インデックス/検索 UI（分類フィルタ＋物質逆引き、参照のみ反応の表示）
+- [~] Phase 2: インデックス/検索 UI — library.html＋library-ui.js で分類フィルタ（型・塩）＋物質検索＋
+  ディープリンク（?rxn=id）を実装（v24）。難易度フィルタ・単元フィルタ・参照のみ反応の数合わせ表示は未
 - [ ] Phase 3: アニメタイプのレジストリ化（既存を animationType に整理・未実装は「準備中」）
 - [ ] Phase 4: `redox-solution`（KMnO₄・K₂Cr₂O₇ など溶液中の酸化還元。色変化・H⁺参加・板なし）
 - [ ] Phase 5+: 錯イオン生成・弱酸弱塩基（M4）・分子反応（C群）
 
 ## 作業記録
 
+- v24（2026-07-24・反応ライブラリ Phase 2 増分1・インデックス/検索UI）: library.html＋library-ui.js。
+  window.IonLib を使い、反応の型・塩の分類フィルタ（件数つきチップ）＋物質検索（^/大小無視の部分一致）＋
+  各反応の反応式整形・分類バッジ・難易度★・イオン反応式・解説・「▶遊ぶ」（?rxn=id ディープリンク）。
+  app.js に ?rxn=<id> でステージを開くディープリンク受けを追加。index.html に「🔎反応インデックス」導線。
+  検索/整形は純関数 matchesQuery/formatEquation として library.js に置きテスト（反応ライブラリ 7→8）。
+  実機で 12件表示・co3/h2so4 検索・酸性塩フィルタ・?rxn=s11→ステージ11 を確認。
 - v23（2026-07-24・反応ライブラリ Phase 1 増分2・ローダ＋逆引き索引）: library.js を新設。
   `buildReactionIndex`（純関数：byId／bySpecies＝物質逆引き／byType／bySalt／byUnit／allSpecies）と
   `loadReactionLibrary`（fetch, cache:no-store→window.IonLib）。index.html は起動時に裏読み（app.js が

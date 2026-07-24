@@ -44,7 +44,31 @@ async function loadReactionLibrary(url) {
   return lib;
 }
 
+/* 検索用に物質記号を正規化（^ と空白を除き小文字化）。"Fe^2+"→"fe2+"、"H2SO4"→"h2so4" */
+function normSpecies(s) {
+  return String(s).replace(/[\^\s]/g, "").toLowerCase();
+}
+
+/* 反応が検索語にマッチするか。登場物質（species：分子＋イオン）の正規化キーに部分一致 */
+function matchesQuery(rx, q) {
+  if (!q) return true;
+  const nq = normSpecies(q);
+  return (rx.species || []).some((sp) => normSpecies(sp).includes(nq));
+}
+
+/* 反応式を文字列に整形。disp(sp)=表示名を返す関数（SPECIES[sp].disp 等）。係数1は省略 */
+function formatEquation(rx, disp) {
+  const nL = rx.reactants.length;
+  const side = (species, offset) => species
+    .map((sp, i) => { const c = rx.coeffs[offset + i]; return (c > 1 ? c + " " : "") + disp(sp); })
+    .join(" ＋ ");
+  return side(rx.reactants, 0) + " → " + side(rx.products, nL);
+}
+
 if (typeof window !== "undefined") {
   window.buildReactionIndex = buildReactionIndex;
   window.loadReactionLibrary = loadReactionLibrary;
+  window.normSpecies = normSpecies;
+  window.matchesQuery = matchesQuery;
+  window.formatEquation = formatEquation;
 }
