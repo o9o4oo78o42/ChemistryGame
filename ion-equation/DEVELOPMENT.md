@@ -24,7 +24,10 @@ vanilla JS + SVG、ビルドツールなし・静的配信（GitHub Pages 互換
 - **粒子の座標・動きは見た目専用**。正否判定はイオンの個数と原子数のみで行う
   （Chem-Assembler の「検証はトポロジーのみ」と同じ思想）
 - 正否判定は模範解答との文字列比較ではなく**原子数・電荷の保存＋最簡整数比**で行う（別解を機械的に許容できる形）
-- データは v1 では JS 埋め込み（file:// 直開きでも動く）。JSON fetch を導入したらローカルサーバー必須になるので、その時点でこの記述を更新すること
+- データ（2026-07-24 更新）: 反応ライブラリ `reactions.json` を導入し `library.js` が **fetch** で読む。
+  **index/検索（Phase 2 以降）を使うにはサーバー必須**（file:// では fetch が失敗）。
+  ただし**ゲームプレイは当面 model.js 内の STAGES で両立**しており、fetch 失敗時も遊べる（app.js が握りつぶす）。
+  将来ゲームプレイも reactions.json 駆動に移行すると完全にサーバー必須化する（その時点で本記述を更新）
 - 全ファイル **UTF-8（BOMなし）**。コミット前に文字化けパターン（`縺`・`繧`・`繝`・`蜊`・`荳`・`邨`）がないか確認
 - バージョン番号 `vNN` はコミットごとに **index.html・test.html のキャッシュバスター＋ヘッダー表示**を同時更新
 - **1修正=1コミット**。修正ごとにブラウザで実挙動を検証し、検証内容をコミットメッセージに記録
@@ -83,6 +86,12 @@ vanilla JS + SVG、ビルドツールなし・静的配信（GitHub Pages 互換
 
 ## 作業記録
 
+- v23（2026-07-24・反応ライブラリ Phase 1 増分2・ローダ＋逆引き索引）: library.js を新設。
+  `buildReactionIndex`（純関数：byId／bySpecies＝物質逆引き／byType／bySalt／byUnit／allSpecies）と
+  `loadReactionLibrary`（fetch, cache:no-store→window.IonLib）。index.html は起動時に裏読み（app.js が
+  非致命で握りつぶす＝file:// でもゲームプレイ継続＝両立）。設計原則の「JSON化＝サーバー必須」記述を更新
+  （index/検索はサーバー必須・ゲームプレイは STAGES 両立）。逆引き検証テスト1本追加（反応ライブラリ 6→7）。
+  実機で window.IonLib に12反応・分類/物質の索引が載ることを確認。次は Phase 2 の検索UI。
 - v22（2026-07-24・反応ライブラリ Phase 1 増分1・両立/アプリ挙動不変）: reactions.json を新設し
   既存 A群12反応を新スキーマへ移行（reactants/products/coeffs/netIonic/classes/units/species/
   animationType/rules/note/difficulty/playable）。既存データからブラウザで正確に生成。

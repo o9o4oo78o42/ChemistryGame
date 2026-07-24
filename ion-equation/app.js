@@ -1243,4 +1243,10 @@ if (howtoEl) {
 initStage();
 requestAnimationFrame(frame);
 
+/* 反応ライブラリ（reactions.json）を裏で読み込み window.IonLib に載せる。
+   インデックス/検索UI（Phase 2）で使う。失敗（file:// 等）してもゲームプレイは STAGES で継続＝両立。 */
+if (typeof window.loadReactionLibrary === "function") {
+  window.loadReactionLibrary().catch(() => { /* サーバー無し等では index 無しで続行 */ });
+}
+
 })();

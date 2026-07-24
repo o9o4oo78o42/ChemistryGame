@@ -687,6 +687,28 @@ async function runReactionLibraryTests() {
     }
   });
 
+  await t("逆引きインデックス: 物質・分類からの検索が正しい（buildReactionIndex）", () => {
+    assert(typeof buildReactionIndex === "function", "library.js（buildReactionIndex）が読み込まれていない");
+    const lib = buildReactionIndex(data);
+    // byId
+    assert(lib.byId["s1"] && lib.byId["s1"].id === "s1", "byId が引けない");
+    // 物質逆引き: H+ を含む反応集合が species ベースと一致
+    const withHp = data.reactions.filter((r) => r.species.includes("H+")).map((r) => r.id).sort();
+    assert(JSON.stringify((lib.bySpecies["H+"] || []).sort()) === JSON.stringify(withHp), "H⁺ の逆引きが不一致");
+    // 分類逆引き: 中和・酸性塩
+    const neu = data.reactions.filter((r) => r.classes.type === "中和").map((r) => r.id).sort();
+    assert(JSON.stringify((lib.byType["中和"] || []).sort()) === JSON.stringify(neu), "byType 中和 が不一致");
+    assert(JSON.stringify((lib.bySalt["酸性塩"] || []).sort()) === JSON.stringify(["s11", "s12"]), "bySalt 酸性塩 が不一致");
+    // 単元逆引き
+    assert((lib.byUnit["沈殿"] || []).length >= 2, "byUnit 沈殿 が少ない");
+    // allSpecies が全登場物質を漏れなく含む
+    const all = new Set();
+    data.reactions.forEach((r) => r.species.forEach((s) => all.add(s)));
+    assert(lib.allSpecies.length === all.size, "allSpecies の網羅漏れ: " + lib.allSpecies.length + " != " + all.size);
+    // 逆引きは全 species を鍵に持つ
+    for (const s of all) assert(lib.bySpecies[s] && lib.bySpecies[s].length > 0, "bySpecies に " + s + " が無い");
+  });
+
   await t("移行の同一性: 既存 STAGES と reactions.json が一致（両立期間の担保）", () => {
     for (const st of STAGES) {
       const rx = data.reactions.find((r) => r.id === st.id);
