@@ -1339,6 +1339,186 @@ function describeStructure(mol) {
     return points;
 }
 
+// ===== 異性体練習の系統分類（P12-1 M2）。表示・ヒント専用の純粋関数で、検証には使わない =====
+
+// 端点IDの小さい向きに正規化した経路どうしを辞書式比較する（両方向の同一経路を同一視）
+function _cmpCarbonPath(a, b) {
+    if (a.length === 0 || b.length === 0) return a.length - b.length;
+    const na = a[0] <= a[a.length - 1] ? a : a.slice().reverse();
+    const nb = b[0] <= b[b.length - 1] ? b : b.slice().reverse();
+    const m = Math.min(na.length, nb.length);
+    for (let i = 0; i < m; i++) { if (na[i] !== nb[i]) return na[i] - nb[i]; }
+    return na.length - nb.length;
+}
+
+// 炭素だけの部分グラフでの最長単純パス（＝最長炭素鎖）を原子ID列で返す。
+// longestCarbonChain（長さのみ）の経路版。結果は決定的（同長なら端点ID列で一意化）。
+// 環を含む分子では最長単純パスを返すが、主鎖の概念は環では別扱い
+// （呼び出し側で findAnyCycle により環を検出して分岐する）。
+function findLongestCarbonChain(mol) {
+    const cIds = mol.atoms.filter(a => a.element === 'C').map(a => a.id);
+    if (cIds.length === 0) return [];
+    const cSet = new Set(cIds);
+    const adj = new Map(cIds.map(id => [id, []]));
+    mol.bonds.forEach(b => {
+        if (cSet.has(b.atomId1) && cSet.has(b.atomId2)) {
+            adj.get(b.atomId1).push(b.atomId2);
+            adj.get(b.atomId2).push(b.atomId1);
+        }
+    });
+    let best = [cIds[0]];
+    const path = [];
+    const visited = new Set();
+    const dfs = (id) => {
+        if (path.length > best.length ||
+            (path.length === best.length && _cmpCarbonPath(path, best) < 0)) best = path.slice();
+        adj.get(id).forEach(n => {
+            if (!visited.has(n)) {
+                visited.add(n); path.push(n);
+                dfs(n);
+                path.pop(); visited.delete(n);
+            }
+        });
+    };
+    cIds.slice().sort((a, b) => a - b).forEach(s => {
+        visited.clear(); visited.add(s); path.length = 0; path.push(s);
+        dfs(s);
+    });
+    return best;
+}
+
+// 異性体を系統分類するキー（表示の系統順ソートと、ヒントの系列内訳・書き出し手順に使う）。
+// 返り値: {
+//   funcType, funcRank,   官能基カテゴリ（第一ソートキー）
+//   cyclic, chainLen,     環の有無・主鎖（最長炭素鎖）長／環では総炭素数
+//   sideSizes, gemPair,   側鎖の炭素数（降順）・同一炭素上のメチル2個か
+//   locant,               主特性基／二重結合の位置番号（両方向で最小。無ければ null）
+//   seriesLabel,          系列の見出し（位置ずらしを畳んだ粒度。ヒントの内訳に使う）
+//   category,             書き出し手順テンプレの種別
+//   cmp                   安定ソート用の比較配列
+// }
+function isomerSeriesKey(mol) {
+    const cAtoms = mol.atoms.filter(a => a.element === 'C');
+    const cIds = new Set(cAtoms.map(a => a.id));
+    const cyclic = !!findAnyCycle(mol);
+    const types = new Set(findFunctionalGroups(mol).map(g => g.type));
+
+    let funcType = 'alkane', funcRank = 0;
+    if (types.has('alcohol1')) { funcType = 'ol1'; funcRank = 20; }
+    else if (types.has('alcohol2')) { funcType = 'ol2'; funcRank = 21; }
+    else if (types.has('alcohol3')) { funcType = 'ol3'; funcRank = 22; }
+    else if (types.has('alcohol0')) { funcType = 'ol'; funcRank = 23; }
+    else if (types.has('ether')) { funcType = 'ether'; funcRank = 30; }
+    else if (types.has('cc_triple')) { funcType = 'yne'; funcRank = 12; }
+    else if (types.has('cc_double')) { funcType = 'ene'; funcRank = 10; }
+
+    const chain = cyclic ? [] : findLongestCarbonChain(mol);
+    const chainLen = cyclic ? cAtoms.length : chain.length;
+
+    // 側鎖（主鎖に乗らない炭素）のサイズと、同一炭素上のメチル2個（gem）判定
+    const sideSizes = [];
+    let gemPair = false;
+    if (!cyclic && chain.length) {
+        const mainSet = new Set(chain);
+        chain.forEach(cid => {
+            const branchRoots = mol.getNeighbors(cid)
+                .filter(n => n.atom.element === 'C' && !mainSet.has(n.atom.id))
+                .map(n => n.atom.id);
+            const branchSizes = branchRoots.map(rootId => {
+                // 主鎖に戻らずに辿れる炭素数（側鎖の大きさ）
+                const seen = new Set([...mainSet, rootId]);
+                let cnt = 1; const st = [rootId];
+                while (st.length) {
+                    const x = st.pop();
+                    mol.getNeighbors(x).forEach(n => {
+                        if (n.atom.element === 'C' && !seen.has(n.atom.id)) {
+                            seen.add(n.atom.id); cnt++; st.push(n.atom.id);
+                        }
+                    });
+                }
+                return cnt;
+            });
+            branchSizes.forEach(s => sideSizes.push(s));
+            if (branchSizes.filter(s => s === 1).length >= 2) gemPair = true;
+        });
+        sideSizes.sort((a, b) => b - a);
+    }
+
+    // 主特性基／二重結合の位置番号を、主鎖の番号付け両方向で最小化して求める
+    let locant = null;
+    if (!cyclic && chain.length) {
+        const n = chain.length;
+        const posMaps = [
+            new Map(chain.map((id, i) => [id, i + 1])),
+            new Map(chain.map((id, i) => [id, n - i]))
+        ];
+        const locantOf = (posMap) => {
+            if (funcType.startsWith('ol')) {
+                // -OH のついた主鎖炭素の位置
+                for (const a of cAtoms) {
+                    if (!posMap.has(a.id)) continue;
+                    const hasOH = mol.getNeighbors(a.id).some(n => n.atom.element === 'O' &&
+                        n.type === 1 && mol.getFreeValency(n.atom.id) >= 1 &&
+                        mol.getNeighbors(n.atom.id).filter(m => m.atom.element !== 'H').length === 1);
+                    if (hasOH) return posMap.get(a.id);
+                }
+            } else if (funcType === 'ene' || funcType === 'yne') {
+                const t = funcType === 'ene' ? 2 : 3;
+                let mn = Infinity;
+                mol.bonds.forEach(b => {
+                    if (b.type === t && posMap.has(b.atomId1) && posMap.has(b.atomId2)) {
+                        mn = Math.min(mn, posMap.get(b.atomId1), posMap.get(b.atomId2));
+                    }
+                });
+                if (mn !== Infinity) return mn;
+            }
+            // 官能基がなければ最小の側鎖位置（枝の位置）
+            let mn = Infinity;
+            chain.forEach(cid => {
+                const hasBranch = mol.getNeighbors(cid).some(nn => nn.atom.element === 'C' && !posMap.has(nn.atom.id));
+                if (hasBranch) mn = Math.min(mn, posMap.get(cid));
+            });
+            return mn === Infinity ? null : mn;
+        };
+        const cand = posMaps.map(locantOf).filter(v => v !== null);
+        if (cand.length) locant = Math.min(...cand);
+    }
+
+    // 系列の見出し（位置ちがいを畳んだ粒度）
+    const funcLabel = { ol1: '第1級アルコール', ol2: '第2級アルコール', ol3: '第3級アルコール',
+        ol: 'アルコール', ether: 'エーテル', ene: 'アルケン', yne: 'アルキン', alkane: '' }[funcType] || '';
+    let skeleton;
+    if (cyclic) {
+        skeleton = `環（炭素${chainLen}）`;
+    } else if (sideSizes.length === 0) {
+        skeleton = `直鎖（主鎖${chainLen}）`;
+    } else {
+        const parts = [];
+        const methyls = sideSizes.filter(s => s === 1).length;
+        const ethyls = sideSizes.filter(s => s === 2).length;
+        const bigger = sideSizes.filter(s => s >= 3);
+        if (methyls === 1) parts.push('メチル基1つ');
+        if (methyls >= 2) parts.push(gemPair ? 'メチル基2つ（同じ炭素）' : 'メチル基2つ（別の炭素）');
+        if (ethyls) parts.push(`エチル基${ethyls > 1 ? ethyls + 'つ' : '1つ'}`);
+        bigger.forEach(s => parts.push(`炭素${s}個の側鎖`));
+        skeleton = `主鎖${chainLen}＋${parts.join('・')}`;
+    }
+    const seriesLabel = funcLabel ? `${skeleton}の${funcLabel}` : skeleton;
+
+    // 書き出し手順テンプレの種別
+    let category;
+    if (cyclic || funcType === 'ene' || funcType === 'yne') category = 'unsat_ring';
+    else if (funcType.startsWith('ol') || funcType === 'ether') category = 'position';
+    else if (sideSizes.reduce((s, v) => s + v, 0) === 2) category = 'sidechain2';
+    else if (sideSizes.length > 0) category = 'branch';
+    else category = 'straight';
+
+    const cmp = [funcRank, -chainLen, -(sideSizes.reduce((s, v) => s + v, 0)),
+        gemPair ? 1 : 0, locant == null ? 99 : locant];
+
+    return { funcType, funcRank, cyclic, chainLen, sideSizes, gemPair, locant, seriesLabel, category, cmp };
+}
+
 // テスト（test.html）およびコンソールデバッグ用にグローバル公開する。
 // class宣言・const はトップレベルでも window のプロパティにならないため明示が必要。
 if (typeof window !== 'undefined') {
@@ -1358,4 +1538,6 @@ if (typeof window !== 'undefined') {
     window.isValencyValid = isValencyValid;
     window.layoutMolecule = layoutMolecule;
     window.findAnyCycle = findAnyCycle;
+    window.findLongestCarbonChain = findLongestCarbonChain;
+    window.isomerSeriesKey = isomerSeriesKey;
 }

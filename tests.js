@@ -2849,6 +2849,112 @@
         assert(unnamed.length === 0, `名称未登録の異性体がある: ${unnamed.join(', ')}`);
     });
 
+    test('IP5: 系統分類の純粋関数（findLongestCarbonChain / isomerSeriesKey）', async (c) => {
+        const W = c.W;
+        // 2-メチルブタン: 主鎖4・メチル基1つ・位置2
+        const m = new W.Molecule();
+        const ids = ['C', 'C', 'C', 'C', 'C'].map((e, k) => m.addAtom(e, k * 42, 0).id);
+        [[0, 1], [1, 2], [2, 3], [1, 4]].forEach(([a, b]) => m.addBond(ids[a], ids[b], 1));
+        assert(W.findLongestCarbonChain(m).length === 4, '2-メチルブタンの最長炭素鎖が4でない');
+        const k = W.isomerSeriesKey(m);
+        assert(k.chainLen === 4 && k.sideSizes.length === 1 && k.sideSizes[0] === 1 && k.locant === 2,
+            `系列キーが不正: chain=${k.chainLen} side=[${k.sideSizes}] loc=${k.locant}`);
+        assert(k.category === 'branch' && /主鎖4/.test(k.seriesLabel), `seriesLabel/category不正: ${k.seriesLabel}/${k.category}`);
+
+        // 2,2-ジメチルプロパン（ネオペンタン）: 同一炭素のメチル2つ（gem）
+        const n = new W.Molecule();
+        const nid = ['C', 'C', 'C', 'C', 'C'].map(e => n.addAtom(e, 0, 0).id);
+        [[0, 1], [0, 2], [0, 3], [0, 4]].forEach(([a, b]) => n.addBond(nid[a], nid[b], 1));
+        const kn = W.isomerSeriesKey(n);
+        assert(kn.gemPair === true && kn.category === 'sidechain2', `ネオペンタンのgem/category不正: ${kn.gemPair}/${kn.category}`);
+    });
+
+    test('IP6: 段階ヒント（系列内訳 → 手順 → 答え）', async (c) => {
+        c.reset();
+        const g = c.game, W = c.W, ip = W.isomerPractice;
+        g.setMode('learn');
+        ip.start(3); // C₆H₁₄
+        // 直鎖ヘキサンを登録（正準的なので教示は出ず、キャンバスは消える）
+        const m = new W.Molecule();
+        const ids = [];
+        for (let i = 0; i < 6; i++) ids.push(m.addAtom('C', 100 + 42 * i, 300).id);
+        for (let i = 0; i < 5; i++) m.addBond(ids[i], ids[i + 1], 1);
+        g.userMolecule = m; g.updateDrawing();
+        ip.register();
+        assert(ip.found.size === 1, 'ヘキサン登録に失敗');
+        const body = c.D.getElementById('ip-body');
+
+        ip.showHint();
+        assert(ip._hintLevel === 1 && /内訳/.test(body.textContent), 'ヒント1（系列内訳）が出ない');
+        assert(/あと 2/.test(body.textContent), '主鎖5＋メチル基1つ が「あと2」で出ない');
+        ip.showHint();
+        assert(ip._hintLevel === 2 && /書き出しの手順/.test(body.textContent), 'ヒント2（手順）が出ない');
+        ip.showHint();
+        assert(ip._hintLevel === 3 && /答え（系統順）/.test(body.textContent) && /（未発見）/.test(body.textContent),
+            'ヒント3（答え・未発見マーク）が出ない');
+        ip.showHint();
+        assert(ip._hintLevel === 3, 'ヒントは3段階までで頭打ちにならない');
+        ip.stop();
+        g.setMode('puzzle');
+    });
+
+    test('IP7: 主鎖／環の教示（非正準な作図の検出とハイライト）', async (c) => {
+        c.reset();
+        const g = c.game, W = c.W, ip = W.isomerPractice;
+        g.setMode('learn');
+        ip.start(3); // C₆H₁₄
+
+        // 正準的（直鎖）→ 教示なし・キャンバスは消える
+        (function () {
+            const m = new W.Molecule();
+            const ids = [];
+            for (let i = 0; i < 6; i++) ids.push(m.addAtom('C', 100 + 42 * i, 300).id);
+            for (let i = 0; i < 5; i++) m.addBond(ids[i], ids[i + 1], 1);
+            g.userMolecule = m; g.updateDrawing();
+        })();
+        ip.register();
+        assert(ip._teaching === null && g.userMolecule.atoms.length === 0, '正準な作図で教示が出た/消えなかった');
+
+        // 非正準（横4＋枝2で描いた3-メチルペンタン。まっすぐは4だが最長鎖は5）
+        const m = new W.Molecule();
+        const c0 = m.addAtom('C', 100, 300).id, c1 = m.addAtom('C', 142, 300).id,
+            c2 = m.addAtom('C', 184, 300).id, c3 = m.addAtom('C', 226, 300).id,
+            c4 = m.addAtom('C', 142, 342).id, c5 = m.addAtom('C', 142, 384).id;
+        [[c0, c1], [c1, c2], [c2, c3], [c1, c4], [c4, c5]].forEach(([a, b]) => m.addBond(a, b, 1));
+        g.userMolecule = m; g.updateDrawing();
+        ip.register();
+        assert(ip._teaching && ip._teaching.type === 'chain' && ip._teaching.chainLen === 5,
+            '非正準な作図で主鎖の教示が出ない');
+        assert(g.userMolecule.atoms.length > 0, '教示中はキャンバスを消さない');
+        assert(c.D.querySelectorAll('#ui-group circle').length === 5, '主鎖5個がオレンジでハイライトされない');
+        ip.continueAfterTeaching();
+        assert(ip._teaching === null && g.userMolecule.atoms.length === 0, '「続ける」でキャンバスが消えない');
+        ip.stop();
+        g.setMode('puzzle');
+    });
+
+    test('IP8: 任意分子式の練習（M3。解析・受理・拒否・上限）', async (c) => {
+        c.reset();
+        const g = c.game, ip = c.W.isomerPractice;
+        const p = ip.parseFormula('C4H10O');
+        assert(p && p.heavy.length === 5 && p.h === 10, 'C4H10O の解析に失敗');
+        assert(ip.parseFormula('c4h10') === null, '小文字を弾かない');
+        assert(ip.parseFormula('C4H10X') === null, '未対応元素を弾かない');
+        assert(ip.parseFormula('') === null, '空文字を弾かない');
+
+        g.setMode('learn');
+        ip.startFromFormula('C5H12');
+        assert(ip.active && ip.problem.total === 3, 'C5H12 の自由入力で開始できない');
+        ip.stop();
+        ip.startFromFormula('C7H16');
+        assert(!ip.active, '重原子7個の式を受理してしまう');
+        ip.startFromFormula('CH5');
+        assert(!ip.active, '原子価の合わない式を受理してしまう');
+        ip.startFromFormula('C6H6');
+        assert(!ip.active, '異性体過多（217種）の式を受理してしまう');
+        g.setMode('puzzle');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

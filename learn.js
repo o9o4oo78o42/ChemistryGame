@@ -227,42 +227,9 @@ const IP_SVGNS = 'http://www.w3.org/2000/svg';
 // C6H14 は既定の列挙ノード上限（60万）を超えるため、練習の正解集合生成には
 // 十分大きな上限を渡して打ち切りを防ぐ（6問はすべて数百ms以内で完了する）
 const IP_ENUM_LIMIT = 4000000;
-
-// 答え合わせ一覧の系統順ソート用: カテゴリの並び順（小さいほど先）。
-// categorizeMolecule のラベルに対応。M2 で isomerSeriesKey に置き換える暫定版。
-const IP_CATEGORY_RANK = [
-    '鎖式炭化水素', 'アルケン（二重結合）', 'アルキン（三重結合）', '環式炭化水素',
-    'アルコール', 'エーテル', 'アルデヒド', 'ケトン', 'カルボン酸', 'エステル',
-    'フェノール類', 'ニトロ化合物', 'アミン', '芳香族炭化水素', 'エノール（不安定）'
-];
-
-// 炭素だけの部分グラフでの最長単純パスに含まれる炭素数（＝最長炭素鎖の長さ）。
-// 答え合わせ一覧を「主鎖の長い順」に並べるための表示用ヘルパー（重原子≤6で総当り可）。
-function ipLongestCarbonChain(mol) {
-    const carbons = mol.atoms.filter(a => a.element === 'C');
-    if (carbons.length === 0) return 0;
-    const adj = new Map(carbons.map(a => [a.id, []]));
-    mol.bonds.forEach(b => {
-        if (adj.has(b.atomId1) && adj.has(b.atomId2)) {
-            adj.get(b.atomId1).push(b.atomId2);
-            adj.get(b.atomId2).push(b.atomId1);
-        }
-    });
-    let best = 1;
-    const dfs = (id, visited) => {
-        let max = visited.size;
-        adj.get(id).forEach(n => {
-            if (!visited.has(n)) {
-                visited.add(n);
-                max = Math.max(max, dfs(n, visited));
-                visited.delete(n);
-            }
-        });
-        return max;
-    };
-    carbons.forEach(a => { best = Math.max(best, dfs(a.id, new Set([a.id]))); });
-    return best;
-}
+// 任意分子式（M3）で受け付ける異性体数の上限。これを超える分子式（不飽和度の高い式など）は
+// 教科書範囲を外れた構造を多数含み練習に不向きなので断る（設計 9章の分類フィルタ相当の暫定措置）
+const IP_MAX_ISOMERS = 20;
 
 class IsomerPractice {
     constructor(game) {
@@ -336,21 +303,113 @@ class IsomerPractice {
             grid.appendChild(btn);
         });
         this.body.appendChild(grid);
+
+        // M3: 任意の分子式で練習
+        const custom = document.createElement('div');
+        custom.style.cssText = 'margin-top:10px; border-top:1px solid rgba(255,255,255,0.1); padding-top:8px;';
+        const clabel = document.createElement('div');
+        clabel.style.cssText = 'font-size:11px; color:var(--text-secondary); margin-bottom:4px;';
+        clabel.textContent = '任意の分子式で練習（水素以外6個まで）:';
+        custom.appendChild(clabel);
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; gap:6px;';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = '例: C5H10';
+        input.style.cssText = 'flex:1 1 0; min-width:0; padding:5px; background:rgba(0,0,0,0.3); color:var(--text-primary); border:1px solid var(--border-color); border-radius:4px;';
+        const go = document.createElement('button');
+        go.className = 'view-btn';
+        go.style.cssText = 'font-size:12px; padding:6px 10px; white-space:nowrap;';
+        go.textContent = '練習する';
+        const submit = () => this.startFromFormula(input.value);
+        go.addEventListener('click', submit);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+        row.appendChild(input);
+        row.appendChild(go);
+        custom.appendChild(row);
+        this.body.appendChild(custom);
     }
 
     // ===== 練習開始 =====
+    // 固定問題リストから開始
     start(index) {
-        const g = this.game;
         const data = this.enumerate(index);
         if (data.overflow || data.isomers.length === 0) {
-            g.showToast('この分子式は練習に対応していません。');
+            this.game.showToast('この分子式は練習に対応していません。');
             return;
         }
         const p = this.problems[index];
-        this.problem = { index, elements: p.elements, hCount: p.hCount, formula: data.formula, total: data.isomers.length };
-        this.targets = new Map(data.isomers.map(m => [canonicalCode(m), m]));
+        this.beginSession({ index, elements: p.elements, hCount: p.hCount, formula: data.formula }, data.isomers);
+    }
+
+    // 任意の分子式から開始（M3）
+    startFromFormula(str) {
+        const g = this.game;
+        const parsed = this.parseFormula(str);
+        if (!parsed) {
+            g.showToast('分子式を「C4H10O」のように入力してください（対応: C・H・O・N・Cl・Br・S）。');
+            return;
+        }
+        if (parsed.heavy.length === 0) {
+            g.showToast('炭素などの重原子（水素以外）を含む分子式を入力してください。');
+            return;
+        }
+        if (parsed.heavy.length > 6) {
+            g.showToast('重原子が多すぎます。水素を除いて6個までが練習の対象です。');
+            return;
+        }
+        const { isomers, overflow } = enumerateConstitutionalIsomers(parsed.heavy, parsed.h, IP_ENUM_LIMIT);
+        if (overflow) {
+            g.showToast('この分子式は異性体が多すぎて、いまの練習では扱えません。');
+            return;
+        }
+        if (isomers.length === 0) {
+            g.showToast('その分子式に当てはまる構造がありません（原子価が合いません）。');
+            return;
+        }
+        if (isomers.length > IP_MAX_ISOMERS) {
+            g.showToast(`この分子式は異性体が${isomers.length}種と多すぎて練習に向きません（不飽和度の高い分子式は教科書外の構造も多く含みます）。`);
+            return;
+        }
+        const formula = g.computeMolecularFormula(isomers[0]);
+        this.beginSession({ index: -1, elements: parsed.heavy, hCount: parsed.h, formula }, isomers);
+    }
+
+    // 分子式文字列を { heavy:[元素…], h:水素数 } に解析する。不正なら null（M3）
+    parseFormula(str) {
+        if (!str) return null;
+        const s = String(str).replace(/\s+/g, '');
+        if (!s) return null;
+        const supported = new Set(['C', 'H', 'O', 'N', 'Cl', 'Br', 'S']);
+        const re = /([A-Z][a-z]?)(\d*)/g;
+        const counts = {};
+        let m, consumed = 0;
+        while ((m = re.exec(s)) !== null) {
+            if (m.index !== consumed) return null; // 連続していない＝不正な文字
+            consumed += m[0].length;
+            const el = m[1];
+            const n = m[2] === '' ? 1 : parseInt(m[2], 10);
+            if (!supported.has(el)) return null;
+            counts[el] = (counts[el] || 0) + n;
+        }
+        if (consumed !== s.length) return null;
+        const heavy = [];
+        Object.keys(counts).forEach(el => {
+            if (el !== 'H') for (let i = 0; i < counts[el]; i++) heavy.push(el);
+        });
+        return { heavy, h: counts['H'] || 0 };
+    }
+
+    // 問題の異性体集合でセッションを初期化して描画する（固定問題・任意分子式で共用）
+    beginSession(meta, isomers) {
+        const g = this.game;
+        this.problem = { ...meta, total: isomers.length };
+        this.targets = new Map(isomers.map(m => [canonicalCode(m), m]));
         this.found = new Map();
         this._clearToastShown = false;
+        this._hintLevel = 0;   // 段階ヒント（0=非表示, 1=系列内訳, 2=手順, 3=答え）
+        this._teaching = null; // 主鎖／環の教示（登録・重複時に一時表示）
+        this._ringTaught = false; // 環の案内はセッション中1回だけ出す（毎回の摩擦を避ける）
         this.active = true;
 
         // キャンバスを白紙にして描き始められるようにする（元の作図は ↩ で戻せる）
@@ -385,6 +444,9 @@ class IsomerPractice {
             const dup = this.found.get(code);
             g.showToast(`登録済みの${dup.order}番「${dup.name || '（名称未登録）'}」と同じ化合物です。` +
                 '描き方が違っても、つながり方が同じなら同一の分子です。', 4500, 'success');
+            // 重複でも、作図が正準的でなければ主鎖／環の教示を出す（M2。キャンバスは消さない）
+            this._teaching = this.analyzeDrawing(g.userMolecule, code);
+            this.renderSession();
             this.flash(code);
             return;
         }
@@ -400,18 +462,99 @@ class IsomerPractice {
         const name = g.lookupCompoundName(g.userMolecule);
         const order = this.found.size + 1;
         this.found.set(code, { mol: this.targets.get(code), name, order });
+        const done = this.found.size === this.problem.total;
+
+        // 完了時は答え合わせ一覧が教材になるので、教示は出さずにキャンバスを消して締める
+        const teaching = done ? null : this.analyzeDrawing(g.userMolecule, code);
+
+        if (teaching) {
+            // 正準的でない作図: キャンバスは残して主鎖／環をハイライトし、標準レイアウトを並置（M2）
+            this._teaching = teaching;
+            g.highlightAtoms(teaching.atoms);
+            this.renderSession();
+            return;
+        }
 
         // 登録後にキャンバスを消す。↩ で直前の作図に戻せるよう先に saveState（設計 5章）
         g.saveState();
         g.userMolecule = new Molecule();
         g.updateDrawing();
+        this._teaching = null;
         if (!this._clearToastShown) {
             this._clearToastShown = true;
             g.showToast('登録すると次の入力のためキャンバスを消します。↩（Ctrl+Z）で元の作図に戻せます。', 4000, 'success');
         }
 
         this.renderSession();
-        if (this.found.size === this.problem.total) this.complete();
+        if (done) this.complete();
+    }
+
+    // 教示を閉じてキャンバスを白紙化し、次の入力に進む（「続ける」ボタン）
+    continueAfterTeaching() {
+        const g = this.game;
+        if (g.userMolecule.atoms.length > 0) g.saveState();
+        g.userMolecule = new Molecule();
+        g.updateDrawing();
+        this._teaching = null;
+        this.renderSession();
+    }
+
+    // 作図が正準的（主鎖をまっすぐ描いている）かを調べ、そうでなければ教示情報を返す。
+    // 返り値 null = 教示不要 / {type:'ring'|'chain', atoms:[原子], chainLen, code}
+    // これは正誤判定ではなく表示上の教育支援（設計 9章の例外扱い。座標を使う）
+    analyzeDrawing(mol, code) {
+        const cycle = findAnyCycle(mol);
+        if (cycle) {
+            if (this._ringTaught) return null; // 環の案内はセッション1回だけ
+            this._ringTaught = true;
+            const atoms = cycle.map(id => mol.atoms.find(a => a.id === id)).filter(Boolean);
+            return { type: 'ring', atoms, chainLen: atoms.length, code };
+        }
+        const chainIds = findLongestCarbonChain(mol);
+        if (chainIds.length < 3) return null; // 主鎖2以下は「まっすぐ」も何もない
+        const straight = this.longestCollinearCarbonRun(mol);
+        if (straight >= chainIds.length) return null; // 最長鎖をまっすぐ描けている
+        const atoms = chainIds.map(id => mol.atoms.find(a => a.id === id)).filter(Boolean);
+        return { type: 'chain', atoms, chainLen: chainIds.length, code };
+    }
+
+    // 炭素だけを見て、同一方向の結合が連続する最長の「まっすぐな列」の炭素数を返す（表示用の幾何判定）
+    longestCollinearCarbonRun(mol) {
+        const carbons = mol.atoms.filter(a => a.element === 'C');
+        const cSet = new Set(carbons.map(a => a.id));
+        const pos = new Map(carbons.map(a => [a.id, a]));
+        const adj = new Map(carbons.map(a => [a.id, []]));
+        mol.bonds.forEach(b => {
+            if (cSet.has(b.atomId1) && cSet.has(b.atomId2)) {
+                adj.get(b.atomId1).push(b.atomId2);
+                adj.get(b.atomId2).push(b.atomId1);
+            }
+        });
+        const ang = (from, to) => {
+            const a = pos.get(from), b = pos.get(to);
+            return Math.atan2(b.y - a.y, b.x - a.x);
+        };
+        const sameDir = (a1, a2) => {
+            let d = Math.abs(a1 - a2) % (2 * Math.PI);
+            if (d > Math.PI) d = 2 * Math.PI - d;
+            return d < 0.14; // 約8°以内なら同一方向（直線の続き）とみなす
+        };
+        let best = carbons.length ? 1 : 0;
+        // 各辺を起点に、同じ向きに伸ばせるだけ伸ばす（一直線＝まっすぐ）
+        carbons.forEach(start => {
+            adj.get(start.id).forEach(nxt => {
+                const dir = ang(start.id, nxt);
+                let prev = start.id, cur = nxt, len = 2;
+                const visited = new Set([start.id, nxt]);
+                while (true) {
+                    const cand = adj.get(cur).find(x => !visited.has(x) && sameDir(ang(cur, x), dir));
+                    if (cand === undefined) break;
+                    visited.add(cand); prev = cur; cur = cand; len++;
+                }
+                if (len > best) best = len;
+            });
+        });
+        return best;
     }
 
     complete() {
@@ -468,6 +611,9 @@ class IsomerPractice {
             this.body.appendChild(empty);
         }
 
+        // 主鎖／環の教示ブロック（M2。正準的でない作図の登録・重複時のみ）
+        if (this._teaching && !done) this.renderTeaching();
+
         // 操作ボタン
         const btnRow = document.createElement('div');
         btnRow.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px;';
@@ -482,7 +628,9 @@ class IsomerPractice {
             const hint = document.createElement('button');
             hint.className = 'view-btn';
             hint.style.cssText = 'flex:1 1 0; font-size:12px; padding:6px;';
-            hint.textContent = '💡 ヒント';
+            hint.textContent = this._hintLevel >= 3 ? '💡 ヒント（最大）' :
+                ['💡 ヒント', '💡 次のヒント（手順）', '💡 答えを見る'][this._hintLevel] || '💡 ヒント';
+            hint.disabled = this._hintLevel >= 3;
             hint.addEventListener('click', () => this.showHint());
             btnRow.appendChild(hint);
         }
@@ -494,22 +642,116 @@ class IsomerPractice {
         btnRow.appendChild(quit);
         this.body.appendChild(btnRow);
 
+        // 段階ヒント（M2）
+        if (!done && this._hintLevel > 0) this.renderHintBlock();
+
         if (done) this.renderAnswerList();
 
         this.flushThumbs();
     }
 
-    // M1 のヒントは「残り数」のみ（系統的な段階ヒントは M2）
+    // 段階ヒント: 押すたびに1段階進める（1=系列内訳 → 2=手順 → 3=答え。設計 6章）
     showHint() {
-        const remaining = this.problem.total - this.found.size;
-        this.game.showToast(`あと ${remaining} 種類です（全 ${this.problem.total} 種）。`, 3500, 'success');
+        if (this._hintLevel < 3) this._hintLevel++;
+        this.renderSession();
     }
 
-    // 完了時の答え合わせ一覧: 全異性体を系統順（主鎖の長い順・カテゴリ順）に名称付きで並べる
-    renderAnswerList() {
+    // 主鎖（または環）をキャンバス上でハイライトしつつ、標準レイアウトを並置して見せる（M2）
+    renderTeaching() {
+        const t = this._teaching;
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'border:1px solid var(--neon-orange); border-radius:8px; padding:8px; margin-bottom:8px; background:rgba(255,159,67,0.08);';
+        const msg = document.createElement('div');
+        msg.style.cssText = 'font-size:12px; color:var(--neon-orange); line-height:1.5; margin-bottom:6px;';
+        const name = this.game.lookupCompoundName(this.targets.get(t.code)) || '（名称未登録）';
+        msg.textContent = t.type === 'ring'
+            ? `🔎 この分子は環が基本骨格です（${name}）。環の炭素${t.chainLen}個をキャンバスでハイライトしました。環を主構造として描きます。`
+            : `🔎 この分子の主鎖（最長の炭素鎖）は${t.chainLen}個です（${name}）。ハイライトした炭素を一列にまっすぐ描くと分かりやすくなります ↓`;
+        wrap.appendChild(msg);
+
+        // 標準レイアウトのサムネイル
+        const cell = this.makeThumbCell(this.targets.get(t.code), `標準の書き方：${name}`,
+            { border: 'var(--neon-orange)' });
+        cell.style.maxWidth = '150px';
+        wrap.appendChild(cell);
+
+        const cont = document.createElement('button');
+        cont.className = 'view-btn';
+        cont.style.cssText = 'width:100%; font-size:12px; padding:6px; margin-top:6px;';
+        cont.textContent = '続ける（キャンバスを消す）';
+        cont.addEventListener('click', () => this.continueAfterTeaching());
+        wrap.appendChild(cont);
+
+        this.body.appendChild(wrap);
+    }
+
+    // 段階ヒント: 1=未発見の系列内訳 / 2=書き出し手順 / 3=答え合わせ一覧（設計 6章）
+    renderHintBlock() {
+        const undiscovered = [...this.targets.entries()]
+            .filter(([code]) => !this.found.has(code))
+            .map(([, mol]) => ({ mol, key: isomerSeriesKey(mol) }));
+
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'border:1px solid var(--neon-purple); border-radius:8px; padding:8px; margin-top:8px; background:rgba(224,176,255,0.06);';
+
+        // レベル1: 系列の内訳
+        const head1 = document.createElement('div');
+        head1.style.cssText = 'font-size:12px; color:#e0b0ff; font-weight:bold; margin-bottom:4px;';
+        head1.textContent = `未発見 ${undiscovered.length}種の内訳（骨格の系列ごと）`;
+        wrap.appendChild(head1);
+
+        const bySeries = new Map();
+        undiscovered.forEach(u => {
+            const label = u.key.seriesLabel;
+            bySeries.set(label, (bySeries.get(label) || 0) + 1);
+        });
+        const list = document.createElement('div');
+        list.style.cssText = 'font-size:12px; color:var(--text-secondary); line-height:1.6;';
+        [...bySeries.entries()].forEach(([label, n]) => {
+            const row = document.createElement('div');
+            row.textContent = `・${label} … あと ${n}`;
+            list.appendChild(row);
+        });
+        wrap.appendChild(list);
+
+        // レベル2: 書き出し手順（未発見に含まれる系列の種別ごと）
+        if (this._hintLevel >= 2) {
+            const cats = new Set(undiscovered.map(u => u.key.category));
+            const proc = {
+                position: '同じ骨格のまま、-OH やエーテルの -O-（や置換基）の付く位置を、鎖の端から順に一通りずらしてみましょう（対称な位置どうしは同じ分子になります）。',
+                sidechain2: '側鎖に炭素を2個使う置き方は3通りあります — ①エチル基を1つ ②メチル基2つを同じ炭素に ③メチル基2つを別の炭素に。',
+                unsat_ring: '二重結合の位置ずらしと、環にする案の両方を数えましたか（鎖と環は別の分子です）。',
+                branch: '枝（メチル基）の付く位置を、主鎖の端から順にずらしてみましょう（対称な位置は同じ分子）。',
+                straight: 'まず炭素をすべて一列につないだ直鎖から書き始めましょう。'
+            };
+            const head2 = document.createElement('div');
+            head2.style.cssText = 'font-size:12px; color:#e0b0ff; font-weight:bold; margin:8px 0 4px;';
+            head2.textContent = '書き出しの手順';
+            wrap.appendChild(head2);
+            const order = ['straight', 'branch', 'sidechain2', 'position', 'unsat_ring'];
+            order.filter(c => cats.has(c)).forEach(c => {
+                const row = document.createElement('div');
+                row.style.cssText = 'font-size:12px; color:var(--text-secondary); line-height:1.6; margin-bottom:4px;';
+                row.textContent = '・' + proc[c];
+                wrap.appendChild(row);
+            });
+        }
+
+        this.body.appendChild(wrap);
+
+        // レベル3: 答え合わせ一覧（発見済み✓／未発見はオレンジ枠）
+        if (this._hintLevel >= 3) this.renderAnswerList(true);
+    }
+
+    // 答え合わせ一覧: 全異性体を系統順（isomerSeriesKey）に名称付きで並べる。
+    // reveal=true のときは未発見をオレンジ枠・✓表示にする（ヒント3段階目）
+    renderAnswerList(reveal = false) {
         const banner = document.createElement('div');
-        banner.style.cssText = 'margin-top:10px; font-size:13px; color:var(--color-cyan); font-weight:bold;';
-        banner.textContent = '🎉 クリア！ 答え合わせ（系統順）';
+        banner.style.cssText = reveal
+            ? 'margin-top:10px; font-size:13px; color:#e0b0ff; font-weight:bold;'
+            : 'margin-top:10px; font-size:13px; color:var(--color-cyan); font-weight:bold;';
+        banner.textContent = reveal ? '📖 答え（系統順）' : '🎉 クリア！ 答え合わせ（系統順）';
+        if (!reveal) banner.classList.add('ip-pop');
         this.body.appendChild(banner);
 
         // 分類まとめ
@@ -527,21 +769,22 @@ class IsomerPractice {
             mol: m,
             code: canonicalCode(m),
             name: this.game.lookupCompoundName(m),
-            cat: categorizeMolecule(m),
-            chain: ipLongestCarbonChain(m)
+            key: isomerSeriesKey(m)
         }));
         items.sort((a, b) => {
-            const ra = IP_CATEGORY_RANK.indexOf(a.cat), rb = IP_CATEGORY_RANK.indexOf(b.cat);
-            if (ra !== rb) return (ra < 0 ? 99 : ra) - (rb < 0 ? 99 : rb);
-            if (a.chain !== b.chain) return b.chain - a.chain;
+            for (let i = 0; i < a.key.cmp.length; i++) {
+                if (a.key.cmp[i] !== b.key.cmp[i]) return a.key.cmp[i] - b.key.cmp[i];
+            }
             return (a.name || '').localeCompare(b.name || '', 'ja');
         });
 
         const gallery = document.createElement('div');
         gallery.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(112px,1fr)); gap:6px; margin-top:4px;';
         items.forEach(it => {
-            const cell = this.makeThumbCell(it.mol, it.name || '（名称未登録）',
-                { border: 'var(--color-cyan)' });
+            const isFound = this.found.has(it.code);
+            const label = (it.name || '（名称未登録）') + (reveal ? (isFound ? ' ✓' : '（未発見）') : '');
+            const cell = this.makeThumbCell(it.mol, label,
+                { border: reveal && !isFound ? 'var(--neon-orange)' : 'var(--color-cyan)' });
             gallery.appendChild(cell);
         });
         this.body.appendChild(gallery);
