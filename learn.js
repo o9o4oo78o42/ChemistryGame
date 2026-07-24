@@ -545,17 +545,15 @@ class IsomerPractice {
         g.userMolecule = new Molecule();
         g.updateDrawing();
 
-        const unique = this.uniqueCorrectCodes().size;
-        if (unique === this.problem.total) {
+        // クリア記録は静かに残す（達成の告知＝同一判定になるので答え合わせまで出さない）
+        if (this.uniqueCorrectCodes().size === this.problem.total) {
             try { localStorage.setItem('chemIsomerPractice.' + this.problem.formula, '1'); } catch (e) { /* noop */ }
         }
         if (!this._firstToastShown) {
             this._firstToastShown = true;
-            g.showToast('登録しました。キャンバスは消えます（↩で戻せます）。書き終えたら「答え合わせ」で見比べましょう。', 4500, 'success');
-        } else if (unique === this.problem.total) {
-            g.showToast(`ちがう種類が全 ${this.problem.total} 種そろいました！「答え合わせ」で確認しましょう。`, 3500, 'success');
+            g.showToast('登録しました。キャンバスは消えます（↩で戻せます）。書き終えたら「答え合わせ」で名前と同一判定を確認しましょう。', 4500, 'success');
         } else {
-            g.showToast(`登録（${this.entries.length}個目）。ちがう種類はあと ${this.problem.total - unique}。`, 2200, 'success');
+            g.showToast(`登録しました（${this.entries.length}個目）。`, 1800, 'success');
         }
         this.renderSession();
     }
@@ -576,31 +574,30 @@ class IsomerPractice {
         if (!this.body || !this.active) return;
         this._pending = [];
         this.body.innerHTML = '';
-        const unique = this.uniqueCorrectCodes().size;
-        const done = unique === this.problem.total;
 
         const head = document.createElement('div');
         head.style.cssText = 'font-size:14px; color:#fff; font-weight:bold; margin-bottom:2px;';
-        head.textContent = `✏️ ${this.problem.formula} の異性体　ちがう種類 ${unique}/${this.problem.total}`;
+        // 書き出し中は「ちがう種類」を出さない（命名・同一判定は答え合わせで）
+        head.textContent = `✏️ ${this.problem.formula} の異性体（全 ${this.problem.total} 種）`;
         this.body.appendChild(head);
 
         const note = document.createElement('div');
         note.style.cssText = 'font-size:11px; color:var(--text-secondary); margin-bottom:6px;';
         note.textContent = this.entries.length > 0
-            ? `書いた図 ${this.entries.length}個。図をクリックすると大きく並べて確認できます（シス/トランス・鏡像は数えません）。`
-            : '同じ形は答え合わせでまとめて確認できます（シス/トランス・鏡像は数えません）。';
+            ? `書いた図 ${this.entries.length}個。図をクリックすると大きく確認、もう一度で作図に戻ります（シス/トランス・鏡像は数えません）。`
+            : '思いつく構造を1つずつ描いて登録。名前や同じかどうかは「答え合わせ」で確認します。';
         this.body.appendChild(note);
 
-        // 書き出した図（自分の作図・番号付き）。クリックで「書き出しの確認」を大きく開く
+        // 書き出した図（自分の作図・番号のみ。命名は答え合わせで）。クリックで確認、再クリックで作図に戻る
         if (this.entries.length > 0) {
             const tray = document.createElement('div');
-            tray.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:6px; margin-bottom:8px;';
+            tray.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(88px,1fr)); gap:6px; margin-bottom:8px;';
             this.entries.forEach(e => {
-                const cell = this.makeCell(`${ipMaru(e.order)} ${e.name || '（名称未登録）'}`,
-                    { h: 64 }, id => renderMoleculeIntoSvg(this.game, id, e.target));
+                const cell = this.makeCell(`${ipMaru(e.order)}`,
+                    { h: 62 }, id => renderMoleculeIntoSvg(this.game, id, e.target));
                 cell.style.cursor = 'pointer';
-                cell.title = 'クリックで書き出しを大きく確認';
-                cell.addEventListener('click', () => this.openReview('progress'));
+                cell.title = 'クリックで大きく確認 / もう一度クリックで作図に戻る';
+                cell.addEventListener('click', () => this.toggleReview('progress'));
                 tray.appendChild(cell);
             });
             this.body.appendChild(tray);
@@ -625,7 +622,7 @@ class IsomerPractice {
         review.className = 'primary-btn';
         review.style.cssText = 'flex:1 1 100%; padding:8px; font-size:13px; background:var(--color-cyan); color:#04121a;' +
             (this.entries.length === 0 ? ' opacity:0.5;' : '');
-        review.textContent = done ? '🔍 答え合わせ（全種そろいました）' : '🔍 答え合わせ（並べて比較）';
+        review.textContent = '🔍 答え合わせ（名前・同一判定）';
         review.disabled = this.entries.length === 0;
         review.addEventListener('click', () => this.openReview('answer'));
         btnRow.appendChild(review);
@@ -730,6 +727,16 @@ class IsomerPractice {
         this._reviewing = false;
     }
 
+    // 同じモードのレビューを開いている状態でもう一度呼ばれたら作図に戻る（サムネ再クリック）
+    toggleReview(mode) {
+        if (this._reviewing && this._reviewMode === mode) {
+            this.closeReview();
+            this.renderSession();
+        } else {
+            this.openReview(mode);
+        }
+    }
+
     setReviewScale(scale) {
         this._reviewScale = scale;
         this.renderReview();
@@ -780,16 +787,17 @@ class IsomerPractice {
 
         const summary = document.createElement('div');
         summary.style.cssText = 'font-size:13px; color:var(--text-secondary); margin-bottom:10px; line-height:1.6;';
+        // 命名・同一判定は答え合わせでのみ。確認モードは図の枚数だけ（自己判断の材料）
         summary.textContent = answerMode
             ? `あなたが書いた図 ${this.entries.length}個 → ちがう種類 ${uc.size} ／ 全 ${this.problem.total} 種。ダブり ${dupCount}個・未発見 ${missing}種。`
-            : `あなたが書いた図 ${this.entries.length}個 → ちがう種類 ${uc.size} ／ 全 ${this.problem.total} 種（ダブり ${dupCount}個）。あと ${missing} 種（何かは伏せています）。`;
+            : `あなたが書いた図 ${this.entries.length}個（全 ${this.problem.total} 種）。図をクリックすると作図に戻ります。同じかどうか・名前は「答えを見る」で確認できます。`;
         this.overlay.appendChild(summary);
 
-        // 同じもの同士の指摘（①と④は同じ …）
+        // 同じもの同士の指摘（①と④は同じ …）＝ 同一判定なので答え合わせモードのみ
         const dupGroups = [...byCode.entries()].filter(([, orders]) => orders.length > 1);
         const dupColorOf = new Map();
-        dupGroups.forEach(([code], i) => dupColorOf.set(code, IP_DUP_COLORS[i % IP_DUP_COLORS.length]));
-        if (dupGroups.length) {
+        if (answerMode) dupGroups.forEach(([code], i) => dupColorOf.set(code, IP_DUP_COLORS[i % IP_DUP_COLORS.length]));
+        if (answerMode && dupGroups.length) {
             const dupBox = document.createElement('div');
             dupBox.style.cssText = 'border:1px solid var(--neon-orange); background:rgba(255,159,67,0.08); border-radius:8px; padding:8px 10px; margin-bottom:10px; font-size:13px; color:var(--neon-orange); line-height:1.7;';
             const h = document.createElement('div');
@@ -815,9 +823,14 @@ class IsomerPractice {
         galA.style.cssText = `display:grid; grid-template-columns:repeat(auto-fill, minmax(${sc.col}px,1fr)); gap:8px; margin-bottom:14px;`;
         this.entries.forEach(e => {
             const border = dupColorOf.get(e.code) || 'rgba(255,255,255,0.14)';
-            const cell = this.makeCell(`${ipMaru(e.order)} ${e.name || '（名称未登録）'}`,
+            // 名前は答え合わせモードのみ表示（確認モードは番号だけ）
+            const label = answerMode ? `${ipMaru(e.order)} ${e.name || '（名称未登録）'}` : `${ipMaru(e.order)}`;
+            const cell = this.makeCell(label,
                 { h: sc.h, border, borderWidth: dupColorOf.has(e.code) ? '2px' : '1px' },
                 id => renderMoleculeIntoSvg(g, id, e.target));
+            cell.style.cursor = 'pointer';
+            cell.title = 'クリックで作図に戻る';
+            cell.addEventListener('click', () => { this.closeReview(); this.renderSession(); });
             galA.appendChild(cell);
         });
         this.overlay.appendChild(galA);
@@ -861,15 +874,17 @@ class IsomerPractice {
         back.textContent = '← 描画に戻る';
         back.addEventListener('click', () => { this.closeReview(); this.renderSession(); });
         btnRow.appendChild(back);
-        if (!answerMode) {
-            // 進行確認からそのまま答え合わせへ
-            const ans = document.createElement('button');
-            ans.className = 'primary-btn';
-            ans.style.cssText = 'flex:1 1 0; padding:9px; font-size:13px; background:var(--color-cyan); color:#04121a;';
-            ans.textContent = '答えを見る';
-            ans.addEventListener('click', () => { this._reviewMode = 'answer'; this.overlay.scrollTop = 0; this.renderReview(); });
-            btnRow.appendChild(ans);
-        }
+        // モード切替: 確認 ⇄ 答え合わせ（名前・同一判定の表示を切り替える）
+        const toggle = document.createElement('button');
+        toggle.className = 'primary-btn';
+        toggle.style.cssText = 'flex:1 1 0; padding:9px; font-size:13px; background:var(--color-cyan); color:#04121a;';
+        toggle.textContent = answerMode ? '名前を隠す（確認に戻る）' : '答えを見る（名前・同一判定）';
+        toggle.addEventListener('click', () => {
+            this._reviewMode = answerMode ? 'progress' : 'answer';
+            this.overlay.scrollTop = 0;
+            this.renderReview();
+        });
+        btnRow.appendChild(toggle);
         const quit = document.createElement('button');
         quit.className = 'view-btn';
         quit.style.cssText = 'flex:1 1 0; padding:9px; font-size:13px;';

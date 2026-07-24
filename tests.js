@@ -2810,9 +2810,16 @@
         assert(ip.entries.length === 2, '重複が保持されない');
         assert(ip.uniqueCorrectCodes().size === 1, 'ちがう種類が1になっていない');
 
-        ip.openReview();
+        // 確認モード（progress）: 同一判定は伏せる
+        ip.openReview('progress');
         const ov = c.D.getElementById('ip-review-overlay');
-        assert(/①と② は同じ/.test(ov.textContent), '「①と②は同じ」の指摘が出ない');
+        assert(!/①と② は同じ/.test(ov.textContent), '確認モードで同一判定が出てしまう');
+        // 答え合わせモード: 「①と②は同じ」を示す
+        ip.openReview('answer');
+        assert(/①と② は同じ/.test(ov.textContent), '答え合わせで「①と②は同じ」の指摘が出ない');
+        // サムネ再クリック相当（同モードのトグル）で作図に戻る
+        ip.toggleReview('answer');
+        assert(ov.classList.contains('hidden'), 'トグルで作図に戻らない');
         ip.stop();
         g.setMode('puzzle');
     });
