@@ -2459,6 +2459,8 @@ class Game {
         this.updateCompoundInfo();
         // 6. 「この分子の反応」カードの分類表示を更新（P9-1 M1）
         this.updateReactionCard();
+        // 7. 異性体練習の「描きながら名称表示」モードのライブ更新（P12-1 調整）
+        if (window.isomerPractice && window.isomerPractice.active) window.isomerPractice.onDrawingChange();
     }
 
     // 縮約表示のカードを1つ描く（P9-2）。

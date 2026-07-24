@@ -320,6 +320,9 @@ class IsomerPractice {
         this._reviewMode = 'answer';   // 'answer'=答え合わせ / 'progress'=書き出しの確認（答えは伏せる）
         this._reviewScale = 'md';      // 図サイズ 'sm'|'md'|'lg'
         this._firstToastShown = false;
+        this._liveEl = null;           // 「描きながら名称表示」のライブ表示要素
+        try { this._liveNames = localStorage.getItem('chemIsomerPractice.liveNames') === '1'; }
+        catch (e) { this._liveNames = false; }
 
         // M1 の固定問題リスト（設計 4.1）。異性体数はデータに持たず列挙エンジンから求める
         this.problems = [
@@ -588,6 +591,30 @@ class IsomerPractice {
             : '思いつく構造を1つずつ描いて登録。名前や同じかどうかは「答え合わせ」で確認します。';
         this.body.appendChild(note);
 
+        // 「描きながら名称を表示」トグル（任意。オンにすると作図中の分子名がライブ表示される）
+        const liveWrap = document.createElement('div');
+        liveWrap.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:11px; color:var(--text-secondary);';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.id = 'ip-live-cb'; cb.checked = this._liveNames;
+        cb.addEventListener('change', () => this.setLiveNames(cb.checked));
+        const lab = document.createElement('label');
+        lab.setAttribute('for', 'ip-live-cb');
+        lab.textContent = '🔤 描きながら名称を表示';
+        lab.style.cursor = 'pointer';
+        liveWrap.appendChild(cb);
+        liveWrap.appendChild(lab);
+        this.body.appendChild(liveWrap);
+
+        if (this._liveNames) {
+            const live = document.createElement('div');
+            live.style.cssText = 'font-size:12px; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; margin-bottom:8px; min-height:1.2em; line-height:1.4;';
+            this._liveEl = live;
+            this.body.appendChild(live);
+            this.updateLive();
+        } else {
+            this._liveEl = null;
+        }
+
         // 書き出した図（自分の作図・番号のみ。命名は答え合わせで）。クリックで確認、再クリックで作図に戻る
         if (this.entries.length > 0) {
             const tray = document.createElement('div');
@@ -653,6 +680,44 @@ class IsomerPractice {
     showHint() {
         if (this._hintLevel < 2) this._hintLevel++;
         this.renderSession();
+    }
+
+    // ===== 描きながら名称表示（任意モード）=====
+    setLiveNames(on) {
+        this._liveNames = on;
+        try { localStorage.setItem('chemIsomerPractice.liveNames', on ? '1' : '0'); } catch (e) { /* noop */ }
+        this.renderSession();
+    }
+
+    // 作図が変わるたびに game.updateDrawing から呼ばれる（アクティブ・非レビュー・トグルON時のみ描く）
+    onDrawingChange() {
+        if (!this.active || this._reviewing || !this._liveNames) return;
+        this.updateLive();
+    }
+
+    // いま描いている分子の分子式＋名称を求める（表示用）。ok: 目標分子式と一致か
+    liveText() {
+        const g = this.game;
+        const heavy = g.userMolecule.atoms.filter(a => a.element !== 'H');
+        if (heavy.length === 0) return { formula: '—', name: '', ok: null };
+        const formula = g.computeMolecularFormula();
+        if (g.countMolecules() > 1) return { formula, name: '（複数の分子）', ok: false };
+        const name = g.lookupCompoundName(g.userMolecule);
+        return { formula, name: name || '（名称ライブラリに該当なし）', ok: formula === this.problem.formula };
+    }
+
+    updateLive() {
+        if (!this._liveEl) return;
+        const t = this.liveText();
+        this._liveEl.innerHTML = '';
+        const cap = document.createElement('span');
+        cap.style.color = 'var(--text-secondary)';
+        cap.textContent = 'いま: ';
+        const val = document.createElement('span');
+        val.textContent = t.formula + (t.name ? '　' + t.name : '');
+        val.style.color = t.ok === false ? 'var(--neon-orange)' : (t.ok === true ? 'var(--color-cyan)' : '#fff');
+        this._liveEl.appendChild(cap);
+        this._liveEl.appendChild(val);
     }
 
     // 段階ヒント: 1=未発見の系列内訳 / 2=書き出し手順（答え合わせはユーザーが自分で開く）

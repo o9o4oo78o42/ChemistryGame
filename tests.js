@@ -2964,6 +2964,44 @@
         g.setMode('puzzle');
     });
 
+    test('IP9: 描きながら名称表示モード（リアルタイム）', async (c) => {
+        c.reset();
+        const g = c.game, W = c.W, ip = W.isomerPractice;
+        g.setMode('learn');
+        ip.start(0); // C₄H₁₀
+        ip.setLiveNames(true);
+        assert(c.D.getElementById('ip-live-cb').checked, 'トグルがONにならない');
+
+        // ブタンを描く → ライブ表示に分子式＋ブタン
+        (function () {
+            const m = new W.Molecule();
+            const ids = [];
+            for (let i = 0; i < 4; i++) ids.push(m.addAtom('C', 150 + 42 * i, 300).id);
+            for (let i = 0; i < 3; i++) m.addBond(ids[i], ids[i + 1], 1);
+            g.userMolecule = m; g.updateDrawing();
+        })();
+        assert(/C₄H₁₀/.test(ip._liveEl.textContent) && /ブタン/.test(ip._liveEl.textContent),
+            `ライブ表示が正しくない（${ip._liveEl.textContent}）`);
+
+        // 分子式違い（プロパン）でも、いま描いている分子の名称が出る
+        (function () {
+            const m = new W.Molecule();
+            const ids = [];
+            for (let i = 0; i < 3; i++) ids.push(m.addAtom('C', 150 + 42 * i, 300).id);
+            for (let i = 0; i < 2; i++) m.addBond(ids[i], ids[i + 1], 1);
+            g.userMolecule = m; g.updateDrawing();
+        })();
+        assert(/プロパン/.test(ip._liveEl.textContent), '分子式違いのライブ名称が出ない');
+
+        // OFFでライブ表示が消え、設定が保存される
+        ip.setLiveNames(false);
+        assert(ip._liveEl === null, 'OFFでライブ表示が消えない');
+        assert(W.localStorage.getItem('chemIsomerPractice.liveNames') === '0', 'OFF設定が保存されない');
+
+        ip.stop();
+        g.setMode('puzzle');
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {
