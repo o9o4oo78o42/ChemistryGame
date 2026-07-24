@@ -1177,8 +1177,13 @@ function initStage() {
   buildStageNav();
   buildToolbar();
   const stage = STAGES[stageIdx];
+  const tags = STAGE_TAGS[stage.id] || [];
+  const tagsHtml = tags.length
+    ? `<div class="tags"><span class="lead">単元:</span>${tags.map((tg) => `<span class="tag${tg === "酸性塩" ? " saltAcid" : ""}">${tg}</span>`).join("")}</div>`
+    : "";
   stageTitleEl.innerHTML = `<strong>${stage.title}</strong>` +
-    `<div class="goal${stage.saltGoal ? " acid" : ""}">🎯 目標: ${stageGoalText(stage)}</div>`;
+    `<div class="goal${stage.saltGoal ? " acid" : ""}">🎯 目標: ${stageGoalText(stage)}</div>` +
+    tagsHtml;
   buildEquationUI();
   renderTally();
   buildRecombine();

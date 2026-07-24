@@ -61,6 +61,16 @@ function runModelTests() {
     }
   });
 
+  t("単元タグ: 全ステージに正しいタグが定義されている（塩の分類含む）", () => {
+    for (const st of STAGES) {
+      const tags = STAGE_TAGS[st.id];
+      assert(tags && tags.length > 0, st.id + ": 単元タグなし");
+      // saltGoal を持つ＝酸性塩、持たない＝正塩、で塩の分類が整合すること
+      if (st.saltGoal) assert(tags.includes("酸性塩"), st.id + ": 酸性塩タグが無い");
+      else assert(!tags.includes("酸性塩"), st.id + ": 正塩なのに酸性塩タグ");
+    }
+  });
+
   t("PARTS: 全ステージの全項が粒に分解でき、原子と電荷が保存される", () => {
     for (const st of STAGES) {
       for (const sp of [...st.reactants, ...st.products]) {
