@@ -78,6 +78,13 @@ const SPECIES = {
   "NH3":         { disp: "NH₃",           name: "アンモニア",           atoms: { N: 1, H: 3 }, charge: 0 },
   "Cu(NH3)4SO4": { disp: "[Cu(NH₃)₄]SO₄", name: "テトラアンミン銅(Ⅱ)硫酸塩（深青）", atoms: { Cu: 1, N: 4, H: 12, S: 1, O: 4 }, charge: 0 },
   "Ag(NH3)2NO3": { disp: "[Ag(NH₃)₂]NO₃", name: "ジアンミン銀(Ⅰ)硝酸塩",           atoms: { Ag: 1, N: 3, H: 6, O: 3 }, charge: 0 },
+  // 沈殿の再溶解・両性水酸化物（錯イオン生成の参照エントリ用）
+  "Cu(NH3)4(OH)2": { disp: "[Cu(NH₃)₄](OH)₂", name: "テトラアンミン銅(Ⅱ)水酸化物（深青）", atoms: { Cu: 1, N: 4, H: 14, O: 2 }, charge: 0 },
+  "Ag(NH3)2Cl":    { disp: "[Ag(NH₃)₂]Cl",   name: "ジアンミン銀(Ⅰ)塩化物",           atoms: { Ag: 1, N: 2, H: 6, Cl: 1 }, charge: 0 },
+  "Al(OH)3":       { disp: "Al(OH)₃",         name: "水酸化アルミニウム（両性）",       atoms: { Al: 1, O: 3, H: 3 }, charge: 0 },
+  "NaAl(OH)4":     { disp: "Na[Al(OH)₄]",     name: "テトラヒドロキシドアルミン酸ナトリウム", atoms: { Na: 1, Al: 1, O: 4, H: 4 }, charge: 0 },
+  "Zn(OH)2":       { disp: "Zn(OH)₂",         name: "水酸化亜鉛（両性）",             atoms: { Zn: 1, O: 2, H: 2 }, charge: 0 },
+  "Na2Zn(OH)4":    { disp: "Na₂[Zn(OH)₄]",   name: "テトラヒドロキシド亜鉛酸ナトリウム",   atoms: { Na: 2, Zn: 1, O: 4, H: 4 }, charge: 0 },
 };
 
 /* 強電解質の電離表（v1 は完全電離のみ扱う） */

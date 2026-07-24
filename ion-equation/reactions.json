@@ -268,6 +268,62 @@
       "note": "Ag⁺ にアンモニア水を加えると NH₃ が2個配位して [Ag(NH₃)₂]⁺ になる。銀鏡反応で使うアンモニア性硝酸銀（トレンス試薬）の成分。（アニメは準備中）",
       "difficulty": 4,
       "playable": false
+    },
+    {
+      "id": "complex-cuoh2-nh3",
+      "reactants": ["Cu(OH)2", "NH3"],
+      "products": ["Cu(NH3)4(OH)2"],
+      "coeffs": [1, 4, 1],
+      "netIonic": "Cu(OH)₂ ＋ 4NH₃ → [Cu(NH₃)₄]²⁺ ＋ 2OH⁻（青白沈殿が深青の溶液に）",
+      "classes": { "type": "錯イオン生成", "saltType": null, "redox": null },
+      "units": ["錯イオン", "沈殿の再溶解"],
+      "species": ["Cu(OH)2", "NH3", "Cu(NH3)4(OH)2"],
+      "animationType": "complex-ion",
+      "note": "青白色の沈殿 Cu(OH)₂ に過剰のアンモニア水を加えると、NH₃ が4個配位して [Cu(NH₃)₄]²⁺ になり、沈殿が溶けて濃い青色の溶液になる（沈殿の再溶解）。（アニメは準備中）",
+      "difficulty": 5,
+      "playable": false
+    },
+    {
+      "id": "complex-agcl-nh3",
+      "reactants": ["AgCl", "NH3"],
+      "products": ["Ag(NH3)2Cl"],
+      "coeffs": [1, 2, 1],
+      "netIonic": "AgCl ＋ 2NH₃ → [Ag(NH₃)₂]⁺ ＋ Cl⁻（白沈殿が溶ける）",
+      "classes": { "type": "錯イオン生成", "saltType": null, "redox": null },
+      "units": ["錯イオン", "沈殿の再溶解"],
+      "species": ["AgCl", "NH3", "Ag(NH3)2Cl"],
+      "animationType": "complex-ion",
+      "note": "白色沈殿 AgCl はアンモニア水に溶けて [Ag(NH₃)₂]⁺ になる。ハロゲン化銀の識別（AgCl は溶ける・AgBr/AgI は溶けにくい）に使う。（アニメは準備中）",
+      "difficulty": 5,
+      "playable": false
+    },
+    {
+      "id": "amphoteric-aloh3-naoh",
+      "reactants": ["Al(OH)3", "NaOH"],
+      "products": ["NaAl(OH)4"],
+      "coeffs": [1, 1, 1],
+      "netIonic": "Al(OH)₃ ＋ OH⁻ → [Al(OH)₄]⁻（両性水酸化物が強塩基に溶ける）",
+      "classes": { "type": "錯イオン生成", "saltType": null, "redox": null },
+      "units": ["両性水酸化物", "錯イオン"],
+      "species": ["Al(OH)3", "NaOH", "NaAl(OH)4", "Na+", "OH-"],
+      "animationType": "complex-ion",
+      "note": "Al(OH)₃ は両性水酸化物。酸にも強塩基にも溶ける。過剰の NaOH に加えると [Al(OH)₄]⁻（テトラヒドロキシドアルミン酸イオン）になって溶ける。（アニメは準備中）",
+      "difficulty": 5,
+      "playable": false
+    },
+    {
+      "id": "amphoteric-znoh2-naoh",
+      "reactants": ["Zn(OH)2", "NaOH"],
+      "products": ["Na2Zn(OH)4"],
+      "coeffs": [1, 2, 1],
+      "netIonic": "Zn(OH)₂ ＋ 2OH⁻ → [Zn(OH)₄]²⁻（両性水酸化物が強塩基に溶ける）",
+      "classes": { "type": "錯イオン生成", "saltType": null, "redox": null },
+      "units": ["両性水酸化物", "錯イオン"],
+      "species": ["Zn(OH)2", "NaOH", "Na2Zn(OH)4", "Na+", "OH-"],
+      "animationType": "complex-ion",
+      "note": "Zn(OH)₂ も両性水酸化物。過剰の NaOH に加えると [Zn(OH)₄]²⁻ になって溶ける。Zn²⁺ はアンモニア水にも溶けて [Zn(NH₃)₄]²⁺ をつくる。（アニメは準備中）",
+      "difficulty": 5,
+      "playable": false
     }
   ]
 }
