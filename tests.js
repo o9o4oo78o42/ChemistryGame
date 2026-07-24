@@ -2044,7 +2044,8 @@
         assert(tp, 'tutorialPlayer が初期化されていない');
         for (let i = 0; i < 30 && tp.tutorials.length === 0; i++) await c.tick(100);
         assert(tp.tutorials.length >= 12, `チュートリアル項目が${tp.tutorials.length}件（12以上を期待）`);
-        assert(tp.tutorials.filter(t => t.answer).length >= 3, 'FAQ（テキスト項目）が3件以上ない');
+        assert(tp.tutorials.filter(t => t.answer).length >= 4, 'FAQ（テキスト項目）が4件以上ない');
+        assert(tp.tutorials.some(t => t.id === 'faq-modes'), 'FAQ「モードの違い」（P10 M4）がない');
 
         // FAQモーダル: 一覧・検索・デバイス切替の存在
         c.D.getElementById('btn-help').click();
