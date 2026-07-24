@@ -2739,6 +2739,116 @@
         g.updateDrawing();
     });
 
+    // ===== IP. 異性体の書き出し練習（P12-1 M1） =====
+
+    // 練習セッションの userMolecule を差し替えるヘルパー（登録ロジックの検証用）
+    function ipBuild(c, spec) {
+        const m = new c.W.Molecule();
+        const ids = spec.atoms.map(e => m.addAtom(e, 0, 0).id);
+        spec.bonds.forEach(([i, j, t]) => m.addBond(ids[i], ids[j], t));
+        c.game.userMolecule = m;
+        c.game.updateDrawing();
+    }
+
+    test('IP1: 異性体練習 — C₄H₁₀を2種登録して名称付きで完了・クリア記録が残る', async (c) => {
+        c.reset();
+        const g = c.game, W = c.W, ip = W.isomerPractice;
+        assert(ip, 'isomerPractice が初期化されていない');
+        try { W.localStorage.removeItem('chemIsomerPractice.C₄H₁₀'); } catch (e) { /* noop */ }
+        g.setMode('learn');
+        ip.start(0);
+        assert(ip.active && ip.problem.formula === 'C₄H₁₀' && ip.problem.total === 2,
+            `開始状態が不正（${ip.problem && ip.problem.formula} / total=${ip.problem && ip.problem.total}）`);
+
+        // ブタン（直鎖）
+        ipBuild(c, { atoms: ['C', 'C', 'C', 'C'], bonds: [[0, 1, 1], [1, 2, 1], [2, 3, 1]] });
+        ip.register();
+        assert(ip.found.size === 1, 'ブタンが登録されない');
+        assert(g.userMolecule.atoms.length === 0, '登録後にキャンバスが白紙化されない');
+
+        // 2-メチルプロパン（枝分かれ）
+        ipBuild(c, { atoms: ['C', 'C', 'C', 'C'], bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1]] });
+        ip.register();
+        assert(ip.found.size === 2, '2-メチルプロパンが登録されない');
+
+        const names = [...ip.found.values()].map(x => x.name).sort();
+        assert(names.includes('ブタン') && names.includes('2-メチルプロパン'),
+            `トレイに正しい名称が付かない（${names.join(',')}）`);
+
+        // 完了: クリア記録＋系統順の答え合わせ一覧＋サムネイル描画
+        assert(W.localStorage.getItem('chemIsomerPractice.C₄H₁₀') === '1', 'クリア記録が残らない');
+        const body = c.D.getElementById('ip-body');
+        assert(/クリア/.test(body.textContent), '答え合わせ一覧が表示されない');
+        assert([...body.querySelectorAll('svg')].some(s => s.querySelector('.quiz-atoms').children.length > 0),
+            '答え合わせのサムネイルが描画されない');
+
+        ip.stop();
+        assert(!ip.active, 'stop() で練習が終了しない');
+        g.setMode('puzzle');
+    });
+
+    test('IP2: 異性体練習 — 重複登録を拒否し該当トレイセルを点滅させる', async (c) => {
+        c.reset();
+        const g = c.game, W = c.W, ip = W.isomerPractice;
+        g.setMode('learn');
+        ip.start(0); // C₄H₁₀
+
+        ipBuild(c, { atoms: ['C', 'C', 'C', 'C'], bonds: [[0, 1, 1], [1, 2, 1], [2, 3, 1]] });
+        ip.register();
+        assert(ip.found.size === 1, '前提のブタン登録に失敗');
+
+        // 逆順で描いた同じブタン（トポロジーは同型）→ 重複として拒否
+        ipBuild(c, { atoms: ['C', 'C', 'C', 'C'], bonds: [[3, 2, 1], [2, 1, 1], [1, 0, 1]] });
+        ip.register();
+        assert(ip.found.size === 1, '描き方違いの同一分子が二重登録された');
+        const cell = c.D.querySelector('#ip-body [data-code]');
+        assert(cell && cell.classList.contains('ip-flash'), '重複時にトレイセルが点滅ハイライトされない');
+
+        ip.stop();
+        g.setMode('puzzle');
+    });
+
+    test('IP3: 異性体練習 — 分子式違い・複数分子は拒否する', async (c) => {
+        c.reset();
+        const g = c.game, W = c.W, ip = W.isomerPractice;
+        g.setMode('learn');
+        ip.start(0); // C₄H₁₀
+
+        // プロパン（C₃H₈）→ 分子式が違うので拒否
+        ipBuild(c, { atoms: ['C', 'C', 'C'], bonds: [[0, 1, 1], [1, 2, 1]] });
+        ip.register();
+        assert(ip.found.size === 0, '分子式違いが登録された');
+
+        // 2分子（ブタン×2、連結なし）→ 複数分子なので拒否
+        ipBuild(c, { atoms: ['C', 'C', 'C', 'C', 'C', 'C', 'C', 'C'],
+            bonds: [[0, 1, 1], [1, 2, 1], [2, 3, 1], [4, 5, 1], [5, 6, 1], [6, 7, 1]] });
+        assert(g.countMolecules() === 2, 'テスト前提（2分子）が満たされない');
+        ip.register();
+        assert(ip.found.size === 0, '複数分子が登録された');
+
+        ip.stop();
+        g.setMode('puzzle');
+    });
+
+    test('IP4: 異性体練習 — 6問すべての異性体（計25種）に名称が付き列挙数が既知値と一致', async (c) => {
+        const g = c.game, W = c.W, ip = W.isomerPractice;
+        const expected = [2, 3, 3, 5, 5, 7];
+        let total = 0;
+        const unnamed = [];
+        ip.problems.forEach((p, i) => {
+            const data = ip.enumerate(i);
+            assert(!data.overflow, `${data.formula} が列挙打ち切り（overflow）になる`);
+            assert(data.isomers.length === expected[i],
+                `${data.formula} の異性体数が ${data.isomers.length}（期待 ${expected[i]}）`);
+            total += data.isomers.length;
+            data.isomers.forEach(m => {
+                if (!g.lookupCompoundName(m)) unnamed.push(data.formula + ':' + W.canonicalCode(m));
+            });
+        });
+        assert(total === 25, `総異性体数が ${total}（期待25）`);
+        assert(unnamed.length === 0, `名称未登録の異性体がある: ${unnamed.join(', ')}`);
+    });
+
     // ===== 実行ハーネス =====
 
     async function run() {

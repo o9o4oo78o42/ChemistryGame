@@ -513,6 +513,15 @@ button:hover {
     animation: pulse 2s infinite ease-in-out;
 }
 
+/* 異性体練習: 重複登録時に該当トレイセルを点滅させる（P12-1） */
+@keyframes ip-flash {
+    0%, 100% { box-shadow: none; border-color: rgba(255,255,255,0.14); }
+    50% { box-shadow: 0 0 0 3px var(--neon-pink); border-color: var(--neon-pink); }
+}
+.ip-flash {
+    animation: ip-flash 0.5s ease-in-out 3;
+}
+
 /* Toggle Switch Styles */
 .switch input:checked + .slider {
     background-color: var(--neon-pink) !important;

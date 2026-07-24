@@ -3486,5 +3486,131 @@
         }
       ]
     }
+  },
+  {
+    "name": "エチルメチルエーテル",
+    "formula": "C2H5OCH3",
+    "target": {
+      "atoms": [
+        { "element": "C", "x": 0, "y": 0 },
+        { "element": "C", "x": 42, "y": 0 },
+        { "element": "O", "x": 84, "y": 0 },
+        { "element": "C", "x": 126, "y": 0 }
+      ],
+      "bonds": [
+        { "atom1Index": 0, "atom2Index": 1, "type": 1 },
+        { "atom1Index": 2, "atom2Index": 1, "type": 1 },
+        { "atom1Index": 2, "atom2Index": 3, "type": 1 }
+      ]
+    }
+  },
+  {
+    "name": "1-ブテン",
+    "formula": "CH2=CHCH2CH3",
+    "target": {
+      "atoms": [
+        { "element": "C", "x": 0, "y": 0 },
+        { "element": "C", "x": 42, "y": 0 },
+        { "element": "C", "x": 84, "y": 0 },
+        { "element": "C", "x": 126, "y": 0 }
+      ],
+      "bonds": [
+        { "atom1Index": 0, "atom2Index": 1, "type": 2 },
+        { "atom1Index": 1, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 3, "atom2Index": 2, "type": 1 }
+      ]
+    }
+  },
+  {
+    "name": "2-メチルプロペン（イソブテン）",
+    "formula": "CH2=C(CH3)2",
+    "target": {
+      "atoms": [
+        { "element": "C", "x": 0, "y": 0 },
+        { "element": "C", "x": 42, "y": 0 },
+        { "element": "C", "x": 84, "y": 0 },
+        { "element": "C", "x": 42, "y": -42 }
+      ],
+      "bonds": [
+        { "atom1Index": 1, "atom2Index": 0, "type": 2 },
+        { "atom1Index": 1, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 1, "atom2Index": 3, "type": 1 }
+      ]
+    }
+  },
+  {
+    "name": "メチルシクロプロパン",
+    "formula": "C3H5CH3",
+    "target": {
+      "atoms": [
+        { "element": "C", "x": 42, "y": 42 },
+        { "element": "C", "x": 42, "y": 0 },
+        { "element": "C", "x": 0, "y": 0 },
+        { "element": "C", "x": 84, "y": 42 }
+      ],
+      "bonds": [
+        { "atom1Index": 0, "atom2Index": 1, "type": 1 },
+        { "atom1Index": 1, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 0, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 3, "atom2Index": 0, "type": 1 }
+      ]
+    }
+  },
+  {
+    "name": "メチルプロピルエーテル",
+    "formula": "CH3OCH2CH2CH3",
+    "target": {
+      "atoms": [
+        { "element": "C", "x": 0, "y": 0 },
+        { "element": "O", "x": 42, "y": 0 },
+        { "element": "C", "x": 84, "y": 0 },
+        { "element": "C", "x": 126, "y": 0 },
+        { "element": "C", "x": 168, "y": 0 }
+      ],
+      "bonds": [
+        { "atom1Index": 0, "atom2Index": 1, "type": 1 },
+        { "atom1Index": 1, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 3, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 3, "atom2Index": 4, "type": 1 }
+      ]
+    }
+  },
+  {
+    "name": "イソプロピルメチルエーテル",
+    "formula": "CH3OCH(CH3)2",
+    "target": {
+      "atoms": [
+        { "element": "C", "x": 0, "y": 0 },
+        { "element": "O", "x": 42, "y": 0 },
+        { "element": "C", "x": 84, "y": 0 },
+        { "element": "C", "x": 126, "y": 0 },
+        { "element": "C", "x": 84, "y": -42 }
+      ],
+      "bonds": [
+        { "atom1Index": 1, "atom2Index": 0, "type": 1 },
+        { "atom1Index": 1, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 3, "atom2Index": 2, "type": 1 },
+        { "atom1Index": 4, "atom2Index": 2, "type": 1 }
+      ]
+    }
+  },
+  {
+    "name": "2-メチル-1-プロパノール（イソブタノール）",
+    "formula": "(CH3)2CHCH2OH",
+    "target": {
+      "atoms": [
+        { "element": "C", "x": 42, "y": 0 },
+        { "element": "C", "x": 0, "y": 0 },
+        { "element": "C", "x": 84, "y": 0 },
+        { "element": "C", "x": 42, "y": -42 },
+        { "element": "O", "x": 42, "y": -84 }
+      ],
+      "bonds": [
+        { "atom1Index": 1, "atom2Index": 0, "type": 1 },
+        { "atom1Index": 2, "atom2Index": 0, "type": 1 },
+        { "atom1Index": 0, "atom2Index": 3, "type": 1 },
+        { "atom1Index": 4, "atom2Index": 3, "type": 1 }
+      ]
+    }
   }
 ]

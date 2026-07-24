@@ -2529,6 +2529,10 @@ class Game {
         if (mode !== 'learn' && window.reactionPlayer && window.reactionPlayer.active) {
             window.reactionPlayer.exit();
         }
+        // 学習モードを離れるときは異性体練習セッションを破棄する（P12-1）
+        if (mode !== 'learn' && window.isomerPractice && window.isomerPractice.active) {
+            window.isomerPractice.stop();
+        }
         // パズル以外へ移ると判定結果表示は消す（トーストの残りが紛らわしいため）
         if (mode !== 'puzzle') {
             const vr = document.getElementById('verify-result');
@@ -3108,6 +3112,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         window.reactor = new Reactor(window.game);
         // 学習ビュー（P9-3）
         window.learnView = new LearnView(window.game);
+        // 異性体の書き出し練習（P12-1 M1）
+        window.isomerPractice = new IsomerPractice(window.game);
         // チュートリアル（P9-6）
         window.tutorialPlayer = new TutorialPlayer(window.game);
 

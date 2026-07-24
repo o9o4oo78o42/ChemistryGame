@@ -216,3 +216,386 @@ class LearnView {
         return p;
     }
 }
+
+// ===== ✏️ 異性体の書き出し練習（P12-1 M1。DESIGN_isomer_practice.md） =====
+// 分子式を提示し、ユーザーが構造異性体を1つずつ描いて登録していく練習。
+// 正解集合は列挙エンジン（enumerateConstitutionalIsomers）から起動時に生成し、
+// 登録済み／正解集合との照合は canonicalCode（トポロジー同型）だけで行う。
+// 状態はこのインスタンスに閉じ、chemistry.js には手を入れない（設計 7章）。
+
+const IP_SVGNS = 'http://www.w3.org/2000/svg';
+// C6H14 は既定の列挙ノード上限（60万）を超えるため、練習の正解集合生成には
+// 十分大きな上限を渡して打ち切りを防ぐ（6問はすべて数百ms以内で完了する）
+const IP_ENUM_LIMIT = 4000000;
+
+// 答え合わせ一覧の系統順ソート用: カテゴリの並び順（小さいほど先）。
+// categorizeMolecule のラベルに対応。M2 で isomerSeriesKey に置き換える暫定版。
+const IP_CATEGORY_RANK = [
+    '鎖式炭化水素', 'アルケン（二重結合）', 'アルキン（三重結合）', '環式炭化水素',
+    'アルコール', 'エーテル', 'アルデヒド', 'ケトン', 'カルボン酸', 'エステル',
+    'フェノール類', 'ニトロ化合物', 'アミン', '芳香族炭化水素', 'エノール（不安定）'
+];
+
+// 炭素だけの部分グラフでの最長単純パスに含まれる炭素数（＝最長炭素鎖の長さ）。
+// 答え合わせ一覧を「主鎖の長い順」に並べるための表示用ヘルパー（重原子≤6で総当り可）。
+function ipLongestCarbonChain(mol) {
+    const carbons = mol.atoms.filter(a => a.element === 'C');
+    if (carbons.length === 0) return 0;
+    const adj = new Map(carbons.map(a => [a.id, []]));
+    mol.bonds.forEach(b => {
+        if (adj.has(b.atomId1) && adj.has(b.atomId2)) {
+            adj.get(b.atomId1).push(b.atomId2);
+            adj.get(b.atomId2).push(b.atomId1);
+        }
+    });
+    let best = 1;
+    const dfs = (id, visited) => {
+        let max = visited.size;
+        adj.get(id).forEach(n => {
+            if (!visited.has(n)) {
+                visited.add(n);
+                max = Math.max(max, dfs(n, visited));
+                visited.delete(n);
+            }
+        });
+        return max;
+    };
+    carbons.forEach(a => { best = Math.max(best, dfs(a.id, new Set([a.id]))); });
+    return best;
+}
+
+class IsomerPractice {
+    constructor(game) {
+        this.game = game;
+        this.body = document.getElementById('ip-body');
+        this.active = false;
+        this.problem = null;       // { index, elements, hCount, formula, total }
+        this.targets = null;       // Map<canonicalCode, isomerMolecule>
+        this.found = null;         // Map<canonicalCode, { mol, name, order }>
+        this._cache = new Map();   // index -> { isomers, overflow, formula }
+        this._pending = [];        // サムネイル描画の遅延キュー
+        this._cellByCode = new Map();
+        this._clearToastShown = false;
+
+        // M1 の固定問題リスト（設計 4.1）。異性体数はデータに持たず列挙エンジンから求める
+        this.problems = [
+            { elements: ['C', 'C', 'C', 'C'], hCount: 10 },
+            { elements: ['C', 'C', 'C', 'C', 'C'], hCount: 12 },
+            { elements: ['C', 'C', 'C', 'O'], hCount: 8 },
+            { elements: ['C', 'C', 'C', 'C', 'C', 'C'], hCount: 14 },
+            { elements: ['C', 'C', 'C', 'C'], hCount: 8 },
+            { elements: ['C', 'C', 'C', 'C', 'O'], hCount: 10 }
+        ];
+
+        if (this.body) {
+            // 初回描画は列挙（最大 ~150ms）で初期ロードを妨げないよう次フレームに回す
+            setTimeout(() => { if (!this.active) this.renderList(); }, 0);
+        }
+    }
+
+    // 指定問題の異性体を列挙してキャッシュする。formula は列挙結果から求めて表記を一意にする
+    enumerate(index) {
+        if (!this._cache.has(index)) {
+            const p = this.problems[index];
+            const { isomers, overflow } = enumerateConstitutionalIsomers(p.elements, p.hCount, IP_ENUM_LIMIT);
+            const formula = isomers.length ? this.game.computeMolecularFormula(isomers[0]) : '';
+            this._cache.set(index, { isomers, overflow, formula });
+        }
+        return this._cache.get(index);
+    }
+
+    isCleared(formula) {
+        try { return localStorage.getItem('chemIsomerPractice.' + formula) === '1'; }
+        catch (e) { return false; }
+    }
+
+    // ===== 問題選択 =====
+    renderList() {
+        if (!this.body) return;
+        this.active = false;
+        this._pending = [];
+        this.body.innerHTML = '';
+
+        const lead = document.createElement('div');
+        lead.style.cssText = 'font-size:12px; color:var(--text-secondary); line-height:1.5; margin-bottom:6px;';
+        lead.textContent = '分子式を選び、構造異性体を1つずつ描いて登録します。全種そろえたらクリアです。';
+        this.body.appendChild(lead);
+
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:6px;';
+        this.problems.forEach((p, i) => {
+            const data = this.enumerate(i);
+            const cleared = this.isCleared(data.formula);
+            const btn = document.createElement('button');
+            btn.className = 'view-btn';
+            btn.style.cssText = 'font-size:12px; padding:7px 6px; text-align:center;' +
+                (cleared ? ' border-color:var(--color-cyan); color:var(--color-cyan);' : '');
+            btn.textContent = `${data.formula}（${data.isomers.length}種）${cleared ? ' ✓' : ''}`;
+            btn.disabled = data.overflow || data.isomers.length === 0;
+            btn.addEventListener('click', () => this.start(i));
+            grid.appendChild(btn);
+        });
+        this.body.appendChild(grid);
+    }
+
+    // ===== 練習開始 =====
+    start(index) {
+        const g = this.game;
+        const data = this.enumerate(index);
+        if (data.overflow || data.isomers.length === 0) {
+            g.showToast('この分子式は練習に対応していません。');
+            return;
+        }
+        const p = this.problems[index];
+        this.problem = { index, elements: p.elements, hCount: p.hCount, formula: data.formula, total: data.isomers.length };
+        this.targets = new Map(data.isomers.map(m => [canonicalCode(m), m]));
+        this.found = new Map();
+        this._clearToastShown = false;
+        this.active = true;
+
+        // キャンバスを白紙にして描き始められるようにする（元の作図は ↩ で戻せる）
+        if (g.userMolecule.atoms.length > 0) g.saveState();
+        g.userMolecule = new Molecule();
+        g.updateDrawing();
+
+        this.renderSession();
+    }
+
+    // ===== 登録 =====
+    register() {
+        if (!this.active) return;
+        const g = this.game;
+        const heavy = g.userMolecule.atoms.filter(a => a.element !== 'H');
+        if (heavy.length === 0) {
+            g.showToast('キャンバスに分子を描いてから登録してください。');
+            return;
+        }
+        if (g.countMolecules() > 1) {
+            g.showToast('分子が複数あります。1分子ずつ登録してください。');
+            return;
+        }
+        const formula = g.computeMolecularFormula();
+        if (formula !== this.problem.formula) {
+            g.showToast(`分子式が違います（いまの分子式: ${formula}）。目標は ${this.problem.formula} です。`);
+            return;
+        }
+        const code = canonicalCode(g.userMolecule);
+
+        if (this.found.has(code)) {
+            const dup = this.found.get(code);
+            g.showToast(`登録済みの${dup.order}番「${dup.name || '（名称未登録）'}」と同じ化合物です。` +
+                '描き方が違っても、つながり方が同じなら同一の分子です。', 4500, 'success');
+            this.flash(code);
+            return;
+        }
+
+        if (!this.targets.has(code)) {
+            // 分子式・価標を満たすなら原理的に列挙集合に含まれるはず。万一の欠落は記録して断る（設計 5章）
+            console.error('[IsomerPractice] 分子式は一致するが列挙集合に無い構造:', formula, code);
+            g.showToast('この構造は判定できませんでした（開発ログに記録しました）。');
+            return;
+        }
+
+        // 新規登録: 正準サムネイル（列挙集合の代表）＋名称でトレイに追加
+        const name = g.lookupCompoundName(g.userMolecule);
+        const order = this.found.size + 1;
+        this.found.set(code, { mol: this.targets.get(code), name, order });
+
+        // 登録後にキャンバスを消す。↩ で直前の作図に戻せるよう先に saveState（設計 5章）
+        g.saveState();
+        g.userMolecule = new Molecule();
+        g.updateDrawing();
+        if (!this._clearToastShown) {
+            this._clearToastShown = true;
+            g.showToast('登録すると次の入力のためキャンバスを消します。↩（Ctrl+Z）で元の作図に戻せます。', 4000, 'success');
+        }
+
+        this.renderSession();
+        if (this.found.size === this.problem.total) this.complete();
+    }
+
+    complete() {
+        try { localStorage.setItem('chemIsomerPractice.' + this.problem.formula, '1'); }
+        catch (e) { /* privateモード等 */ }
+        this.game.showToast(`🎉 ${this.problem.formula} の異性体を全種そろえました！`, 4000, 'success');
+        this.renderSession(); // 完了バナー＋答え合わせ一覧を描く
+    }
+
+    stop() {
+        this.active = false;
+        this.problem = null;
+        this.targets = null;
+        this.found = null;
+        this._clearToastShown = false;
+        this.renderList();
+    }
+
+    // ===== 練習中の描画 =====
+    renderSession() {
+        if (!this.body || !this.active) return;
+        this._pending = [];
+        this._cellByCode = new Map();
+        this.body.innerHTML = '';
+        const done = this.found.size === this.problem.total;
+
+        const head = document.createElement('div');
+        head.style.cssText = 'font-size:14px; color:#fff; font-weight:bold; margin-bottom:2px;';
+        head.textContent = `✏️ ${this.problem.formula} の異性体　${this.found.size}/${this.problem.total}`;
+        this.body.appendChild(head);
+
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:11px; color:var(--text-secondary); margin-bottom:6px;';
+        note.textContent = 'シス・トランスや鏡像の区別は数えません（構造異性体のみ）。';
+        this.body.appendChild(note);
+
+        // 登録トレイ
+        if (this.found.size > 0) {
+            const tray = document.createElement('div');
+            tray.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(112px,1fr)); gap:6px; margin-bottom:8px;';
+            [...this.found.entries()].sort((a, b) => a[1].order - b[1].order).forEach(([code, item]) => {
+                const cell = this.makeThumbCell(item.mol,
+                    `${item.order}. ${item.name || '（名称未登録）'}`,
+                    { border: 'rgba(255,255,255,0.14)' });
+                cell.dataset.code = code;
+                this._cellByCode.set(code, cell);
+                tray.appendChild(cell);
+            });
+            this.body.appendChild(tray);
+        } else {
+            const empty = document.createElement('div');
+            empty.style.cssText = 'font-size:12px; color:var(--text-secondary); margin-bottom:8px;';
+            empty.textContent = 'キャンバスに最初の異性体を描いて「＋この分子を登録」を押してください。';
+            this.body.appendChild(empty);
+        }
+
+        // 操作ボタン
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px;';
+        if (!done) {
+            const reg = document.createElement('button');
+            reg.className = 'primary-btn';
+            reg.style.cssText = 'flex:1 1 100%; padding:8px; font-size:13px;';
+            reg.textContent = '＋この分子を登録';
+            reg.addEventListener('click', () => this.register());
+            btnRow.appendChild(reg);
+
+            const hint = document.createElement('button');
+            hint.className = 'view-btn';
+            hint.style.cssText = 'flex:1 1 0; font-size:12px; padding:6px;';
+            hint.textContent = '💡 ヒント';
+            hint.addEventListener('click', () => this.showHint());
+            btnRow.appendChild(hint);
+        }
+        const quit = document.createElement('button');
+        quit.className = 'view-btn';
+        quit.style.cssText = 'flex:1 1 0; font-size:12px; padding:6px;';
+        quit.textContent = done ? '問題選択に戻る' : '練習をやめる';
+        quit.addEventListener('click', () => this.stop());
+        btnRow.appendChild(quit);
+        this.body.appendChild(btnRow);
+
+        if (done) this.renderAnswerList();
+
+        this.flushThumbs();
+    }
+
+    // M1 のヒントは「残り数」のみ（系統的な段階ヒントは M2）
+    showHint() {
+        const remaining = this.problem.total - this.found.size;
+        this.game.showToast(`あと ${remaining} 種類です（全 ${this.problem.total} 種）。`, 3500, 'success');
+    }
+
+    // 完了時の答え合わせ一覧: 全異性体を系統順（主鎖の長い順・カテゴリ順）に名称付きで並べる
+    renderAnswerList() {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'margin-top:10px; font-size:13px; color:var(--color-cyan); font-weight:bold;';
+        banner.textContent = '🎉 クリア！ 答え合わせ（系統順）';
+        this.body.appendChild(banner);
+
+        // 分類まとめ
+        const catCount = new Map();
+        [...this.targets.values()].forEach(m => {
+            const c = categorizeMolecule(m);
+            catCount.set(c, (catCount.get(c) || 0) + 1);
+        });
+        const summary = document.createElement('div');
+        summary.style.cssText = 'font-size:12px; color:var(--text-secondary); margin:4px 0 6px;';
+        summary.textContent = [...catCount.entries()].map(([c, n]) => `${c} ${n}種`).join('・');
+        this.body.appendChild(summary);
+
+        const items = [...this.targets.values()].map(m => ({
+            mol: m,
+            code: canonicalCode(m),
+            name: this.game.lookupCompoundName(m),
+            cat: categorizeMolecule(m),
+            chain: ipLongestCarbonChain(m)
+        }));
+        items.sort((a, b) => {
+            const ra = IP_CATEGORY_RANK.indexOf(a.cat), rb = IP_CATEGORY_RANK.indexOf(b.cat);
+            if (ra !== rb) return (ra < 0 ? 99 : ra) - (rb < 0 ? 99 : rb);
+            if (a.chain !== b.chain) return b.chain - a.chain;
+            return (a.name || '').localeCompare(b.name || '', 'ja');
+        });
+
+        const gallery = document.createElement('div');
+        gallery.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(112px,1fr)); gap:6px; margin-top:4px;';
+        items.forEach(it => {
+            const cell = this.makeThumbCell(it.mol, it.name || '（名称未登録）',
+                { border: 'var(--color-cyan)' });
+            gallery.appendChild(cell);
+        });
+        this.body.appendChild(gallery);
+    }
+
+    // ===== サムネイル描画ヘルパー =====
+    makeThumbCell(mol, labelText, opts = {}) {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'background:rgba(10,14,24,0.85); border:1px solid ' +
+            (opts.border || 'rgba(255,255,255,0.14)') +
+            '; border-radius:8px; padding:3px 3px 5px; text-align:center;';
+        const svg = document.createElementNS(IP_SVGNS, 'svg');
+        svg.id = 'ip-svg-' + (IsomerPractice._seq = (IsomerPractice._seq || 0) + 1);
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '78');
+        const bondsG = document.createElementNS(IP_SVGNS, 'g');
+        bondsG.setAttribute('class', 'quiz-bonds');
+        const atomsG = document.createElementNS(IP_SVGNS, 'g');
+        atomsG.setAttribute('class', 'quiz-atoms');
+        svg.appendChild(bondsG);
+        svg.appendChild(atomsG);
+        cell.appendChild(svg);
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:10px; color:var(--text-secondary); line-height:1.3; padding:0 2px;';
+        label.textContent = labelText;
+        cell.appendChild(label);
+        this._pending.push({ svgId: svg.id, mol });
+        return cell;
+    }
+
+    flushThumbs() {
+        const g = this.game;
+        this._pending.forEach(({ svgId, mol }) => {
+            layoutMolecule(mol);
+            const idx = new Map(mol.atoms.map((a, i) => [a.id, i]));
+            const target = {
+                atoms: mol.atoms.map(a => ({ element: a.element, x: a.x, y: a.y })),
+                bonds: mol.bonds.map(b => ({
+                    atom1Index: idx.get(b.atomId1),
+                    atom2Index: idx.get(b.atomId2),
+                    type: b.type
+                }))
+            };
+            renderMoleculeIntoSvg(g, svgId, target);
+        });
+        this._pending = [];
+    }
+
+    // 重複登録時に該当トレイセルを点滅させて「同じ分子」を示す
+    flash(code) {
+        const cell = this._cellByCode.get(code);
+        if (!cell) return;
+        cell.classList.remove('ip-flash');
+        void cell.offsetWidth; // reflow で再アニメーションを確実にする
+        cell.classList.add('ip-flash');
+    }
+}
