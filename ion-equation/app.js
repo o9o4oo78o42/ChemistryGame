@@ -40,6 +40,7 @@ const STYLE = {
   "CO2":    { color: "#e4f2f7", r: 16, darkText: true },
   "AgCl":   { color: "#f0f0f0", r: 18, darkText: true },
   "BaSO4":  { color: "#f5f2ea", r: 20, darkText: true },
+  "NaHSO4": { color: "#f3eee2", r: 21, darkText: true },
 };
 const MOLECULE_STYLE = { color: "#8a8f98", r: 20 };
 
@@ -64,7 +65,7 @@ function structExtent(struct) {
   if (struct.env) return struct.env;
   return Math.max(...struct.atoms.map((a) => Math.hypot(a.x, a.y) + a.r));
 }
-const CHIP_ORDER = ["H+", "OH-", "Ag+", "Ba^2+", "Na+", "Ca^2+", "Cl-", "NO3-", "SO4^2-", "CO3^2-", "H2O", "H2CO3", "CO2", "AgCl", "BaSO4"];
+const CHIP_ORDER = ["H+", "OH-", "Ag+", "Ba^2+", "Na+", "Ca^2+", "Cl-", "NO3-", "SO4^2-", "CO3^2-", "H2O", "H2CO3", "CO2", "AgCl", "BaSO4", "NaHSO4"];
 /* 生成後に泡となって水面へ逃げる気体 */
 const BUBBLE_SPECIES = new Set(["CO2", "SO2"]);
 
@@ -589,8 +590,57 @@ window.addEventListener("pointermove", (e) => {
 window.addEventListener("pointerup", () => { if (drag) endDrag(); });
 window.addEventListener("pointercancel", () => { if (drag) endDrag(); });
 
+/* rem（残ったイオンの多重集合）が comp のちょうど整数 k 倍か。違えば 0 を返す */
+function multipleOf(rem, comp) {
+  const remKeys = Object.keys(rem), compKeys = Object.keys(comp);
+  if (remKeys.length !== compKeys.length) return 0;
+  let k = null;
+  for (const ion of compKeys) {
+    if (!(ion in rem) || rem[ion] % comp[ion] !== 0) return 0;
+    const q = rem[ion] / comp[ion];
+    if (k === null) k = q; else if (k !== q) return 0;
+  }
+  for (const ion of remKeys) if (!(ion in comp)) return 0; // 余計なイオンが無いこと
+  return k >= 1 ? k : 0;
+}
+
+/* 目標の塩（酸性塩など）をつくるステージの評価。
+   完全中和（余りゼロ）ではなく「塩基を使い切り、残ったイオンが目標の塩を構成する」で判定する。 */
+function evaluateSaltGoal(stage) {
+  const goal = stage.saltGoal;
+  if (madeCount === 0) return; // まだ反応していない
+  const oh = countOf("OH-");
+  const hp = countOf("H+");
+  // 残っている「イオン（電荷≠0）」の多重集合（H₂O など中性は除く）
+  const rem = {};
+  for (const p of particles) {
+    if (p.mode === "fall" || SPECIES[p.sp].charge === 0) continue;
+    rem[p.sp] = (rem[p.sp] || 0) + 1;
+  }
+  const comp = {};
+  for (const ion of PARTS[goal.salt]) comp[ion] = (comp[ion] || 0) + 1;
+  const k = multipleOf(rem, comp);
+  const saltDisp = SPECIES[goal.salt].disp;
+  if (oh > 0) {
+    setMsg(`OH⁻ が ${oh} 個 余っている（塩基性）。${saltDisp}（酸性塩）をつくるには塩基を入れすぎ。少し減らそう。`);
+  } else if (k >= 1) {
+    reactionDone = true;
+    const ionNames = PARTS[goal.salt].map((ion) => SPECIES[ion].disp).join("・");
+    setMsg(`できた！ 残った ${ionNames} が組んで酸性塩 ${saltDisp} に。${stage.doneNote}`);
+    updateAddedFormula();
+    maybeClear();
+  } else if (hp === 0) {
+    // H⁺ も OH⁻ も残っていない＝完全中和して正塩になってしまった
+    setMsg(`中和しきって正塩になった。${saltDisp}（酸性塩）にするには、酸の H⁺ を1個だけ中和するように塩基を減らそう。`);
+  } else {
+    // H⁺ は残るが目標の塩の純粋な整数倍でない（正塩と酸性塩が混ざっている）
+    setMsg(`正塩と ${saltDisp} が混ざっている。投入する比を見直して、${saltDisp} だけができるようにしよう。`);
+  }
+}
+
 function evaluateReaction() {
   const stage = STAGES[stageIdx];
+  if (stage.saltGoal) { evaluateSaltGoal(stage); return; }
   const leftover = [];
   for (const rule of stage.rules) {
     for (const sp of rule.find) {
@@ -1109,7 +1159,8 @@ function initStage() {
   buildStageNav();
   buildToolbar();
   const stage = STAGES[stageIdx];
-  stageTitleEl.innerHTML = `<strong>${stage.title}</strong>`;
+  stageTitleEl.innerHTML = `<strong>${stage.title}</strong>` +
+    (stage.saltGoal ? `<div class="goal">🎯 目標: <b>${SPECIES[stage.saltGoal.salt].disp}</b>（酸性塩）をつくる</div>` : "");
   buildEquationUI();
   renderTally();
   buildRecombine();

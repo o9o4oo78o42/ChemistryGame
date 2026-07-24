@@ -421,6 +421,36 @@ async function runUITests(iframe) {
     }
   });
 
+  await t("UI: 酸性塩ステージ - 1:1 で NaHSO₄ ができてクリア、1:2 だと正塩で不成立", async () => {
+    const s11 = STAGES.findIndex((st) => st.id === "s11");
+    assert(s11 >= 0, "s11 が無い");
+    // まず 1:2（過剰な塩基）＝完全中和して正塩 → 目標未達
+    stageBtn(s11).click();
+    addBtn(0).click(); addBtn(1).click(); addBtn(1).click(); // H₂SO₄×1, NaOH×2
+    adv(3000); reactBtn().click(); adv(8000);
+    let s = state();
+    assert(!s.reactionDone, "1:2 で完全中和したのにクリア扱いになった: " + JSON.stringify(s.counts));
+    assert(doc.getElementById("msg").textContent.includes("正塩"), "正塩になった旨の指摘がない: " + doc.getElementById("msg").textContent);
+    // 次に 1:1 ＝ 酸性塩 NaHSO₄ ができる
+    stageBtn(s11).click();
+    addBtn(0).click(); addBtn(1).click(); // H₂SO₄×1, NaOH×1
+    adv(3000); reactBtn().click(); adv(8000);
+    s = state();
+    assert(s.reactionDone, "1:1 で酸性塩ができない: " + JSON.stringify(s.counts));
+    assert(s.counts["H+"] === 1 && s.counts["SO4^2-"] === 1 && s.counts["Na+"] === 1,
+      "残ったイオンが NaHSO₄ の組（H⁺・SO₄²⁻・Na⁺）でない: " + JSON.stringify(s.counts));
+    assert(s.counts["H2O"] === 1, "H₂O が1個できていない: " + JSON.stringify(s.counts));
+    assert(doc.getElementById("msg").textContent.includes("NaHSO"), "NaHSO₄ 生成メッセージがない");
+  });
+
+  await t("UI: 酸性塩ステージ - 係数もそろうとクリアになる", async () => {
+    const s11 = STAGES.findIndex((st) => st.id === "s11");
+    ups().forEach((b, i) => { for (let k = 0; k < STAGES[s11].answer[i]; k++) b.click(); }); // 1,1,1,1
+    const s = state();
+    assert(s.coeffOk, "係数が正解にならない");
+    assert(s.cleared, "クリアにならない: reactionDone=" + s.reactionDone + " coeffOk=" + s.coeffOk);
+  });
+
   await t("UI: ステージ6の数合わせ - H₂O と CO₂ は H₂CO₃ 経由で同数できる", async () => {
     stageBtn(5).click();
     ups()[0].click(); ups()[1].click(); ups()[1].click(); // 左辺 1,2

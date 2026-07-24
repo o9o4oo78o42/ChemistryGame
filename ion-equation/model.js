@@ -29,6 +29,7 @@ const SPECIES = {
   "NaNO3":   { disp: "NaNO₃",   name: "硝酸ナトリウム",     atoms: { Na: 1, N: 1, O: 3 }, charge: 0 },
   "AgCl":    { disp: "AgCl",     name: "塩化銀（沈殿）",     atoms: { Ag: 1, Cl: 1 },      charge: 0 },
   "BaSO4":   { disp: "BaSO₄",   name: "硫酸バリウム（沈殿）", atoms: { Ba: 1, S: 1, O: 4 }, charge: 0 },
+  "NaHSO4":  { disp: "NaHSO₄",  name: "硫酸水素ナトリウム（酸性塩）", atoms: { Na: 1, H: 1, S: 1, O: 4 }, charge: 0 },
   // イオン
   "H+":      { disp: "H⁺",    name: "水素イオン",         atoms: { H: 1 },         charge: 1 },
   "OH-":     { disp: "OH⁻",   name: "水酸化物イオン",     atoms: { O: 1, H: 1 },   charge: -1 },
@@ -91,6 +92,8 @@ const PARTS = Object.assign({
   "Cu(OH)2": ["Cu^2+", "OH-", "OH-"],
   "H2SO3": ["H+", "H+", "SO3^2-"],
   "SO2":   ["SO2"],
+  // 酸性塩は「中和で残った H⁺ が傍観アニオン・陽イオンと組んだ塩」として分解して見せる
+  "NaHSO4": ["Na+", "H+", "SO4^2-"],
 }, DISSOCIATION);
 
 /* rules: ビーカー内の反応ルール（find の2イオンが出会うと make になる）。
@@ -145,6 +148,11 @@ const STRUCTURE = {
     { el: "Ba", x: -13, y: -2, r: 9 }, { el: "S", x: 7, y: 2, r: 7 },
     { el: "O", x: 7, y: -10, r: 6 }, { el: "O", x: 7, y: 14, r: 6 },
     { el: "O", x: 17, y: 4, r: 6 }, { el: "O", x: -3, y: 8, r: 6 }] },
+  "NaHSO4": { atoms: [
+    { el: "Na", x: -18, y: 0, r: 9 }, { el: "S", x: 6, y: 2, r: 7 },
+    { el: "O", x: 6, y: -10, r: 6.5 }, { el: "O", x: 6, y: 14, r: 6.5 },
+    { el: "O", x: 16, y: 5, r: 6.5 }, { el: "O", x: -4, y: 5, r: 6.5 },
+    { el: "H", x: 15, y: -10, r: 5 }] },
   // 投入する分子（電離前の姿。落下中もこの形で見せる）
   "HCl":    { atoms: [
     { el: "H", x: -9, y: -3, r: 6 }, { el: "Cl", x: 5, y: 1, r: 10 }] },
@@ -303,6 +311,20 @@ const STAGES = [
     netIon: "2H⁺ ＋ SO₃²⁻ → H₂O ＋ SO₂↑",
     intro: "炭酸塩のときと同じパターンが使えるだろうか？ 今度の泡は刺激臭のある SO₂。",
     doneNote: "H⁺2個と SO₃²⁻ が組んで H₂SO₃（亜硫酸）になり、すぐ H₂O と SO₂ に分かれる。弱酸の塩＋強酸→弱酸の遊離、の典型パターン。",
+  },
+  {
+    id: "s11",
+    title: "ステージ11：硫酸 × 水酸化ナトリウム（酸性塩をつくる）",
+    reactants: ["H2SO4", "NaOH"],
+    products: ["NaHSO4", "H2O"],
+    answer: [1, 1, 1, 1],
+    rules: [{ find: ["H+", "OH-"], make: "H2O", kind: "combine" }],
+    // 目標＝酸性塩。中和で塩基(OH⁻)を使い切り、残った H⁺ が目標の塩を構成すればクリア。
+    // 完全中和（1:2）だと正塩 Na₂SO₄ になってしまい、酸性塩にはならない。
+    saltGoal: { salt: "NaHSO4" },
+    netIon: "H⁺ ＋ OH⁻ → H₂O（H₂SO₄ の H⁺ 2個のうち1個だけ中和される）",
+    intro: "H₂SO₄ は H⁺ を2個持つ。NaOH を1個だけ入れて H⁺ を1個だけ中和すると、残りはどうなる？",
+    doneNote: "H⁺ 1個だけが OH⁻ と中和し、残った H⁺ は SO₄²⁻・Na⁺ と組んで酸性塩 NaHSO₄ になる。NaHSO₄ の水溶液は酸性（酸性塩＝中和しきらずに酸の H が残った塩）。",
   },
 ];
 
